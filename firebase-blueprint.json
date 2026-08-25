@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered citizen researcher and systems designer profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "photoURL": { "type": "string", "maxLength": 512 },
+        "role": { "type": "string", "maxLength": 128 },
+        "accessLevel": { "type": "string", "enum": ["visitor", "researcher", "steward", "systems_architect", "council_admin"] },
+        "themePreference": { "type": "string", "enum": ["dark", "solarized", "biophilic_night"] },
+        "reducedMotion": { "type": "boolean" },
+        "telemetryStreamActive": { "type": "boolean" },
+        "ethicalReviewNotification": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLoginAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid"]
+    },
+    "ProvenanceRecord": {
+      "title": "ProvenanceRecord",
+      "description": "Scientific, empirical, and telemetry lineage metadata for verified civilization metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "source": { "type": "string", "maxLength": 256 },
+        "sourceType": { 
+          "type": "string", 
+          "enum": ["satellite_telemetry", "iot_sensor_mesh", "field_audit", "peer_reviewed_model", "community_reporting"] 
+        },
+        "collectedAt": { "type": "string" },
+        "calculationMethod": { "type": "string", "maxLength": 1000 },
+        "certaintyScore": { "type": "number" },
+        "verifier": { "type": "string", "maxLength": 256 },
+        "verifierRole": { "type": "string", "maxLength": 128 },
+        "cryptographicHash": { "type": "string", "maxLength": 128 },
+        "assumptions": { "type": "array" },
+        "lastAudited": { "type": "string" },
+        "datasetName": { "type": "string", "maxLength": 256 },
+        "spatialResolution": { "type": "string", "maxLength": 128 },
+        "governanceEntity": { "type": "string", "maxLength": 256 },
+        "epistemicTier": { "type": "string", "enum": ["primary_instrument", "consensus_model", "derivative_heuristic"] }
+      },
+      "required": ["source", "sourceType", "certaintyScore", "verifier", "cryptographicHash", "calculationMethod"]
+    },
+    "MoralAuditLog": {
+      "title": "MoralAuditLog",
+      "description": "Moral Intelligence immutable audit trail for high-impact interventions and systemic decisions",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "maxLength": 256 },
+        "feature": { 
+          "type": "string", 
+          "enum": ["moral_intelligence", "simulator", "live_voice", "multimodal_generation", "asset_tokenization", "telemetry_calibration", "governance_vote"] 
+        },
+        "impactTier": { 
+          "type": "string", 
+          "enum": ["low", "moderate", "high", "civilizational_critical"] 
+        },
+        "moralAlignmentScore": { "type": "number" },
+        "parameters": { "type": "object" },
+        "ethicalNotes": { "type": "string", "maxLength": 1000 },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "action", "feature", "impactTier"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User account documents and platform preferences"
+    },
+    "/provenance_data/{recordId}": {
+      "schema": "ProvenanceRecord",
+      "description": "Verified epistemic provenance records for indicators, indicators datasets, and interventions"
+    },
+    "/moral_audit_logs/{logId}": {
+      "schema": "MoralAuditLog",
+      "description": "Systemic ethical audit trail logging user interactions with high-impact features"
+    }
+  }
+}

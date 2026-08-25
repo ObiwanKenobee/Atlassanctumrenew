@@ -1,0 +1,6 @@
+{
+  "name": "Atlas Sanctum",
+  "description": "Regenerative Intelligence Platform & Civilization Operating System for Human Flourishing with Gemini Multimodal AI Studio",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
