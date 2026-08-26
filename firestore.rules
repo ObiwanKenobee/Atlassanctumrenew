@@ -66,5 +66,19 @@ service cloud.firestore {
       allow create, update: if true; // Allow models to be saved/calibrated by users & simulations
       allow delete: if isSignedIn();
     }
+
+    // 8. Field Lab Notes & Audio Transcripts (Living Research Logs)
+    match /field_lab_notes/{noteId} {
+      allow read: if true;
+      allow create: if true; // Allow field scientists & community observers to record empirical field notes
+      allow update, delete: if isSignedIn();
+    }
+
+    // 9. Human Flourishing & Epistemic Impact Records (Longitudinal Telemetry)
+    match /impact_records/{recordId} {
+      allow read: if true;
+      allow create, update: if true; // Allows field and telemetry updates
+      allow delete: if isSignedIn();
+    }
   }
 }

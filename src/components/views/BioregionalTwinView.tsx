@@ -24,6 +24,42 @@ import { EcologicalAlertSystem } from '../EcologicalAlertSystem';
 import { RealityCheck } from '../RealityCheck';
 import { audioFeedback } from '../../lib/audioFeedback';
 
+// High-fidelity abstract bioregional health visual backgrounds generated via Imagen
+const BIOREGIONAL_HEALTH_BACKGROUNDS = [
+  {
+    id: 'canopy_pulse',
+    name: 'Canopy Pulse & Biomass Health',
+    description: 'Chlorophyll luminescence, mycelial network vitality, and multi-strata canopy volume.',
+    imageSrc: '/src/assets/images/canopy_pulse_health_1787771045697.jpg',
+    metric: 'NDVI +0.28 Index',
+    biomeMatch: 'Aberdare Cloud Forest & Highland Alpine'
+  },
+  {
+    id: 'hydrology_flow',
+    name: 'Hydrology Flow & Aquifer Mesh',
+    description: 'Subterranean groundwater currents, river basin riparian flow, and piezometer head pressure.',
+    imageSrc: '/src/assets/images/hydrology_flow_health_1787771061356.jpg',
+    metric: '1.82 bar Recovery',
+    biomeMatch: 'Mara-Rift Watershed & Riparian Corridors'
+  },
+  {
+    id: 'soil_microbiome',
+    name: 'Living Soil Microbiome & Carbon Grid',
+    description: 'Mycorrhizal fungal filaments, soil organic matter (SOM), and deep subterranean carbon sequestration.',
+    imageSrc: '/src/assets/images/soil_microbiome_health_1787771074165.jpg',
+    metric: '3.4% SOM Density',
+    biomeMatch: 'East Africa Arid Sponge & Silvopasture'
+  },
+  {
+    id: 'climate_harmony',
+    name: 'Climate Harmony & Thermal Isobars',
+    description: 'Planetary atmospheric flows, micro-climate cooling loops, and thermal boundary equilibrium.',
+    imageSrc: '/src/assets/images/climate_harmony_health_1787771096045.jpg',
+    metric: '2.1°C Micro-Cooling',
+    biomeMatch: 'Pan-African Macro Ecosphere'
+  }
+];
+
 interface BioregionalTwinViewProps {
   onSelectTab: (tab: any) => void;
   onOpenMoralSimulator?: () => void;
@@ -35,10 +71,13 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
 }) => {
   const [scenarios] = useState<BioregionalTwinScenario[]>(BIOREGIONAL_TWIN_SCENARIOS);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>(BIOREGIONAL_TWIN_SCENARIOS[0].id);
+  const [selectedBgId, setSelectedBgId] = useState<string>(BIOREGIONAL_HEALTH_BACKGROUNDS[0].id);
+  const [backgroundOpacity, setBackgroundOpacity] = useState<number>(0.75);
   const [activeHorizon, setActiveHorizon] = useState<'year5' | 'year15' | 'year30'>('year15');
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
   const selectedScenario = scenarios.find(s => s.id === selectedScenarioId) || scenarios[0];
+  const currentBackground = BIOREGIONAL_HEALTH_BACKGROUNDS.find(b => b.id === selectedBgId) || BIOREGIONAL_HEALTH_BACKGROUNDS[0];
 
   // Dynamic user intervention slider states
   const [interventionValues, setInterventionValues] = useState<Record<string, number>>(() => {
@@ -193,6 +232,118 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* High-Fidelity Bioregional Health Background Canvas & Telemetry Overlay */}
+      <div className="relative rounded-sm border border-[#C5A059]/40 overflow-hidden bg-[#0A0A0A] shadow-2xl">
+        {/* Background Image Layer with opacity and subtle gradient overlay */}
+        <div className="relative w-full h-[280px] sm:h-[340px] overflow-hidden bg-black">
+          <img
+            src={currentBackground.imageSrc}
+            alt={currentBackground.name}
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover transition-all duration-700 filter brightness-90 contrast-105"
+            style={{ opacity: backgroundOpacity }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0A0A0A]/80 via-transparent to-[#0A0A0A]/80" />
+
+          {/* Interactive Floating Telemetry Sentinel Nodes on the Background */}
+          <div className="absolute top-4 left-4 sm:top-6 sm:left-6 max-w-md space-y-2">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-black/70 backdrop-blur-md border border-[#C5A059]/40 text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+              Imagen Bioregional Health Layer: {currentBackground.name}
+            </div>
+            <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#F5F5F0] drop-shadow-md">
+              {selectedScenario.bioregion} Living Health Matrix
+            </h2>
+            <p className="text-xs text-[#F5F5F0]/80 font-sans leading-relaxed drop-shadow">
+              {currentBackground.description}
+            </p>
+          </div>
+
+          {/* Top-Right Telemetry & Health Indicator Badges */}
+          <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex flex-col items-end gap-2">
+            <div className="px-3 py-1.5 rounded bg-black/80 backdrop-blur-md border border-emerald-500/40 text-right">
+              <span className="text-[9px] font-mono uppercase text-emerald-400 block font-bold">Bioregional Baseline</span>
+              <span className="text-sm font-mono font-bold text-emerald-300">{currentBackground.metric}</span>
+            </div>
+            <div className="px-3 py-1 rounded bg-black/80 backdrop-blur-md border border-[#F5F5F0]/10 text-right hidden sm:block">
+              <span className="text-[9px] font-mono uppercase text-[#F5F5F0]/50 block">Target Ecosystem</span>
+              <span className="text-xs font-mono text-[#C5A059]">{currentBackground.biomeMatch}</span>
+            </div>
+          </div>
+
+          {/* Animated Pulsing Sensor Points Overlaid on Canvas */}
+          <div className="absolute bottom-12 left-1/4 flex items-center gap-2 pointer-events-none">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <span className="px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm border border-emerald-500/30 text-[9px] font-mono text-emerald-300">
+              Sentinel-2 NDVI Mesh Active
+            </span>
+          </div>
+
+          <div className="absolute bottom-16 right-1/3 flex items-center gap-2 pointer-events-none hidden sm:flex">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+            </span>
+            <span className="px-2 py-0.5 rounded bg-black/80 backdrop-blur-sm border border-cyan-500/30 text-[9px] font-mono text-cyan-300">
+              Subterranean Aquifer Node 4
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom Selector Ribbon for Bioregional Health Background Layers */}
+        <div className="p-4 bg-[#0E0E0E] border-t border-[#F5F5F0]/10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <Layers className="w-4 h-4 text-[#C5A059]" />
+            <span className="font-bold text-[#F5F5F0] uppercase tracking-wider text-[11px]">
+              Bioregional Health Layer:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {BIOREGIONAL_HEALTH_BACKGROUNDS.map((bg) => {
+              const isSelected = bg.id === selectedBgId;
+              return (
+                <button
+                  key={bg.id}
+                  onClick={() => {
+                    setSelectedBgId(bg.id);
+                    audioFeedback.playMicroTick();
+                  }}
+                  className={`px-3 py-1.5 rounded-xs border text-xs font-mono transition-all flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-[#1F2720] border-emerald-500/60 text-emerald-300 shadow-sm'
+                      : 'bg-[#151515] border-[#F5F5F0]/10 text-[#F5F5F0]/60 hover:text-[#F5F5F0] hover:border-[#F5F5F0]/25'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-emerald-400 animate-pulse' : 'bg-[#F5F5F0]/30'}`} />
+                  <span>{bg.name.split('&')[0]}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-3 text-xs font-mono self-end lg:self-center">
+            <span className="text-[10px] text-[#F5F5F0]/40 uppercase">Layer Intensity:</span>
+            <input
+              type="range"
+              min="0.3"
+              max="1.0"
+              step="0.05"
+              value={backgroundOpacity}
+              onChange={(e) => setBackgroundOpacity(parseFloat(e.target.value))}
+              className="w-20 accent-[#C5A059] bg-[#1A1A1A] h-1.5 rounded appearance-none cursor-pointer"
+            />
+            <span className="text-[#C5A059] font-bold w-8 text-right">
+              {Math.round(backgroundOpacity * 100)}%
+            </span>
+          </div>
         </div>
       </div>
 

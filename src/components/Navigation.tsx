@@ -25,6 +25,8 @@ import { UserSettingsDropdown } from './UserSettingsDropdown';
 import { useMissionAlerts } from '../context/MissionAlertContext';
 import { useAuth } from '../context/AuthContext';
 import { UncertaintyOverlayToggle } from '../context/UncertaintyOverlayContext';
+import { OfflineModeToggle } from './navigation/OfflineModeToggle';
+import { MoralAlignmentHUD } from './MoralAlignmentHUD';
 import { audioFeedback } from '../lib/audioFeedback';
 import { prefetchView } from '../lib/viewPrefetch';
 
@@ -350,6 +352,15 @@ export const Navigation: React.FC<NavigationProps> = ({
               ⌘K
             </kbd>
           </button>
+
+          {/* Persistent Global Forced Offline Mode Toggle */}
+          <OfflineModeToggle />
+
+          {/* Moral Alignment Score Real-time HUD Indicator */}
+          <MoralAlignmentHUD
+            onOpenMoralSimulator={onOpenMoralSimulator}
+            onOpenEvidenceLedger={() => onSelectTab('evidence-ledger')}
+          />
 
           {/* Uncertainty Overlay Global Toggle */}
           <div className="hidden 2xl:block">

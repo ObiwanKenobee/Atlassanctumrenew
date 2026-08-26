@@ -19,6 +19,7 @@ import { EVIDENCE_LEDGER_ENTRIES } from '../../data/prompt2CivilizationData';
 import { EvidenceLedgerEntry } from '../../types';
 import { db } from '../../lib/db';
 import { StewardshipTierProgression } from '../StewardshipTierProgression';
+import { FirestoreSyncStatusIndicator } from '../FirestoreSyncStatusIndicator';
 
 interface EvidenceLedgerViewProps {
   onInspectProvenance?: (prov: any) => void;
@@ -138,6 +139,14 @@ export const EvidenceLedgerView: React.FC<EvidenceLedgerViewProps> = ({
 
       {/* Stewardship Reputation Progression Strip */}
       <StewardshipTierProgression />
+
+      {/* Firestore Real-Time & Offline Sync Status Indicator */}
+      <FirestoreSyncStatusIndicator 
+        viewName="Evidence Ledger"
+        onForceSync={async () => {
+          await db.provenance.listAll();
+        }}
+      />
 
       {/* Epistemic Class Legend */}
       <div className="p-4 bg-[#0D0D0D] border border-[#F5F5F0]/10 rounded-sm grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs font-mono">

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ATLAS_FIELD_LABS } from '../../data/prompt2CivilizationData';
 import { FieldLab } from '../../types';
+import { FieldNoteRecorder } from '../field/FieldNoteRecorder';
 
 interface FieldLabsViewProps {
   onInspectProvenance?: (prov: any) => void;
@@ -179,6 +180,13 @@ export const FieldLabsView: React.FC<FieldLabsViewProps> = ({
           </div>
 
         </div>
+
+        {/* Live Audio Dictation & Voice Field Note Recording Section */}
+        <FieldNoteRecorder
+          labId={selectedLab.id}
+          labName={selectedLab.name}
+          labLocation={selectedLab.location}
+        />
       </div>
     </div>
   );

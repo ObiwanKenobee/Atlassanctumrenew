@@ -30,6 +30,7 @@ import { MissionDeploymentAnalytics, PageView } from '../../types';
 import { audioFeedback } from '../../lib/audioFeedback';
 import { RealityCheck } from '../RealityCheck';
 import { usePerformanceMetrics } from '../../hooks/usePerformanceMetrics';
+import { MissionPulseChart } from '../analytics/MissionPulseChart';
 
 interface MissionPerformanceAnalyticsViewProps {
   onSelectTab: (tab: PageView) => void;
@@ -226,6 +227,9 @@ export const MissionPerformanceAnalyticsView: React.FC<MissionPerformanceAnalyti
           </div>
         </div>
       </div>
+
+      {/* D3-based Mission Pulse & Regenerative Trajectory Analytics Engine */}
+      <MissionPulseChart initialDimension="composite" />
 
       {/* Main Content Tabs */}
       <div className="flex border-b border-[#F5F5F0]/10 gap-2 sm:gap-6 overflow-x-auto text-xs font-mono uppercase tracking-wider">

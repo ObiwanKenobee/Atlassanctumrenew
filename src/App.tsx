@@ -3,6 +3,7 @@ import { PageView, DataProvenance } from './types';
 import { AuthProvider } from './context/AuthContext';
 import { MissionAlertProvider } from './context/MissionAlertContext';
 import { UncertaintyOverlayProvider } from './context/UncertaintyOverlayContext';
+import { OfflineSyncProvider } from './context/OfflineSyncContext';
 import { Navigation } from './components/Navigation';
 import { Footer } from './components/Footer';
 import { GlobalLoadingIndicator } from './components/GlobalLoadingIndicator';
@@ -149,9 +150,10 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <MissionAlertProvider>
-        <UncertaintyOverlayProvider>
-          <ThemeAndAccessSyncListener>
+      <OfflineSyncProvider>
+        <MissionAlertProvider>
+          <UncertaintyOverlayProvider>
+            <ThemeAndAccessSyncListener>
             <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
             {/* Moral Compass Dynamic Cursor Trail */}
             <MoralCompassCursor 
@@ -535,6 +537,7 @@ export default function App() {
         </ThemeAndAccessSyncListener>
         </UncertaintyOverlayProvider>
       </MissionAlertProvider>
+      </OfflineSyncProvider>
     </AuthProvider>
   );
 }

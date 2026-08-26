@@ -172,6 +172,27 @@ class AudioFeedbackEngine {
   }
 
   /**
+   * Failure or error alert tone (dissonant descending minor dyad)
+   */
+  public playFailureAlert() {
+    this.playBell([311.13, 277.18], 0.5, 'sawtooth', 0.6);
+  }
+
+  /**
+   * Microphone recording start tone (bright harmonic ascending pip)
+   */
+  public playMicrophoneStart() {
+    this.playBell([587.33, 880], 0.25, 'sine', 0.8);
+  }
+
+  /**
+   * Microphone recording stop tone (descending completion pip)
+   */
+  public playMicrophoneStop() {
+    this.playBell([880, 587.33], 0.2, 'sine', 0.7);
+  }
+
+  /**
    * Generic dispatcher for named UI audio feedback events
    */
   public play(eventName: 'softClick' | 'actionSuccess' | 'warningAlert' | 'failure' | string) {
