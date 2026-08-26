@@ -58,6 +58,10 @@ const EthicsReviewView = React.lazy(() => import('./components/views/EthicsRevie
 const MissionPerformanceAnalyticsView = React.lazy(() => import('./components/views/MissionPerformanceAnalyticsView').then(m => ({ default: m.MissionPerformanceAnalyticsView })));
 const EvidenceMappingView = React.lazy(() => import('./components/views/EvidenceMappingView').then(m => ({ default: m.EvidenceMappingView })));
 const StewardshipReputationView = React.lazy(() => import('./components/views/StewardshipReputationView').then(m => ({ default: m.StewardshipReputationView })));
+const EventsView = React.lazy(() => import('./components/views/EventsView').then(m => ({ default: m.EventsView })));
+const StoriesView = React.lazy(() => import('./components/views/StoriesView').then(m => ({ default: m.StoriesView })));
+const ResourcesView = React.lazy(() => import('./components/views/ResourcesView').then(m => ({ default: m.ResourcesView })));
+const GovernanceHubView = React.lazy(() => import('./components/views/GovernanceHubView').then(m => ({ default: m.GovernanceHubView })));
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<PageView>('home');
@@ -410,6 +414,34 @@ export default function App() {
 
                   {currentTab === 'stewardship-reputation' && (
                     <StewardshipReputationView
+                      onSelectTab={handleSelectTab}
+                      onInspectProvenance={handleInspectProvenance}
+                    />
+                  )}
+
+                  {currentTab === 'events' && (
+                    <EventsView
+                      onSelectTab={handleSelectTab}
+                      onInspectProvenance={handleInspectProvenance}
+                    />
+                  )}
+
+                  {currentTab === 'stories' && (
+                    <StoriesView
+                      onSelectTab={handleSelectTab}
+                      onInspectProvenance={handleInspectProvenance}
+                    />
+                  )}
+
+                  {currentTab === 'resources' && (
+                    <ResourcesView
+                      onSelectTab={handleSelectTab}
+                      onInspectProvenance={handleInspectProvenance}
+                    />
+                  )}
+
+                  {currentTab === 'governance' && (
+                    <GovernanceHubView
                       onSelectTab={handleSelectTab}
                       onInspectProvenance={handleInspectProvenance}
                     />

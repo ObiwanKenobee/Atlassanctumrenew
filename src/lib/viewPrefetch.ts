@@ -34,7 +34,11 @@ export const VIEW_LOADERS = {
   'ethics-review': () => import('../components/views/EthicsReviewView').then(m => ({ default: m.EthicsReviewView })),
   'mission-analytics': () => import('../components/views/MissionPerformanceAnalyticsView').then(m => ({ default: m.MissionPerformanceAnalyticsView })),
   'evidence-mapping': () => import('../components/views/EvidenceMappingView').then(m => ({ default: m.EvidenceMappingView })),
-  'stewardship-reputation': () => import('../components/views/StewardshipReputationView').then(m => ({ default: m.StewardshipReputationView }))
+  'stewardship-reputation': () => import('../components/views/StewardshipReputationView').then(m => ({ default: m.StewardshipReputationView })),
+  'events': () => import('../components/views/EventsView').then(m => ({ default: m.EventsView })),
+  'stories': () => import('../components/views/StoriesView').then(m => ({ default: m.StoriesView })),
+  'resources': () => import('../components/views/ResourcesView').then(m => ({ default: m.ResourcesView })),
+  'governance': () => import('../components/views/GovernanceHubView').then(m => ({ default: m.GovernanceHubView }))
 };
 
 // Set of already fetched or in-flight chunk promises

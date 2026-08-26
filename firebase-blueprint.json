@@ -69,6 +69,28 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "action", "feature", "impactTier"]
+    },
+    "SystemModelDocument": {
+      "title": "SystemModelDocument",
+      "description": "Systems Dynamics Stock-Flow Model definition and calibrated simulation state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 256 },
+        "bioregionOrDomain": { "type": "string", "maxLength": 256 },
+        "version": { "type": "string", "maxLength": 64 },
+        "timeHorizonMonths": { "type": "number" },
+        "timeStepUnit": { "type": "string" },
+        "stocks": { "type": "array" },
+        "flows": { "type": "array" },
+        "variables": { "type": "array" },
+        "relationships": { "type": "array" },
+        "feedbackLoops": { "type": "array" },
+        "constraints": { "type": "array" },
+        "assumptions": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "stocks", "flows"]
     }
   },
   "firestore": {
@@ -83,6 +105,10 @@
     "/moral_audit_logs/{logId}": {
       "schema": "MoralAuditLog",
       "description": "Systemic ethical audit trail logging user interactions with high-impact features"
+    },
+    "/system_models/{modelId}": {
+      "schema": "SystemModelDocument",
+      "description": "Persisted Systems Dynamics models and scenario calibrations"
     }
   }
 }

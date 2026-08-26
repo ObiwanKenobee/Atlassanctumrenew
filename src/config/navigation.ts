@@ -40,7 +40,9 @@ import {
   Settings,
   PlusCircle,
   FileSpreadsheet,
-  AlertTriangle
+  AlertTriangle,
+  Calendar,
+  Quote
 } from 'lucide-react';
 import { NavigationHeaderConfig } from '../types/navigation';
 
@@ -246,6 +248,14 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
           icon: Scale,
           items: [
             {
+              id: 'governance',
+              label: 'Civilization Governance Hub',
+              description: 'Universal moral axioms, Priority Floors, Merkle audits & active proposals',
+              icon: Scale,
+              targetTab: 'governance',
+              badge: { text: 'Full Hub', variant: 'emerald' }
+            },
+            {
               id: 'ethics-review',
               label: 'Ethics Review & Priority Floors',
               description: 'Constitutional boundary checks & non-negotiable floor enforcement',
@@ -386,9 +396,33 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
         },
         {
           id: 'open-commons',
-          title: 'Commons & Research',
+          title: 'Commons, Stories & Events',
           icon: Globe2,
           items: [
+            {
+              id: 'events',
+              label: 'Gatherings & Field Labs',
+              description: 'Conferences, technical webinars, workshops & sensor field activities',
+              icon: Calendar,
+              targetTab: 'events',
+              badge: { text: 'Conferences', variant: 'gold' }
+            },
+            {
+              id: 'stories',
+              label: 'Stories & Field Narratives',
+              description: 'Grassroots oral histories, human diaries & empirical field reports',
+              icon: Quote,
+              targetTab: 'stories',
+              badge: { text: 'Impact Stories', variant: 'emerald' }
+            },
+            {
+              id: 'resources',
+              label: 'Resources & Toolkits',
+              description: 'Open-hardware CAD schemas, simulation libraries, APIs & curricula',
+              icon: Download,
+              targetTab: 'resources',
+              badge: { text: 'Toolkits & CAD', variant: 'blue' }
+            },
             {
               id: 'commons',
               label: 'Open Commons Repository',

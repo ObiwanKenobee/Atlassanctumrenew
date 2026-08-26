@@ -146,6 +146,46 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
         category: 'view',
         targetTab: 'multimodal-studio',
         tags: ['multimodal', 'gemini', 'creative', 'studio', 'image', 'audio', 'voice']
+      },
+      // Events Pillar
+      {
+        id: 'view-events',
+        title: 'Events, Conferences & Field Gatherings',
+        subtitle: 'Global & Bioregional Regenerative Assemblies',
+        description: 'Conferences, webinars, hands-on workshops, and on-the-ground field research activities.',
+        category: 'view',
+        targetTab: 'events',
+        tags: ['events', 'conferences', 'webinars', 'workshops', 'gatherings', 'field']
+      },
+      // Stories Pillar
+      {
+        id: 'view-stories',
+        title: 'Stories & Human Transformational Narratives',
+        subtitle: 'Grassroots Chronicles & Empirical Field Reports',
+        description: 'Human narratives, oral histories, and community transformation case studies from the restoration frontline.',
+        category: 'view',
+        targetTab: 'stories',
+        tags: ['stories', 'narratives', 'field reports', 'human', 'interviews', 'restoration']
+      },
+      // Resources Pillar
+      {
+        id: 'view-resources',
+        title: 'Resources, Toolkits & Open Hardware Schemas',
+        subtitle: 'CAD Schemas, APIs, Datasets & Curricula',
+        description: 'Peer-reviewed templates, simulation toolkits, open hardware CAD blueprints, and developer APIs.',
+        category: 'view',
+        targetTab: 'resources',
+        tags: ['resources', 'toolkits', 'cad', 'templates', 'blueprints', 'api', 'datasets']
+      },
+      // Governance Hub Pillar
+      {
+        id: 'view-governance-hub',
+        title: 'Civilization Governance Hub & Priority Floors',
+        subtitle: 'Constitutional Axioms, Quadratic Voting & Merkle Audits',
+        description: 'Universal moral principles, hard ecological & social priority floors, transparent decision-making, and audit trails.',
+        category: 'moral',
+        targetTab: 'governance',
+        tags: ['governance', 'priority floors', 'voting', 'transparency', 'merkle', 'axioms', 'covenant']
       }
     ];
 

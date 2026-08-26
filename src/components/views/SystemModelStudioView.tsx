@@ -15,11 +15,21 @@ import {
   Sparkles,
   GitBranch,
   Sliders,
-  Send
+  Send,
+  Cloud,
+  CloudOff,
+  Save,
+  Check,
+  RefreshCw,
+  Info,
+  BookOpen,
+  ArrowUpRight
 } from 'lucide-react';
-import { CANONICAL_MATHARE_SYSTEM_MODEL, CANDIDATE_INTERVENTIONS, CANONICAL_SIMULATION_SCENARIOS } from '../../data/systemsDynamicsData';
-import { SystemsDynamicsEngine } from '../../lib/systems/systemsEngine';
-import { SystemStock, CandidateIntervention } from '../../types';
+import { useSystemsModel, CANONICAL_REGIONAL_ENERGY_MODEL } from '../../hooks/useSystemsModel';
+import { CANONICAL_MATHARE_SYSTEM_MODEL, CANONICAL_SIMULATION_SCENARIOS } from '../../data/systemsDynamicsData';
+import { ScenarioSimulationChart } from '../systemsDynamics/ScenarioSimulationChart';
+import { CandidateIntervention, Stock } from '../../types/systemsDynamics';
+import { InterventionLibraryService, EnergyInterventionDefinition } from '../../services/interventionLibrary';
 
 interface SystemModelStudioViewProps {
   onNavigateToMissionControl?: () => void;
@@ -32,100 +42,108 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<
     'graph' | 'simulator' | 'scenarios' | 'leverage' | 'agents' | 'governance'
-  >('graph');
+  >('simulator');
 
-  const [selectedEntityId, setSelectedEntityId] = useState<string>('stock-riparian-soil-carbon');
+  const {
+    model,
+    activeInterventions,
+    parameterOverrides,
+    timeHorizonMonths,
+    simulationResult,
+    isLoading,
+    isSaving,
+    isOnline,
+    availableInterventions,
+    updateVariable,
+    toggleIntervention,
+    clearInterventions,
+    setTimeHorizon,
+    resetToBaseline,
+    saveModelToCloud,
+    loadModel
+  } = useSystemsModel();
+
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('stock-clean-energy-generation');
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('scenario-integrated-commons');
+  const [saveSuccessNotification, setSaveSuccessNotification] = useState<boolean>(false);
+  const [activeModelId, setActiveModelId] = useState<string>(model.id);
 
-  // Interactive Simulator State
-  const [solarCapacity, setSolarCapacity] = useState<number>(120);
-  const [agroforestryRate, setAgroforestryRate] = useState<number>(0.85);
-  const [rainSurge, setRainSurge] = useState<number>(1.2);
-  const [timeHorizonMonths, setTimeHorizonMonths] = useState<number>(24);
-  const [selectedInterventionIds, setSelectedInterventionIds] = useState<string[]>([
-    'int-solar-cold-chain-biochar',
-    'int-vetiver-agroforestry-corridor',
-    'int-clan-water-sovereignty-mesh'
-  ]);
-
+  // Real-time telemetry log feed
   const [learningLog] = useState<{ id: string; time: string; text: string; badge: string }[]>([
     {
       id: 'log-1',
-      time: '12m ago',
-      text: 'Sentinel-2 NDVI telemetry ingested for Mathare Sub-catchment #4 (+0.08 biomass index).',
-      badge: 'Empirical Match (+2.5% Conf)'
+      time: '4m ago',
+      text: 'Grid Ingress smart meter registered 48.2 kW peak solar midday export to cold hub battery mesh.',
+      badge: 'Empirical Match (+2.8% Conf)'
     },
     {
       id: 'log-2',
-      time: '45m ago',
-      text: 'Solar cold hub #2 recorded 94.2% uptime with zero vegetable spoilage for 180 market women.',
+      time: '18m ago',
+      text: 'Cold storage unit #3 maintained 3.8°C with zero spoilage for 180 market produce vendors.',
       badge: 'Feedback Loop R2 Validated'
     },
     {
       id: 'log-3',
-      time: '2h ago',
-      text: 'Elder Council ratified FPIC Water Trust charter; updated institutional trust baseline from 58 to 62.',
+      time: '1h ago',
+      text: 'Youth Microgrid Maintenance Guild logged 99.4% inverter uptime across 12 distributed nodes.',
+      badge: 'Subsystem Calibration Synchronized'
+    },
+    {
+      id: 'log-4',
+      time: '3h ago',
+      text: 'Bioregional Elders Council verified P2P microgrid tariff rebate distribution algorithm.',
       badge: 'Moral Boundary Satisfied'
     }
   ]);
 
-  const activeInterventions = useMemo(() => {
-    return CANDIDATE_INTERVENTIONS.filter((i) => selectedInterventionIds.includes(i.id));
-  }, [selectedInterventionIds]);
+  // Handle Model Switching
+  const handleSwitchModel = async (modelId: string) => {
+    setActiveModelId(modelId);
+    await loadModel(modelId);
+    if (modelId === CANONICAL_REGIONAL_ENERGY_MODEL.id) {
+      setSelectedEntityId('stock-clean-energy-generation');
+    } else {
+      setSelectedEntityId('stock-riparian-soil-carbon');
+    }
+  };
 
-  const simulationResult = useMemo(() => {
-    return SystemsDynamicsEngine.runSimulation({
-      model: CANONICAL_MATHARE_SYSTEM_MODEL,
-      timeHorizonMonths,
-      timeStepMonths: 2,
-      parameterOverrides: {
-        'var-solar-irrigation-power': solarCapacity,
-        'var-agroforestry-adoption-rate': agroforestryRate,
-        'var-seasonal-rainfall-surge': rainSurge
-      },
-      activeInterventions
-    });
-  }, [solarCapacity, agroforestryRate, rainSurge, timeHorizonMonths, activeInterventions]);
+  // Handle Save to Cloud
+  const handleSaveToCloud = async () => {
+    const success = await saveModelToCloud();
+    if (success) {
+      setSaveSuccessNotification(true);
+      setTimeout(() => setSaveSuccessNotification(false), 3500);
+    }
+  };
 
+  // Inspect entity
   const selectedEntity = useMemo(() => {
-    const stock = CANONICAL_MATHARE_SYSTEM_MODEL.stocks.find((s) => s.id === selectedEntityId);
+    const stock = model.stocks.find((s) => s.id === selectedEntityId);
     if (stock) return { type: 'stock' as const, data: stock };
-    const flow = CANONICAL_MATHARE_SYSTEM_MODEL.flows.find((f) => f.id === selectedEntityId);
+    const flow = model.flows.find((f) => f.id === selectedEntityId);
     if (flow) return { type: 'flow' as const, data: flow };
-    const variable = CANONICAL_MATHARE_SYSTEM_MODEL.variables.find((v) => v.id === selectedEntityId);
+    const variable = model.variables.find((v) => v.id === selectedEntityId);
     if (variable) return { type: 'variable' as const, data: variable };
     return null;
-  }, [selectedEntityId]);
+  }, [model, selectedEntityId]);
 
-  const toggleIntervention = (id: string) => {
-    setSelectedInterventionIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleResetSimulator = () => {
-    setSolarCapacity(45);
-    setAgroforestryRate(0.42);
-    setRainSurge(1.35);
-    setSelectedInterventionIds([]);
-  };
-
+  // Quick preset loader
   const handleApplyPreset = (preset: 'optimal' | 'conservative' | 'crisis') => {
     if (preset === 'optimal') {
-      setSolarCapacity(150);
-      setAgroforestryRate(0.92);
-      setRainSurge(1.1);
-      setSelectedInterventionIds(CANDIDATE_INTERVENTIONS.map((i) => i.id));
+      clearInterventions();
+      availableInterventions.forEach((int) => {
+        toggleIntervention(int);
+      });
+      setTimeHorizon(24);
     } else if (preset === 'conservative') {
-      setSolarCapacity(70);
-      setAgroforestryRate(0.55);
-      setRainSurge(1.3);
-      setSelectedInterventionIds(['int-solar-cold-chain-biochar']);
+      clearInterventions();
+      const first = availableInterventions[0];
+      if (first) {
+        toggleIntervention(first);
+      }
     } else {
-      setSolarCapacity(30);
-      setAgroforestryRate(0.3);
-      setRainSurge(2.1);
-      setSelectedInterventionIds([]);
+      clearInterventions();
+      updateVariable('var-solar-irradiance-factor', 0.65);
     }
   };
 
@@ -135,35 +153,82 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-white shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 <Activity className="w-3 h-3 animate-pulse" />
-                Active Systems Dynamics Engine
+                Differential Euler Systems Dynamics
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                {CANONICAL_MATHARE_SYSTEM_MODEL.version}
+                {model.version}
               </span>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                Epistemic Confidence: {CANONICAL_MATHARE_SYSTEM_MODEL.modelHealth.epistemicConfidence}%
+                Epistemic Confidence: {model.modelHealth?.epistemicConfidence || 95}%
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                {isOnline ? <Cloud className="w-3 h-3 text-emerald-400" /> : <CloudOff className="w-3 h-3 text-amber-400" />}
+                {isOnline ? 'Cloud Synced' : 'Local Cached (Offline)'}
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
-              {CANONICAL_MATHARE_SYSTEM_MODEL.name}
-            </h1>
+
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+                {model.name}
+              </h1>
+            </div>
+
             <p className="text-slate-400 text-sm mt-1 flex items-center gap-2">
               <Compass className="w-4 h-4 text-emerald-400" />
-              {CANONICAL_MATHARE_SYSTEM_MODEL.bioregionOrDomain} • {CANONICAL_MATHARE_SYSTEM_MODEL.timeHorizonMonths} Months Horizon
+              {model.bioregionOrDomain} • {timeHorizonMonths} Months Simulation Window
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Model Switcher & Cloud Action Bar */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="bg-slate-800/80 p-1 rounded-lg border border-slate-700 flex items-center gap-1 text-xs">
+              <button
+                onClick={() => handleSwitchModel(CANONICAL_REGIONAL_ENERGY_MODEL.id)}
+                className={`px-2.5 py-1.5 rounded-md font-medium transition-all ${
+                  activeModelId === CANONICAL_REGIONAL_ENERGY_MODEL.id
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Regional Energy Model
+              </button>
+              <button
+                onClick={() => handleSwitchModel(CANONICAL_MATHARE_SYSTEM_MODEL.id)}
+                className={`px-2.5 py-1.5 rounded-md font-medium transition-all ${
+                  activeModelId === CANONICAL_MATHARE_SYSTEM_MODEL.id
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Mathare Basin Model
+              </button>
+            </div>
+
+            <button
+              onClick={handleSaveToCloud}
+              disabled={isSaving}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all shadow-md active:scale-95 disabled:opacity-50"
+            >
+              {isSaving ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : saveSuccessNotification ? (
+                <Check className="w-3.5 h-3.5 text-white" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              {saveSuccessNotification ? 'Saved to Firestore!' : 'Save Calibration'}
+            </button>
+
             <button
               onClick={() => onNavigateToMissionControl?.()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-all shadow-md active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all shadow-md active:scale-95"
             >
-              <Cpu className="w-4 h-4" />
-              Agent Mission Control
-              <ArrowRight className="w-4 h-4" />
+              <Cpu className="w-3.5 h-3.5" />
+              Mission Control
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -171,24 +236,24 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
         {/* Boundary summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-800">
           <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/50">
-            <span className="text-xs text-slate-400 uppercase tracking-wider block">Stocks Tracked</span>
-            <span className="text-xl font-bold text-slate-100">{CANONICAL_MATHARE_SYSTEM_MODEL.stocks.length} Multi-Capital Stocks</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider block">Capital Stocks</span>
+            <span className="text-xl font-bold text-slate-100">{model.stocks.length} Multi-Capital Stocks</span>
           </div>
           <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/50">
             <span className="text-xs text-slate-400 uppercase tracking-wider block">Feedback Loops</span>
             <span className="text-xl font-bold text-emerald-400">
-              {CANONICAL_MATHARE_SYSTEM_MODEL.feedbackLoops.filter((l) => l.type === 'reinforcing').length}R /{' '}
-              {CANONICAL_MATHARE_SYSTEM_MODEL.feedbackLoops.filter((l) => l.type === 'balancing').length}B Loops
+              {model.feedbackLoops.filter((l) => l.type === 'reinforcing').length}R /{' '}
+              {model.feedbackLoops.filter((l) => l.type === 'balancing').length}B Loops
             </span>
           </div>
           <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/50">
-            <span className="text-xs text-slate-400 uppercase tracking-wider block">High Leverage Points</span>
-            <span className="text-xl font-bold text-amber-400">{CANDIDATE_INTERVENTIONS.length} Catalytic Points</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider block">Leverage Interventions</span>
+            <span className="text-xl font-bold text-amber-400">{availableInterventions.length} Catalytic Nodes</span>
           </div>
           <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/50">
-            <span className="text-xs text-slate-400 uppercase tracking-wider block">Data Freshness</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider block">Integration Engine</span>
             <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1.5 mt-1">
-              <CheckCircle2 className="w-4 h-4" /> Live Calibrated
+              <CheckCircle2 className="w-4 h-4" /> Euler (dt=1.0 mo)
             </span>
           </div>
         </div>
@@ -196,17 +261,6 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
 
       {/* Navigation Sub-Tabs */}
       <div className="flex border-b border-slate-200 overflow-x-auto gap-2">
-        <button
-          onClick={() => setActiveTab('graph')}
-          className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === 'graph'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <GitBranch className="w-4 h-4" />
-          Causal Graph & Boundaries
-        </button>
         <button
           onClick={() => setActiveTab('simulator')}
           className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${
@@ -216,7 +270,18 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
           }`}
         >
           <Sliders className="w-4 h-4" />
-          Differential Stock Simulator
+          Stocks & Flows Simulator
+        </button>
+        <button
+          onClick={() => setActiveTab('graph')}
+          className={`px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'graph'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <GitBranch className="w-4 h-4" />
+          Causal Map & Stock Inventory
         </button>
         <button
           onClick={() => setActiveTab('scenarios')}
@@ -227,7 +292,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
           }`}
         >
           <BarChart3 className="w-4 h-4" />
-          Scenario Matrix
+          Scenario Simulation
         </button>
         <button
           onClick={() => setActiveTab('leverage')}
@@ -264,22 +329,212 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
         </button>
       </div>
 
-      {/* TAB 1: CAUSAL GRAPH & BOUNDARIES */}
+      {/* TAB 1: DIFFERENTIAL STOCK SIMULATOR */}
+      {activeTab === 'simulator' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Parameter Tuner & Interventions */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-indigo-600" />
+                Model Parameters & Knobs
+              </h3>
+              <button
+                onClick={resetToBaseline}
+                className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" /> Reset
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-slate-600">Quick Presets:</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  onClick={() => handleApplyPreset('optimal')}
+                  className="px-2 py-1.5 text-xs font-medium rounded bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                >
+                  Optimal Commons
+                </button>
+                <button
+                  onClick={() => handleApplyPreset('conservative')}
+                  className="px-2 py-1.5 text-xs font-medium rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
+                >
+                  Conservative
+                </button>
+                <button
+                  onClick={() => handleApplyPreset('crisis')}
+                  className="px-2 py-1.5 text-xs font-medium rounded bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100"
+                >
+                  Cloud/Grid Crisis
+                </button>
+              </div>
+            </div>
+
+            {/* Dynamic System Variables */}
+            <div className="space-y-4 text-xs">
+              {model.variables.map((variable) => {
+                const currentValue = parameterOverrides[variable.id] ?? variable.value;
+                return (
+                  <div key={variable.id}>
+                    <div className="flex justify-between font-semibold text-slate-800 mb-1">
+                      <span>{variable.name}:</span>
+                      <span className="text-indigo-600 font-mono">
+                        {currentValue} {variable.unit}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={variable.min ?? 0}
+                      max={variable.max ?? 2.0}
+                      step={variable.step ?? 0.05}
+                      value={currentValue}
+                      onChange={(e) => updateVariable(variable.id, Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                  </div>
+                );
+              })}
+
+              <div>
+                <div className="flex justify-between font-semibold text-slate-800 mb-1">
+                  <span>Simulation Horizon:</span>
+                  <span className="text-slate-700 font-mono">{timeHorizonMonths} Months</span>
+                </div>
+                <input
+                  type="range"
+                  min="6"
+                  max="48"
+                  step="6"
+                  value={timeHorizonMonths}
+                  onChange={(e) => setTimeHorizon(Number(e.target.value))}
+                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-700"
+                />
+              </div>
+            </div>
+
+            {/* Candidate High-Leverage Interventions */}
+            <div className="pt-4 border-t border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800">
+                  Candidate Interventions ({activeInterventions.length} active):
+                </span>
+                {activeInterventions.length > 0 && (
+                  <button
+                    onClick={clearInterventions}
+                    className="text-[11px] text-rose-600 hover:text-rose-800 font-medium"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+
+              {availableInterventions.map((int) => {
+                const isActive = activeInterventions.some((i) => i.id === int.id);
+                return (
+                  <div
+                    key={int.id}
+                    onClick={() => toggleIntervention(int)}
+                    className={`p-3 rounded-lg border text-xs cursor-pointer transition-all flex items-start gap-2.5 ${
+                      isActive
+                        ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 ring-1 ring-indigo-500/30'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={() => {}}
+                      className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900">{int.targetName}</span>
+                        <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                          Tier #{int.leverageRank}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-tight">{int.mechanism}</p>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
+                        <span>Cost: ${(int.costUsd / 1000).toFixed(0)}k</span>
+                        <span className="text-emerald-600 font-bold">+{int.flourishingDelta}% Flourishing</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right Column: Recharts Scenario Chart & Feedback Loops */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Recharts Scenario Simulation Chart */}
+            <ScenarioSimulationChart
+              result={simulationResult}
+              model={model}
+              activeInterventions={activeInterventions}
+            />
+
+            {/* Loop Dominance Telemetry */}
+            <div className="bg-slate-900 text-white rounded-xl p-5 border border-slate-800">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-emerald-400" />
+                  Live Feedback Loop Dominance State
+                </h3>
+                <span className="text-xs text-slate-400 font-mono">
+                  Active Catalysts: {activeInterventions.length}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {simulationResult.loopDominance.map((loop) => (
+                  <div key={loop.loopId} className="bg-slate-800 p-3 rounded-lg border border-slate-700">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-semibold text-slate-200">{loop.loopName}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                          loop.status === 'accelerating'
+                            ? 'bg-emerald-900/80 text-emerald-300 border border-emerald-700/50'
+                            : 'bg-slate-700 text-slate-400'
+                        }`}
+                      >
+                        {loop.status.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2">
+                      <div
+                        className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${loop.relativeStrength * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400 mt-1 block text-right">
+                      Strength: {Math.round(loop.relativeStrength * 100)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: CAUSAL GRAPH & BOUNDARIES */}
       {activeTab === 'graph' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            {/* System Boundary Entities */}
+            {/* System Boundary Entities & Stocks */}
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-indigo-600" />
-                  Boundary Entities & Stocks
+                  Boundary Stocks ({model.stocks.length} Capital Reservoirs)
                 </h3>
-                <span className="text-xs text-slate-500">Click any entity to inspect mathematical mechanics</span>
+                <span className="text-xs text-slate-500">Select any stock to inspect its mathematical differential equation</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {CANONICAL_MATHARE_SYSTEM_MODEL.stocks.map((stock) => {
+                {model.stocks.map((stock) => {
                   const isSelected = selectedEntityId === stock.id;
                   return (
                     <div
@@ -297,7 +552,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
                         </span>
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            stock.epistemicStatus === 'Known'
+                            stock.epistemicStatus === 'Observed' || stock.epistemicStatus === 'Imported Data'
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-indigo-100 text-indigo-800'
                           }`}
@@ -327,7 +582,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
                 Causal Polarity & Pearl Do-Calculus Pathways
               </h3>
               <div className="space-y-3">
-                {CANONICAL_MATHARE_SYSTEM_MODEL.relationships.map((rel) => (
+                {model.relationships.map((rel) => (
                   <div
                     key={rel.id}
                     className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-white hover:border-indigo-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
@@ -369,14 +624,14 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
               </div>
             </div>
 
-            {/* Identified Feedback Loops */}
+            {/* Feedback Loops */}
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
               <h3 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-purple-600" />
                 Systemic Feedback Loops (Reinforcing & Balancing)
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {CANONICAL_MATHARE_SYSTEM_MODEL.feedbackLoops.map((loop) => (
+                {model.feedbackLoops.map((loop) => (
                   <div
                     key={loop.id}
                     className={`p-4 rounded-lg border ${
@@ -409,7 +664,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Entity Inspector */}
+          {/* Right Column: Entity Formula Inspector */}
           <div className="space-y-6">
             <div className="bg-slate-900 text-white rounded-xl p-5 border border-slate-800 shadow-sm sticky top-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
@@ -435,21 +690,25 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
                   {selectedEntity.type === 'stock' && (
                     <>
                       <div className="bg-slate-800/80 rounded-lg p-3 border border-slate-700 font-mono text-xs text-emerald-400">
-                        <div className="text-slate-400 text-[10px] uppercase font-sans mb-1">Differential Equation</div>
-                        d(Stock)/dt = Inflows(t) - Outflows(t)
+                        <div className="text-slate-400 text-[10px] uppercase font-sans mb-1">Differential Equation (Euler)</div>
+                        d(Stock)/dt = &Sigma; Inflows(t) - &Sigma; Outflows(t)
                         <div className="text-slate-300 mt-1 text-[11px]">
-                          = +{(selectedEntity.data as SystemStock).inflowRate} - {(selectedEntity.data as SystemStock).outflowRate} per month
+                          = +{(selectedEntity.data as Stock).inflowRate} - {(selectedEntity.data as Stock).outflowRate} per month
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="bg-slate-800/60 p-2.5 rounded border border-slate-700/60">
                           <span className="text-slate-400 block">Min Capacity</span>
-                          <span className="font-bold text-white">{(selectedEntity.data as SystemStock).minimumCapacity.toLocaleString()}</span>
+                          <span className="font-bold text-white">
+                            {(selectedEntity.data as Stock).minimumCapacity?.toLocaleString() ?? 0}
+                          </span>
                         </div>
                         <div className="bg-slate-800/60 p-2.5 rounded border border-slate-700/60">
                           <span className="text-slate-400 block">Max Capacity</span>
-                          <span className="font-bold text-white">{(selectedEntity.data as SystemStock).maximumCapacity.toLocaleString()}</span>
+                          <span className="font-bold text-white">
+                            {(selectedEntity.data as Stock).maximumCapacity?.toLocaleString() ?? '&infin;'}
+                          </span>
                         </div>
                       </div>
                     </>
@@ -468,7 +727,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
                 </div>
               ) : (
                 <div className="text-xs text-slate-400 py-6 text-center">
-                  Select an entity from the causal graph to inspect equations.
+                  Select a stock from the causal graph to inspect equations.
                 </div>
               )}
             </div>
@@ -476,263 +735,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
         </div>
       )}
 
-      {/* TAB 2: DIFFERENTIAL STOCK SIMULATOR */}
-      {activeTab === 'simulator' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-indigo-600" />
-                Intervention Parameters
-              </h3>
-              <button
-                onClick={handleResetSimulator}
-                className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1"
-              >
-                <RotateCcw className="w-3 h-3" /> Reset
-              </button>
-            </div>
-
-            <div className="space-y-1.5">
-              <span className="text-xs font-semibold text-slate-600">Quick Presets:</span>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  onClick={() => handleApplyPreset('optimal')}
-                  className="px-2.5 py-1.5 text-xs font-medium rounded bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
-                >
-                  Optimal Commons
-                </button>
-                <button
-                  onClick={() => handleApplyPreset('conservative')}
-                  className="px-2.5 py-1.5 text-xs font-medium rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
-                >
-                  Conservative
-                </button>
-                <button
-                  onClick={() => handleApplyPreset('crisis')}
-                  className="px-2.5 py-1.5 text-xs font-medium rounded bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100"
-                >
-                  Monsoon Crisis
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div>
-                <div className="flex justify-between font-semibold text-slate-800 mb-1">
-                  <span>Decentralized Solar Capacity:</span>
-                  <span className="text-indigo-600">{solarCapacity} kW Peak</span>
-                </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="200"
-                  step="5"
-                  value={solarCapacity}
-                  onChange={(e) => setSolarCapacity(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between font-semibold text-slate-800 mb-1">
-                  <span>Agroforestry Buffer Coverage:</span>
-                  <span className="text-emerald-600">{Math.round(agroforestryRate * 100)}% of riverbank</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1.0"
-                  step="0.05"
-                  value={agroforestryRate}
-                  onChange={(e) => setAgroforestryRate(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between font-semibold text-slate-800 mb-1">
-                  <span>Monsoon Rainfall Surge Multiplier:</span>
-                  <span className="text-amber-600">{rainSurge}x Average</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2.5"
-                  step="0.1"
-                  value={rainSurge}
-                  onChange={(e) => setRainSurge(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between font-semibold text-slate-800 mb-1">
-                  <span>Simulation Horizon:</span>
-                  <span className="text-slate-700">{timeHorizonMonths} Months</span>
-                </div>
-                <input
-                  type="range"
-                  min="6"
-                  max="36"
-                  step="6"
-                  value={timeHorizonMonths}
-                  onChange={(e) => setTimeHorizonMonths(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-700"
-                />
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-200 space-y-2">
-              <span className="text-xs font-bold text-slate-800 block">Active Intervention Nodes:</span>
-              {CANDIDATE_INTERVENTIONS.map((int) => {
-                const isActive = selectedInterventionIds.includes(int.id);
-                return (
-                  <div
-                    key={int.id}
-                    onClick={() => toggleIntervention(int.id)}
-                    className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex items-start gap-2.5 ${
-                      isActive
-                        ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isActive}
-                      onChange={() => {}}
-                      className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <div>
-                      <span className="font-bold block">{int.targetName}</span>
-                      <span className="text-[11px] text-slate-500">${(int.costUsd / 1000).toFixed(0)}k • {int.timeHorizonMonths}mo</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <span className="text-xs text-slate-500 block">Flourishing Index</span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-indigo-600">
-                    {simulationResult.timeSeries[simulationResult.timeSeries.length - 1]?.flourishingIndex}
-                  </span>
-                  <span className="text-xs font-bold text-emerald-600">
-                    +{simulationResult.deltaSummary.flourishingDelta}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <span className="text-xs text-slate-500 block">Soil Carbon & Biomass</span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-emerald-600">
-                    {simulationResult.timeSeries[simulationResult.timeSeries.length - 1]?.soilCarbonTons.toLocaleString()}
-                  </span>
-                  <span className="text-xs font-bold text-emerald-600">
-                    +{simulationResult.deltaSummary.soilCarbonDeltaPercent}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <span className="text-xs text-slate-500 block">Youth Stewards</span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-slate-900">
-                    {simulationResult.timeSeries[simulationResult.timeSeries.length - 1]?.youthLivelihoods}
-                  </span>
-                  <span className="text-xs font-bold text-emerald-600">
-                    +{simulationResult.deltaSummary.youthLivelihoodsCreated}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                <span className="text-xs text-slate-500 block">Retained Capital</span>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-black text-purple-600">
-                    {simulationResult.deltaSummary.retainedCapitalMultiplier}x
-                  </span>
-                  <span className="text-xs font-medium text-slate-500">Multiplier</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-              <h3 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
-                Differential Integration Trajectory (Euler Time-Steps)
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="p-2.5">Month</th>
-                      <th className="p-2.5">Flourishing</th>
-                      <th className="p-2.5">Soil Carbon (Tons)</th>
-                      <th className="p-2.5">Water Resilience</th>
-                      <th className="p-2.5">Youth Stewards</th>
-                      <th className="p-2.5">Local Capital</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {simulationResult.timeSeries.map((point) => (
-                      <tr key={point.month} className="hover:bg-slate-50/80">
-                        <td className="p-2.5 font-bold text-slate-900">M+{point.month}</td>
-                        <td className="p-2.5 font-bold text-indigo-600">{point.flourishingIndex}</td>
-                        <td className="p-2.5 text-emerald-700 font-medium">{point.soilCarbonTons.toLocaleString()} t</td>
-                        <td className="p-2.5 text-slate-700">{point.waterResilienceScore}/100</td>
-                        <td className="p-2.5 text-slate-900 font-medium">{point.youthLivelihoods}</td>
-                        <td className="p-2.5 text-purple-700 font-medium">${point.retainedCapitalUsd.toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="bg-slate-900 text-white rounded-xl p-5 border border-slate-800">
-              <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-400" />
-                Live Feedback Loop Acceleration State
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                {simulationResult.reinforcingLoopDominance.map((loop) => (
-                  <div key={loop.loopId} className="bg-slate-800 p-3 rounded-lg border border-slate-700">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-semibold text-slate-300">{loop.loopName.split(':')[0]}</span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${
-                          loop.status === 'accelerating'
-                            ? 'bg-emerald-900/80 text-emerald-300'
-                            : 'bg-slate-700 text-slate-400'
-                        }`}
-                      >
-                        {loop.status}
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2">
-                      <div
-                        className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${loop.relativeStrength * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-slate-400 mt-1 block text-right">
-                      Strength: {Math.round(loop.relativeStrength * 100)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: SCENARIOS */}
+      {/* TAB 3: SCENARIO SIMULATION */}
       {activeTab === 'scenarios' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -758,7 +761,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
                     >
                       {scen.isBaseline ? 'Baseline' : 'Intervention Scenario'}
                     </span>
-                    <span className="text-xs font-bold text-slate-500">24-Month Projection</span>
+                    <span className="text-xs font-bold text-slate-500">24-Month Horizon</span>
                   </div>
                   <h3 className="text-base font-bold text-slate-900">{scen.name}</h3>
                   <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">{scen.description}</p>
@@ -767,8 +770,11 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
             })}
           </div>
 
+          {/* Detailed Counterfactual Assessment */}
           {(() => {
-            const currentScenario = CANONICAL_SIMULATION_SCENARIOS.find((s) => s.id === selectedScenarioId) || CANONICAL_SIMULATION_SCENARIOS[1];
+            const currentScenario =
+              CANONICAL_SIMULATION_SCENARIOS.find((s) => s.id === selectedScenarioId) ||
+              CANONICAL_SIMULATION_SCENARIOS[1];
             return (
               <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-100">
@@ -780,7 +786,8 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-slate-500">
-                      Confidence Interval: [{currentScenario.summaryFindings.confidenceInterval[0]}% - {currentScenario.summaryFindings.confidenceInterval[1]}%]
+                      Confidence Interval: [{currentScenario.summaryFindings.confidenceInterval[0]}% -{' '}
+                      {currentScenario.summaryFindings.confidenceInterval[1]}%]
                     </span>
                   </div>
                 </div>
@@ -813,13 +820,13 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
         </div>
       )}
 
-      {/* TAB 4: LEVERAGE POINT ENGINE (MEADOWS HIERARCHY) */}
+      {/* TAB 4: MEADOWS LEVERAGE ENGINE */}
       {activeTab === 'leverage' && (
         <div className="space-y-6">
           <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-xl p-6 border border-slate-800 shadow-md">
             <h2 className="text-xl font-bold flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-400" />
-              Donella Meadows Systems Leverage Hierarchy
+              Donella Meadows Systems Leverage Hierarchy (Tiers 1-12)
             </h2>
             <p className="text-slate-300 text-xs mt-1 max-w-3xl leading-relaxed">
               Prioritizing catalytic interventions based on structural systemic leverage points (feedback gains, information flows, and self-organization rules) rather than superficial parameters.
@@ -827,8 +834,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
           </div>
 
           <div className="space-y-4">
-            {CANDIDATE_INTERVENTIONS.map((int) => {
-              const meadowsEval = SystemsDynamicsEngine.evaluateMeadowsLeverage(int.id, CANONICAL_MATHARE_SYSTEM_MODEL);
+            {availableInterventions.map((int) => {
               return (
                 <div
                   key={int.id}
@@ -841,13 +847,15 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
                       </span>
                       <div>
                         <h3 className="text-base font-bold text-slate-900">{int.targetName}</h3>
-                        <span className="text-xs text-indigo-600 font-semibold">{meadowsEval.meadowsCategory}</span>
+                        <span className="text-xs text-indigo-600 font-semibold">{int.meadowsTier}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => onInitiateMissionWithIntervention?.(int)}
+                        onClick={() =>
+                          onInitiateMissionWithIntervention?.(int)
+                        }
                         className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm active:scale-95"
                       >
                         <Send className="w-3.5 h-3.5" /> Dispatch to Agent DAG
@@ -871,14 +879,13 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
                       <span className="font-bold text-emerald-600">+{int.flourishingDelta}% Index</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">Reversibility</span>
-                      <span className="font-bold text-indigo-700 capitalize">{int.reversibility.replace('_', ' ')}</span>
+                      <span className="text-slate-400 block">Confidence</span>
+                      <span className="font-bold text-indigo-700">{int.confidence}% Empirical</span>
                     </div>
                   </div>
 
                   <div className="text-xs text-slate-500 flex flex-wrap items-center gap-4 pt-2 border-t border-slate-100">
                     <span><strong>System Dependencies:</strong> {int.systemDependencies.join(', ')}</span>
-                    <span><strong>Confidence:</strong> {int.confidence}%</span>
                   </div>
                 </div>
               );
@@ -896,7 +903,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
               Autonomous Agent Systems Reasoning Substrate
             </h2>
             <p className="text-slate-300 text-xs mt-1">
-              Atlas agents execute the closed-loop operating cycle: <strong>Sense → Structure → Model → Simulate → Decide → Act → Observe → Update</strong>.
+              Atlas agents execute the closed-loop operating cycle: <strong>Sense &rarr; Structure &rarr; Model &rarr; Simulate &rarr; Decide &rarr; Act &rarr; Observe &rarr; Update</strong>.
             </p>
           </div>
 
@@ -932,12 +939,12 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
                 </div>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Runs numerical differential equations over time across the 8 forms of capital, computing flourishing deltas and counterfactual risks.
+                Runs numerical differential equations over time across multi-capital stocks, computing flourishing deltas and counterfactual risks.
               </p>
               <div className="bg-slate-50 p-2.5 rounded text-[11px] text-slate-600 font-mono border border-slate-200">
                 Action: simulate_scenario()
                 <br />
-                Differential Engine: Euler dt=1mo
+                Differential Engine: Euler dt=1.0mo
               </div>
             </div>
 
@@ -1028,7 +1035,7 @@ export const SystemModelStudioView: React.FC<SystemModelStudioViewProps> = ({
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
             <h3 className="text-base font-bold text-slate-900 mb-3">Model Core Working Assumptions</h3>
             <div className="space-y-3">
-              {CANONICAL_MATHARE_SYSTEM_MODEL.assumptions.map((assump) => (
+              {model.assumptions?.map((assump) => (
                 <div key={assump.id} className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 text-xs space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-slate-900">{assump.statement}</span>

@@ -26,6 +26,7 @@ import {
 import { PageView, ScaleLevel } from '../../types';
 import { GLOBAL_PROJECTS, MORAL_PRINCIPLES, INTELLIGENCE_LAYERS } from '../../data/mockCivilizationData';
 import { RealityCheck } from '../RealityCheck';
+import { PartnerCarousel } from '../PartnerCarousel';
 
 interface AtlasHomeViewProps {
   onSelectTab: (tab: PageView) => void;
@@ -431,6 +432,11 @@ export const AtlasHomeView: React.FC<AtlasHomeViewProps> = ({
           </div>
         </div>
       </section>
+
+      {/* ========================================================================= */}
+      {/* GLOBAL PARTNERS & INSTITUTIONAL TRUST MARQUEE */}
+      {/* ========================================================================= */}
+      <PartnerCarousel onSelectTab={onSelectTab} />
 
       {/* ========================================================================= */}
       {/* SECTION 03 — THE ATLAS THESIS & COORDINATION FABRIC */}

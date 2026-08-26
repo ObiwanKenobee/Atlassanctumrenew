@@ -59,5 +59,12 @@ service cloud.firestore {
       allow create, update: if isSignedIn();
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
+
+    // 7. System Dynamics Models & Simulation Scenarios
+    match /system_models/{modelId} {
+      allow read: if true;
+      allow create, update: if true; // Allow models to be saved/calibrated by users & simulations
+      allow delete: if isSignedIn();
+    }
   }
 }

@@ -220,8 +220,28 @@ export const Footer: React.FC<FooterProps> = ({
 
           {/* Col 4: Builders & Commons */}
           <div className="space-y-3">
-            <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">Community & SDK</h3>
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400">Commons & Gatherings</h3>
             <ul className="space-y-2 text-xs text-[#F5F5F0]/70">
+              <li>
+                <button onClick={() => onSelectTab('events')} className="hover:text-[#C5A059] transition-colors flex items-center gap-1.5 font-bold text-[#C5A059]">
+                  Events & Field Labs <ArrowUpRight className="w-3 h-3 text-[#C5A059]" />
+                </button>
+              </li>
+              <li>
+                <button onClick={() => onSelectTab('stories')} className="hover:text-[#C5A059] transition-colors flex items-center gap-1.5 font-bold text-[#C5A059]">
+                  Stories & Field Reports <ArrowUpRight className="w-3 h-3 text-[#C5A059]" />
+                </button>
+              </li>
+              <li>
+                <button onClick={() => onSelectTab('resources')} className="hover:text-[#C5A059] transition-colors flex items-center gap-1.5 font-bold text-[#C5A059]">
+                  Resources, CAD & Toolkits <ArrowUpRight className="w-3 h-3 text-[#C5A059]" />
+                </button>
+              </li>
+              <li>
+                <button onClick={() => onSelectTab('governance')} className="hover:text-[#C5A059] transition-colors flex items-center gap-1.5">
+                  Civilization Governance Hub <ArrowUpRight className="w-3 h-3 text-[#F5F5F0]/30" />
+                </button>
+              </li>
               <li>
                 <button onClick={() => onSelectTab('developers')} className="hover:text-[#C5A059] transition-colors flex items-center gap-1.5">
                   Atlas Developer SDK & APIs <ArrowUpRight className="w-3 h-3 text-[#F5F5F0]/30" />

@@ -38,6 +38,10 @@ export type PageView =
   | 'commons'
   | 'research'
   | 'developers'
+  | 'events'
+  | 'stories'
+  | 'resources'
+  | 'governance'
   | 'about';
 
 export type ScaleLevel = 'planet' | 'continent' | 'country' | 'region' | 'city' | 'community' | 'project';
@@ -1033,5 +1037,48 @@ export interface DecisionRoomScenario {
     };
   }[];
 }
+
+export interface AgentToolDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, any>;
+    required?: string[];
+  };
+  requiredRole: string[];
+  riskLevel: 'low' | 'moderate' | 'high' | 'civilizational_critical';
+  actionClass: 'ANALYZE' | 'SIMULATE' | 'RECOMMEND' | 'EXECUTE' | 'REQUEST_APPROVAL' | 'READ';
+}
+
+export interface AgentPermission {
+  action: string;
+  scope: string;
+  actionClass: 'ANALYZE' | 'SIMULATE' | 'RECOMMEND' | 'EXECUTE' | 'REQUEST_APPROVAL' | 'READ';
+  requiresHumanApproval: boolean;
+  maxCapitalAllocationUsd?: number;
+}
+
+export interface AgentDefinition {
+  id: string;
+  name: string;
+  role: string;
+  version: string;
+  description: string;
+  avatarIcon: string;
+  model: string;
+  systemPrompt: string;
+  tools: string[];
+  permissions: AgentPermission[];
+  status: 'idle' | 'executing' | 'awaiting_approval' | 'paused';
+  completedTasksCount: number;
+  epistemicConfidence: number;
+  allowedDataSources: string[];
+  deploymentEnvironment: string;
+}
+
+// Re-export all Systems Dynamics & Modelling types
+export * from './types/systemsDynamics';
+
 
 
