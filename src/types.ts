@@ -5,6 +5,7 @@
 
 export type PageView =
   | 'home'
+  | 'roadmap'
   | 'agent-mission-control'
   | 'ai-engineering'
   | 'system-model-studio'
@@ -1350,6 +1351,73 @@ export interface PrefetchStats {
   networkCondition: '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
   saveDataEnabled: boolean;
   predictionAccuracy: number; // percentage
+}
+
+// Strategic Platform Roadmap & Milestone Delivery Types
+export type RoadmapStatus = 'COMPLETED' | 'ACTIVE_EXECUTION' | 'SCHEDULED' | 'RESEARCH';
+export type MilestoneVerificationType = 
+  | 'CODE_AUDIT' 
+  | 'MERKLE_ROOT' 
+  | 'TELEMETRY_STREAM' 
+  | 'SMART_CONTRACT' 
+  | 'PEER_REVIEW' 
+  | 'EDGE_ENDPOINT'
+  | 'HARDWARE_PILOT';
+
+export interface RoadmapDeliverable {
+  id: string;
+  name: string;
+  completed: boolean;
+  verificationType: MilestoneVerificationType;
+  verificationDetails?: string;
+  linkedView?: PageView;
+  linkedDoc?: string;
+  completionDate?: string;
+  hashProof?: string;
+}
+
+export interface RoadmapMilestone {
+  id: string;
+  title: string;
+  phaseId: string;
+  status: 'COMPLETED' | 'IN_PROGRESS' | 'PLANNED' | 'HORIZON';
+  completionPercentage: number;
+  targetQuarter: string;
+  description: string;
+  deliverables: RoadmapDeliverable[];
+  architecturalLayer: 
+    | 'FOUNDATION' 
+    | 'INTELLIGENCE' 
+    | 'COORDINATION' 
+    | 'VERIFICATION' 
+    | 'PHYSICAL_INTEGRATION' 
+    | 'ECOSYSTEM' 
+    | 'SOVEREIGN_COMMONS';
+  commandmentAlignment: string;
+  telemetryMetric?: {
+    label: string;
+    value: string;
+    unit?: string;
+  };
+}
+
+export interface RoadmapPhase {
+  id: string;
+  phaseNumber: string;
+  title: string;
+  subtitle: string;
+  timeline: string;
+  status: RoadmapStatus;
+  progressPercentage: number;
+  iconName: string;
+  description: string;
+  primaryFocus: string[];
+  keyArchitectureLayers: string[];
+  milestones: RoadmapMilestone[];
+  governanceThreshold: string;
+  verifiedArtifactCount: number;
+  totalDeliverablesCount: number;
+  completedDeliverablesCount: number;
 }
 
 // Re-export all Systems Dynamics & Modelling types
