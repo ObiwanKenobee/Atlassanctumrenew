@@ -36,6 +36,7 @@ export const FieldNoteRecorder: React.FC<FieldNoteRecorderProps> = ({
   labLocation,
   className = ''
 }) => {
+  const [savedNotes, setSavedNotes] = useState<FieldLabNote[]>([]);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
@@ -46,33 +47,48 @@ export const FieldNoteRecorder: React.FC<FieldNoteRecorderProps> = ({
   const [tagInput, setTagInput] = useState<string>('Biomass Growth, Water Salinity');
   const [certaintyLevel, setCertaintyLevel] = useState<'observed' | 'measured' | 'anecdotal'>('measured');
   const [selectedPlayingNote, setSelectedPlayingNote] = useState<FieldLabNote | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Fallback seed notes if none in Firestore
   const displayNotes: FieldLabNote[] = savedNotes.length > 0 ? savedNotes : [
     {
       id: `seed-note-1-${labId}`,
       labId,
+      labName,
+      location: labLocation || 'Rift Valley Agroforestry Basin',
+      coordinates: [-1.2921, 36.8219],
+      elevation: '1,795m ASL',
+      bioregionGrid: 'KE-RFT-ZONE-08',
       transcript: `Acoustic telemetry and soil impedance readings indicate a 24.3% increase in mycorrhizal mycelial interconnectivity following yesterday's non-extractive nitrogen amendment.`,
       author: 'Dr. Kwame Mensah',
       authorRole: 'Chief Biogeochemist',
-      recordedAt: Date.now() - 3600000 * 4,
+      recordedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
       audioDurationSeconds: 14,
       tags: ['Mycorrhizal', 'Impedance', 'Soil Health'],
-      certaintyLevel: 'measured'
+      missionTags: ['#MycorrhizalNetwork', '#SubsurfaceTelemetry'],
+      certaintyLevel: 'measured',
+      cryptographicHash: '0x9482bca01e74921b4a'
     },
     {
       id: `seed-note-2-${labId}`,
       labId,
+      labName,
+      location: labLocation || 'Lake Victoria Shoreline Research Enclave',
+      coordinates: [-0.0917, 34.7680],
+      elevation: '1,134m ASL',
+      bioregionGrid: 'KE-VIC-BASIN-02',
       transcript: `Turbidity sensor calibrated at point delta-7. Desalination brine recirculation loops are maintaining 99.2% zero-discharge purity targets without secondary thermal dissipation.`,
       author: 'Steward Layla Al-Hassan',
       authorRole: 'Hydrological Systems Lead',
-      recordedAt: Date.now() - 3600000 * 18,
+      recordedAt: new Date(Date.now() - 3600000 * 18).toISOString(),
       audioDurationSeconds: 22,
       tags: ['Hydrology', 'Zero Discharge', 'Desalination'],
-      certaintyLevel: 'observed'
+      missionTags: ['#ZeroDischargeBrine', '#DesalCalibration'],
+      certaintyLevel: 'observed',
+      cryptographicHash: '0x3819fa00bc192841ea'
     }
   ];
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Audio recording refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -475,13 +491,7 @@ export const FieldNoteRecorder: React.FC<FieldNoteRecorderProps> = ({
             </button>
           </div>
           <FieldNoteAudioPlayer
-            transcript={selectedPlayingNote.transcript}
-            author={selectedPlayingNote.author}
-            authorRole={selectedPlayingNote.authorRole}
-            durationSeconds={selectedPlayingNote.audioDurationSeconds || 15}
-            recordedAt={selectedPlayingNote.recordedAt}
-            tags={selectedPlayingNote.tags}
-            autoPlay={true}
+            note={selectedPlayingNote}
           />
         </div>
       )}

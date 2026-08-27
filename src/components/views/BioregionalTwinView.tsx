@@ -22,6 +22,7 @@ import { BioregionalTwinScenario, CausalInterventionParam } from '../../types';
 import { BIOREGIONAL_TWIN_SCENARIOS } from '../../data/aiEnginesData';
 import { EcologicalAlertSystem } from '../EcologicalAlertSystem';
 import { RealityCheck } from '../RealityCheck';
+import { BioregionalGoalsPanel } from '../bioregional/BioregionalGoalsPanel';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 // High-fidelity abstract bioregional health visual backgrounds generated via Imagen
@@ -190,6 +191,11 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
             'Assumes human labor compliance with regenerative agroforestry protocols is maintained above 85%.'
           ]
         }}
+      />
+
+      {/* Active Bioregional Goals Panel (Firestore Driven) */}
+      <BioregionalGoalsPanel 
+        selectedBioregionId={selectedScenario.id}
       />
 
       {/* Scenario Selector Ribbon */}

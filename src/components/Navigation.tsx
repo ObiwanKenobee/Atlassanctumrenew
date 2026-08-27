@@ -27,8 +27,10 @@ import { useAuth } from '../context/AuthContext';
 import { UncertaintyOverlayToggle } from '../context/UncertaintyOverlayContext';
 import { OfflineModeToggle } from './navigation/OfflineModeToggle';
 import { MoralAlignmentHUD } from './MoralAlignmentHUD';
+import { VercelEdgeHeaderBadge } from './navigation/VercelEdgeHeaderBadge';
 import { audioFeedback } from '../lib/audioFeedback';
 import { prefetchView } from '../lib/viewPrefetch';
+import { prefetchController } from '../lib/prefetchController';
 
 interface NavigationProps {
   currentTab: PageView;
@@ -216,7 +218,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 className="relative"
                 onMouseEnter={() => {
                   if (item.targetTab) {
-                    prefetchView(item.targetTab as any);
+                    prefetchController.observeHover(item.targetTab as any);
                   }
                   if (hasSubmenu) {
                     setActiveMenuId(item.id);
@@ -352,6 +354,9 @@ export const Navigation: React.FC<NavigationProps> = ({
               ⌘K
             </kbd>
           </button>
+
+          {/* Vercel Edge Serverless Function Health Status Badge & Popover */}
+          <VercelEdgeHeaderBadge onSelectTab={onSelectTab} />
 
           {/* Persistent Global Forced Offline Mode Toggle */}
           <OfflineModeToggle />

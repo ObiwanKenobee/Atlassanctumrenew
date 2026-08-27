@@ -142,6 +142,9 @@ export interface FieldLabNote {
   labId: string;
   labName: string;
   location?: string;
+  coordinates?: [number, number];
+  elevation?: string;
+  bioregionGrid?: string;
   author: string;
   authorRole?: string;
   audioDurationSeconds?: number;
@@ -149,10 +152,37 @@ export interface FieldLabNote {
   keyTakeaways?: string[];
   fieldObservations?: string;
   tags?: string[];
+  missionTags?: string[];
   certaintyLevel?: 'observed' | 'measured' | 'anecdotal';
   cryptographicHash?: string;
   recordedAt: string | any;
   syncedToFirestore?: boolean;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface BioregionalGoal {
+  id: string;
+  bioregionId: string;
+  bioregionName: string;
+  title: string;
+  targetMetric: string;
+  currentValue: number;
+  targetValue: number;
+  unit: string;
+  category: 'canopy_cover' | 'aquifer_health' | 'soil_carbon' | 'biodiversity' | 'microclimate' | 'zero_waste';
+  status: 'on_track' | 'lagging' | 'accelerating' | 'achieved';
+  deadlineYear: number;
+  baselineYear: number;
+  baselineValue: number;
+  leadSteward: string;
+  stewardRole?: string;
+  lastUpdated: number | string;
+  description: string;
+  interventionActions?: string[];
+  verificationSensorType?: string;
+  moralAlignmentScore?: number;
+  trajectoryProgress?: number; // 0 - 100
   createdAt?: any;
   updatedAt?: any;
 }
@@ -766,6 +796,209 @@ export const db = {
           bioregion: 'Civilizational Regenerative Steady-State',
           notes: 'Planetary boundary reintegration and universal human flourishing threshold.',
           cryptographicHash: '0x3444ee9677bc8810'
+        }
+      ];
+    }
+  },
+
+  // 7. Bioregional Ecological Goals & Targets Collection
+  bioregionalGoals: {
+    async listAll(): Promise<BioregionalGoal[]> {
+      const live = await db.query<BioregionalGoal>('bioregional_goals', orderBy('deadlineYear', 'asc'));
+      if (live && live.length > 0) return live;
+      return db.bioregionalGoals.getSeedGoals();
+    },
+
+    async create(goal: Omit<BioregionalGoal, 'id'> & { id?: string }): Promise<string> {
+      const id = goal.id || `goal-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const payload: BioregionalGoal = {
+        ...goal,
+        id,
+        lastUpdated: Date.now(),
+        trajectoryProgress: Math.min(100, Math.round(((goal.currentValue - goal.baselineValue) / (goal.targetValue - goal.baselineValue || 1)) * 100))
+      };
+      await db.set<BioregionalGoal>('bioregional_goals', id, payload);
+      return id;
+    },
+
+    async update(id: string, updates: Partial<BioregionalGoal>): Promise<void> {
+      await db.update<BioregionalGoal>('bioregional_goals', id, {
+        ...updates,
+        lastUpdated: Date.now()
+      });
+    },
+
+    subscribe(onNext: (goals: BioregionalGoal[]) => void, onError?: (error: Error) => void) {
+      if (offlineStorage.isEffectivelyOffline()) {
+        db.bioregionalGoals.listAll().then(onNext);
+        return () => {};
+      }
+
+      try {
+        const q = query(collection(firestoreInstance, 'bioregional_goals'), orderBy('deadlineYear', 'asc'));
+        return onSnapshot(
+          q,
+          (snapshot) => {
+            if (snapshot.empty) {
+              onNext(db.bioregionalGoals.getSeedGoals());
+              return;
+            }
+            const goals: BioregionalGoal[] = [];
+            snapshot.forEach((docSnap) => {
+              goals.push({ id: docSnap.id, ...docSnap.data() } as BioregionalGoal);
+            });
+            offlineStorage.cacheCollection('bioregional_goals', goals).catch(() => {});
+            onNext(goals);
+          },
+          (err) => {
+            console.warn('Bioregional goals live subscription fallback:', err);
+            db.bioregionalGoals.listAll().then(onNext);
+            if (onError) onError(err);
+          }
+        );
+      } catch (e: any) {
+        console.warn('Subscription error:', e);
+        db.bioregionalGoals.listAll().then(onNext);
+        return () => {};
+      }
+    },
+
+    getSeedGoals(): BioregionalGoal[] {
+      return [
+        {
+          id: 'goal-aberdare-canopy',
+          bioregionId: 'bioregion-aberdare',
+          bioregionName: 'Aberdare Cloud Forest & Highland Catchment',
+          title: 'Upper Catchment Native Canopy Cover Restoration',
+          targetMetric: 'Canopy Density Index (NDVI + Multispectral LiDAR)',
+          currentValue: 68.4,
+          targetValue: 85.0,
+          unit: '% Cover',
+          category: 'canopy_cover',
+          status: 'accelerating',
+          deadlineYear: 2028,
+          baselineYear: 2022,
+          baselineValue: 54.0,
+          leadSteward: 'Dr. Wanjiku Mwangi',
+          stewardRole: 'Head Silvicultural Ecologist',
+          lastUpdated: Date.now() - 86400000 * 2,
+          description: 'Reconnecting fragmented alpine podocarpus-bamboo corridors to restore thermal orographic cloud condensation and endemic colobus monkey habitats.',
+          interventionActions: [
+            'Indigenous nursery expansion with 400,000 seedlings/yr',
+            'Community agroforestry buffer fences against invasive grazing',
+            'Mycorrhizal spore inoculation across degraded ridge scars'
+          ],
+          verificationSensorType: 'Sentinel-2 Multispectral + GEDI Spaceborne LiDAR',
+          moralAlignmentScore: 98,
+          trajectoryProgress: 46
+        },
+        {
+          id: 'goal-turkana-aquifer',
+          bioregionId: 'bioregion-turkana',
+          bioregionName: 'Turkana-Omo Dryland Aquifer System',
+          title: 'Deep Aquifer Recharge & Zero-Discharge Desalination Recovery',
+          targetMetric: 'Piezometric Head Pressure & Groundwater Table Stability',
+          currentValue: 1.82,
+          targetValue: 2.50,
+          unit: 'bar Pressure',
+          category: 'aquifer_health',
+          status: 'on_track',
+          deadlineYear: 2030,
+          baselineYear: 2023,
+          baselineValue: 1.10,
+          leadSteward: 'Steward Ekitela Lokidor',
+          stewardRole: 'Turkana Hydrological Council Lead',
+          lastUpdated: Date.now() - 86400000 * 5,
+          description: 'Transitioning pastoral watering points to solar-powered reverse osmosis with subterranean sand-dam infiltration trenches.',
+          interventionActions: [
+            '12 Cascading Sand Dams across ephemeral Lugga riverbeds',
+            'ZKP-attested piezometer sensor mesh with hourly head pressure logging',
+            'Brine recirculation into spirulina cultivation basins'
+          ],
+          verificationSensorType: 'Subterranean Piezometer IoT Sensor Mesh + InSAR Surface Subsidence Radar',
+          moralAlignmentScore: 96,
+          trajectoryProgress: 51
+        },
+        {
+          id: 'goal-mara-soil',
+          bioregionId: 'bioregion-mara',
+          bioregionName: 'Mara-Serengeti River Basin & Savanna Corridor',
+          title: 'Soil Organic Carbon (SOM) Sponge & Holistic Grazing Regeneration',
+          targetMetric: 'Soil Organic Matter (SOM) & Moisture Retention Threshold',
+          currentValue: 2.85,
+          targetValue: 4.20,
+          unit: '% SOM',
+          category: 'soil_carbon',
+          status: 'on_track',
+          deadlineYear: 2029,
+          baselineYear: 2021,
+          baselineValue: 1.40,
+          leadSteward: 'Lemayan Ole Kaelo',
+          stewardRole: 'Rangeland Stewardship Elder',
+          lastUpdated: Date.now() - 86400000 * 3,
+          description: 'Restoring mycorrhizal fungi and perennial deep-root bunchgrasses through rotational herd bunched grazing covenants.',
+          interventionActions: [
+            'GPS-tracked rotational bomas covering 34,000 pastoral hectares',
+            'Pyrolysis biochar field soil amendments enriched with compost tea',
+            'Quad-annual deep core elemental dry-combustion carbon audits'
+          ],
+          verificationSensorType: 'Hyperspectral UAV Reflection + Triple-Blind Laboratory Dry Combustion',
+          moralAlignmentScore: 97,
+          trajectoryProgress: 52
+        },
+        {
+          id: 'goal-nairobi-microclimate',
+          bioregionId: 'bioregion-nairobi',
+          bioregionName: 'Nairobi River Basin & Urban Bioregion',
+          title: 'Urban Heat Island Microclimate Mitigation & Riparian Bioswales',
+          targetMetric: 'Surface Ambient Temperature Delta vs Concrete Core',
+          currentValue: 1.7,
+          targetValue: 3.2,
+          unit: '°C Cooling',
+          category: 'microclimate',
+          status: 'lagging',
+          deadlineYear: 2027,
+          baselineYear: 2023,
+          baselineValue: 0.4,
+          leadSteward: 'Eng. Farida Omar',
+          stewardRole: 'Urban Ecological Infrastructure Lead',
+          lastUpdated: Date.now() - 86400000 * 1,
+          description: 'Retrofitting Mathare and Korogocho riparian zones with continuous vegetated bioswales and vertical bio-composite living walls.',
+          interventionActions: [
+            '28 Constructed wetland bio-filter modules along Mathare River',
+            'Shade tree planting along high-density pedestrian thoroughfares',
+            'Zero-cement permeable paver installations by youth artisan guilds'
+          ],
+          verificationSensorType: 'Micro-Weather Stations & FLIR Thermal Aerial Imagery',
+          moralAlignmentScore: 94,
+          trajectoryProgress: 46
+        },
+        {
+          id: 'goal-mombasa-coastal-blue',
+          bioregionId: 'bioregion-mombasa',
+          bioregionName: 'Mombasa Coastal Mangrove & Marine Basin',
+          title: 'Mangrove Carbon Sequestration & Coral Reef Nursery Restoration',
+          targetMetric: 'Restored Mangrove Biomass & Coral Colony Recruitment',
+          currentValue: 1840,
+          targetValue: 3500,
+          unit: 'Hectares',
+          category: 'biodiversity',
+          status: 'accelerating',
+          deadlineYear: 2029,
+          baselineYear: 2022,
+          baselineValue: 620,
+          leadSteward: 'Captain Hassan Bakari',
+          stewardRole: 'Marine Biologist & Artisanal Fisher Lead',
+          lastUpdated: Date.now() - 86400000 * 4,
+          description: 'Restoring degraded intertidal mangrove forests and propagating heat-resilient coral micro-fragments along the Tudor Creek lagoon.',
+          interventionActions: [
+            'Community mangrove nurseries cultivating Rhizophora mucronata',
+            'Subsea ceramic reef frames with micro-current electrolyte stimulation',
+            'Acoustic hydrophone telemetry monitoring reef fish return'
+          ],
+          verificationSensorType: 'Acoustic Reef Hydrophones + High-Res PlanetScope Satellite Imagery',
+          moralAlignmentScore: 99,
+          trajectoryProgress: 42
         }
       ];
     }

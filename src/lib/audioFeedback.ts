@@ -59,7 +59,7 @@ class AudioFeedbackEngine {
   /**
    * Generates a soft harmonic bell with warm exponential decay.
    */
-  private playBell(frequencies: number[], duration = 0.8, type: OscillatorType = 'sine', baseGain = 1.0) {
+  public playBell(frequencies: number[], duration = 0.8, type: OscillatorType = 'sine', baseGain = 1.0) {
     if (this.isMuted) return;
     const ctx = this.getContext();
     if (!ctx) return;
@@ -108,6 +108,20 @@ class AudioFeedbackEngine {
    */
   public playSyncComplete() {
     this.playBell([528, 660, 792], 0.7, 'sine', 0.85);
+  }
+
+  /**
+   * Success notification chime
+   */
+  public playSuccess() {
+    this.playSyncComplete();
+  }
+
+  /**
+   * Success chime alias
+   */
+  public playSuccessChime() {
+    this.playSyncComplete();
   }
 
   /**
@@ -162,6 +176,13 @@ class AudioFeedbackEngine {
 
     osc.start(now);
     osc.stop(now + 0.035);
+  }
+
+  /**
+   * Soft click feedback alias
+   */
+  public playSoftClick() {
+    this.playMicroTick();
   }
 
   /**

@@ -23,11 +23,13 @@ import { GlobalEpistemicSearch } from './components/GlobalEpistemicSearch';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
+import { usePrefetchController } from './hooks/usePrefetchController';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
 
 // Lazy-Loaded Views for instant code-splitting and progressive delivery
 const AtlasHomeView = React.lazy(() => import('./components/views/AtlasHomeView').then(m => ({ default: m.AtlasHomeView })));
 const AgentMissionControlView = React.lazy(() => import('./components/views/AgentMissionControlView').then(m => ({ default: m.AgentMissionControlView })));
+const AIEngineeringView = React.lazy(() => import('./components/views/AIEngineeringView').then(m => ({ default: m.AIEngineeringView })));
 const SystemModelStudioView = React.lazy(() => import('./components/views/SystemModelStudioView').then(m => ({ default: m.SystemModelStudioView })));
 const OpportunityIntelligenceView = React.lazy(() => import('./components/views/OpportunityIntelligenceView').then(m => ({ default: m.OpportunityIntelligenceView })));
 const DecisionRoomView = React.lazy(() => import('./components/views/DecisionRoomView').then(m => ({ default: m.DecisionRoomView })));
@@ -75,6 +77,9 @@ export default function App() {
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false);
   const [provenanceModalData, setProvenanceModalData] = useState<DataProvenance | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Automated Prefetch Controller: proactively preloads dynamic view bundles based on user navigation affinity
+  usePrefetchController(currentTab);
 
   // Global keyboard shortcuts & custom event listeners
   useEffect(() => {
@@ -207,6 +212,10 @@ export default function App() {
                       onInspectProvenance={handleInspectProvenance}
                       onOpenSystemsModeler={() => handleSelectTab('system-model-studio')}
                     />
+                  )}
+
+                  {currentTab === 'ai-engineering' && (
+                    <AIEngineeringView />
                   )}
 
                   {currentTab === 'system-model-studio' && (

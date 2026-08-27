@@ -6,6 +6,7 @@
 export type PageView =
   | 'home'
   | 'agent-mission-control'
+  | 'ai-engineering'
   | 'system-model-studio'
   | 'opportunity-intelligence'
   | 'decision-room'
@@ -43,6 +44,129 @@ export type PageView =
   | 'resources'
   | 'governance'
   | 'about';
+
+// AI Engineering & Epistemic Insights Types
+export interface AIEpistemicAuditResult {
+  claim: string;
+  groundingVerificationIndex: number; // 0 - 100
+  hallucinationRiskScore: number; // 0 - 100
+  factualCitationCoverage: number; // 0 - 100
+  verdict: 'VERIFIED_EMPIRICAL' | 'MODEL_CONJECTURE' | 'UNSUPPORTED_RISK' | 'HAZARD_FLAGGED';
+  verdictExplanation: string;
+  groundedSources: Array<{
+    title: string;
+    url: string;
+    telemetrySource?: string;
+    reliabilityScore: number;
+  }>;
+  epistemicGaps: string[];
+  suggestedCalibrations: string[];
+  timestamp: string;
+}
+
+export interface ConnectivityDiagnosticResult {
+  overallHealth: 'HEALTHY' | 'DEGRADED' | 'CRITICAL';
+  geminiApi: {
+    status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'KEY_MISSING';
+    latencyMs: number;
+    model: string;
+    keyConfigured: boolean;
+    endpoint: string;
+    details?: string;
+  };
+  vercelEdge: {
+    status: 'ONLINE' | 'STANDALONE_DEV' | 'UNAVAILABLE';
+    latencyMs: number;
+    region: string;
+    isVercelServerless: boolean;
+    runtime: string;
+    details?: string;
+  };
+  firestore: {
+    status: 'ONLINE' | 'OFFLINE' | 'UNCONFIGURED';
+    latencyMs: number;
+    projectId: string;
+    details?: string;
+  };
+  webSocket: {
+    status: 'READY' | 'UNAVAILABLE' | 'DISABLED';
+    path: string;
+    details?: string;
+  };
+  environmentVariables: Array<{
+    name: string;
+    configured: boolean;
+    required: boolean;
+    scope: 'SERVER' | 'CLIENT';
+    description: string;
+  }>;
+  diagnosticChecks: Array<{
+    id: string;
+    name: string;
+    status: 'PASS' | 'WARN' | 'FAIL';
+    message: string;
+    remediation?: string;
+  }>;
+  timestamp: string;
+}
+
+export interface VercelBuildLog {
+  id: string;
+  timestamp: string;
+  level: 'info' | 'warn' | 'error' | 'success';
+  phase: 'INIT' | 'CLONE' | 'BUILD' | 'CHUNKING' | 'EDGE_FUNCTIONS' | 'DEPLOY' | 'HEALTH_CHECK';
+  message: string;
+  durationMs?: number;
+}
+
+export interface VercelDeploymentStatus {
+  deploymentId: string;
+  url: string;
+  state: 'READY' | 'BUILDING' | 'ERROR' | 'QUEUED' | 'CANCELED';
+  creator: string;
+  branch: string;
+  commitMessage: string;
+  createdAt: string;
+  readyAt?: string;
+  buildDurationSeconds: number;
+  environment: 'production' | 'preview' | 'development';
+  bundleStats: {
+    totalSizeKb: number;
+    chunkCount: number;
+    largestChunk: string;
+    largestChunkSizeKb: number;
+    serverlessFunctionCount: number;
+    gzipSavingsPct: number;
+  };
+  logs: VercelBuildLog[];
+  source: 'live_vercel_api' | 'synthetic_build_monitor';
+}
+
+export interface AITelemetryMetrics {
+  activeModel: string;
+  ttftMs: number; // Time to first token
+  totalLatencyMs: number;
+  tokensPerSecond: number;
+  inputTokens: number;
+  outputTokens: number;
+  thinkingTokens: number;
+  promptCacheHitRate: number; // 0 - 100
+  memoryHeapMb: number;
+  uptimeSeconds: number;
+  epistemicCertaintyScore: number;
+}
+
+export interface AgentToolExecutionRecord {
+  toolId: string;
+  toolName: string;
+  invokedByAgent: string;
+  inputParameters: Record<string, any>;
+  outputResult: Record<string, any>;
+  latencyMs: number;
+  status: 'SUCCESS' | 'ERROR' | 'FALLBACK';
+  cryptographicProofHash: string;
+  timestamp: string;
+}
 
 export type ScaleLevel = 'planet' | 'continent' | 'country' | 'region' | 'city' | 'community' | 'project';
 
@@ -249,6 +373,46 @@ export interface EvidenceLedgerEntry {
   timestamp: string;
   verifier: string;
   attributionType: 'Attribution' | 'Contribution' | 'Correlation';
+  moralAlignmentScore?: number; // 0 - 100 moral compliance score
+  regenerativePotentialPriority?: 'Critical' | 'High' | 'Medium' | 'Foundational' | 'Critical Priority' | 'High Impact' | 'Catalytic';
+  regenerativeScore?: number; // 0 - 100 priority score
+  version?: number;
+  localUpdatedAt?: number;
+  remoteUpdatedAt?: number;
+  isLocalDraft?: boolean;
+  hasConflict?: boolean;
+  conflictData?: {
+    remoteConfidenceScore?: number;
+    remoteOutcome?: string;
+    remoteVerifier?: string;
+    remoteTimestamp?: string;
+    localModifiedAt?: number;
+    remoteModifiedAt?: number;
+  };
+}
+
+export interface BioregionalGoal {
+  id: string;
+  bioregionId: string;
+  bioregionName: string;
+  title: string;
+  targetMetric: string;
+  currentValue: number;
+  targetValue: number;
+  unit: string;
+  category: 'canopy_cover' | 'aquifer_health' | 'soil_carbon' | 'biodiversity' | 'microclimate' | 'zero_waste';
+  status: 'on_track' | 'lagging' | 'accelerating' | 'achieved';
+  deadlineYear: number;
+  baselineYear: number;
+  baselineValue: number;
+  leadSteward: string;
+  stewardRole?: string;
+  lastUpdated: number | string;
+  description: string;
+  interventionActions?: string[];
+  verificationSensorType?: string;
+  moralAlignmentScore?: number;
+  trajectoryProgress?: number; // 0 - 100
 }
 
 export interface FieldLab {
@@ -753,7 +917,13 @@ export type MissionAlertType =
   | 'telemetry_anomaly'
   | 'stewardship_endorsed'
   | 'tranche_released'
-  | 'reality_check_warning';
+  | 'reality_check_warning'
+  | 'infrastructure_error'
+  | 'environment_failure'
+  | 'connectivity_degraded'
+  | 'vercel_build_failed'
+  | 'vercel_preview_failed'
+  | 'vercel_build_succeeded';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical' | 'success';
 
@@ -778,6 +948,12 @@ export interface MissionAlert {
     anomalyMetric?: string;
     reading?: string;
     threshold?: string;
+    remediation?: string;
+    endpoint?: string;
+    httpStatus?: number;
+    geminiStatus?: string;
+    vercelEdge?: string;
+    [key: string]: any;
   };
 }
 
@@ -1077,8 +1253,108 @@ export interface AgentDefinition {
   deploymentEnvironment: string;
 }
 
+// -------------------------------------------------------------
+// VERCEL BUILD WEBHOOKS, API INTEGRATION & EDGE HEALTH TYPES
+// -------------------------------------------------------------
+
+export type VercelWebhookEventType =
+  | 'deployment.created'
+  | 'deployment.building'
+  | 'deployment.succeeded'
+  | 'deployment.ready'
+  | 'deployment.error'
+  | 'deployment.canceled';
+
+export type VercelDeploymentTarget = 'production' | 'preview' | 'development';
+
+export interface VercelWebhookPayload {
+  id: string;
+  type: VercelWebhookEventType;
+  createdAt: number;
+  payload: {
+    user: {
+      id: string;
+      username: string;
+    };
+    team?: {
+      id: string;
+      slug: string;
+      name: string;
+    };
+    deployment: {
+      id: string;
+      name: string;
+      url: string;
+      inspectorUrl?: string;
+      target?: VercelDeploymentTarget;
+      meta?: {
+        githubCommitRef?: string;
+        githubCommitSha?: string;
+        githubCommitMessage?: string;
+        githubCommitAuthorName?: string;
+        [key: string]: any;
+      };
+      errorMessage?: string;
+      errorCode?: string;
+      errorLink?: string;
+    };
+    links?: {
+      deployment?: string;
+      project?: string;
+    };
+    plan?: string;
+    project?: {
+      id: string;
+      name: string;
+    };
+  };
+  signatureVerified?: boolean;
+  receivedAt: string;
+}
+
+export interface VercelRuntimeErrorLog {
+  id: string;
+  timestamp: string;
+  deploymentId: string;
+  deploymentUrl: string;
+  environment: VercelDeploymentTarget;
+  functionName: string;
+  statusCode: number;
+  errorCode: string;
+  message: string;
+  stackTrace?: string;
+  region: string;
+  executionDurationMs: number;
+  memoryUsedMb: number;
+}
+
+export interface EdgeHealthStats {
+  status: 'HEALTHY' | 'DEGRADED' | 'OUTAGE';
+  region: string;
+  latencyMs: number;
+  uptimePercentage30d: number;
+  timeoutsLast24h: number;
+  lastSuccessfulDeployTime: string;
+  lastSuccessfulDeployBranch: string;
+  lastSuccessfulDeployCommit: string;
+  activeDeployUrl: string;
+  serverlessFunctionCount: number;
+  cacheHitRatioPct: number;
+}
+
+export interface PrefetchStats {
+  totalPrefetched: number;
+  cacheHitCount: number;
+  prefetchedViews: string[];
+  lastPrefetchedView?: string;
+  networkCondition: '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
+  saveDataEnabled: boolean;
+  predictionAccuracy: number; // percentage
+}
+
 // Re-export all Systems Dynamics & Modelling types
 export * from './types/systemsDynamics';
+
 
 
 

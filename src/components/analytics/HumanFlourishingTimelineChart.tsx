@@ -54,7 +54,7 @@ interface DimensionConfig {
   key: FlourishingDimensionKey;
   label: string;
   shortLabel: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   color: string;
   fillGradientId: string;
   description: string;

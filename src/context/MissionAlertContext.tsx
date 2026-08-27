@@ -19,6 +19,15 @@ export interface MissionAlertContextType {
   clearAlerts: () => void;
   addAlert: (alert: Omit<MissionAlert, 'id' | 'timestamp' | 'read'>) => void;
   simulateTriggerAlert: (type?: MissionAlertType) => void;
+  triggerInfrastructureAlert: (
+    title: string,
+    message: string,
+    severity?: 'critical' | 'warning' | 'info',
+    metadata?: Record<string, any>
+  ) => void;
+  checkInfrastructureHealth: () => Promise<void>;
+  simulateVercelWebhook: (type: 'deployment.error' | 'deployment.succeeded' | 'deployment.canceled', target?: 'production' | 'preview', customError?: string) => Promise<void>;
+  pollVercelWebhooks: () => Promise<void>;
 }
 
 const INITIAL_ALERTS: MissionAlert[] = [
@@ -197,8 +206,225 @@ export const MissionAlertProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  const triggerInfrastructureAlert = (
+    title: string,
+    message: string,
+    severity: 'critical' | 'warning' | 'info' = 'critical',
+    metadata?: Record<string, any>
+  ) => {
+    addAlert({
+      missionId: 'system-infrastructure-core',
+      missionTitle: 'Atlas Infrastructure & Deployment Mesh',
+      type: severity === 'critical' ? 'infrastructure_error' : 'connectivity_degraded',
+      severity,
+      title,
+      message,
+      targetView: 'ai-engineering' as PageView,
+      targetId: 'diagnostic-panel',
+      cryptographicHash: `0x${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`,
+      metadata: {
+        verifiedBy: 'Atlas Runtime Diagnostic Watcher',
+        certaintyScore: 99,
+        epistemicTier: 'Deterministic System Probe',
+        ...metadata
+      }
+    });
+  };
+
+  // Diagnostic health check function
+  const checkInfrastructureHealth = async () => {
+    try {
+      const res = await fetch('/api/diagnostics/connectivity');
+      if (!res.ok) {
+        triggerInfrastructureAlert(
+          'API Gateway Status Degraded',
+          `HTTP ${res.status} returned from serverless diagnostic route. Dev server or Vercel Edge proxy may be experiencing cold-start or routing delays.`,
+          'warning',
+          { endpoint: '/api/diagnostics/connectivity', httpStatus: res.status }
+        );
+        return;
+      }
+      const data = await res.json();
+      if (data.overallHealth === 'CRITICAL') {
+        triggerInfrastructureAlert(
+          'Critical Infrastructure Failure Detected',
+          data.geminiApi?.details || 'Multiple core microservices are currently offline or unreachable.',
+          'critical',
+          { geminiStatus: data.geminiApi?.status, vercelEdge: data.vercelEdge?.status }
+        );
+      } else if (data.geminiApi?.status === 'KEY_MISSING') {
+        // Only trigger once if not already notified
+        const alreadyNotified = alerts.some(a => a.type === 'environment_failure' && a.title.includes('GEMINI_API_KEY'));
+        if (!alreadyNotified) {
+          addAlert({
+            missionId: 'system-infrastructure-core',
+            missionTitle: 'Atlas Intelligence Core',
+            type: 'environment_failure',
+            severity: 'warning',
+            title: 'Environment Config Notice: GEMINI_API_KEY Missing',
+            message: 'GEMINI_API_KEY is not configured in environment variables. AI reasoning and multimodal features are running in fallback mode.',
+            targetView: 'ai-engineering' as PageView,
+            targetId: 'diagnostic-panel',
+            metadata: {
+              remediation: 'Configure GEMINI_API_KEY in platform secrets or Vercel Environment Variables.'
+            }
+          });
+        }
+      }
+    } catch (err: any) {
+      console.warn('[INFRA-HEALTH] Diagnostic probe failed:', err);
+    }
+  };
+
+  // Set of processed webhook IDs to prevent duplicate alerts
+  const [processedWebhookIds, setProcessedWebhookIds] = useState<Set<string>>(() => {
+    return new Set<string>(['wh_init_prod_success']);
+  });
+
+  // Vercel Webhook Event Listener & Poller
+  const pollVercelWebhooks = async () => {
+    try {
+      const res = await fetch('/api/webhooks/vercel/events');
+      if (!res.ok) return;
+      const data = await res.json();
+      const events = data.events || [];
+
+      events.forEach((evt: any) => {
+        if (processedWebhookIds.has(evt.id)) return;
+
+        setProcessedWebhookIds(prev => new Set(prev).add(evt.id));
+
+        const target = evt.payload?.deployment?.target || 'production';
+        const commitMsg = evt.payload?.deployment?.meta?.githubCommitMessage || 'Vercel Deployment';
+        const branch = evt.payload?.deployment?.meta?.githubCommitRef || 'main';
+        const author = evt.payload?.deployment?.meta?.githubCommitAuthorName || 'Atlas Contributor';
+        const errorMsg = evt.payload?.deployment?.errorMessage || 'Deployment failed during edge container initialization.';
+        const url = evt.payload?.deployment?.url || 'atlassanctum.vercel.app';
+
+        if (evt.type === 'deployment.error' || evt.type === 'deployment.canceled') {
+          const isProduction = target === 'production';
+          const alertType: MissionAlertType = isProduction ? 'vercel_build_failed' : 'vercel_preview_failed';
+
+          addAlert({
+            missionId: 'system-infrastructure-core',
+            missionTitle: `Vercel CI/CD (${target.toUpperCase()})`,
+            type: alertType,
+            severity: 'critical',
+            title: `Vercel ${target.toUpperCase()} Deployment Failure: ${branch}`,
+            message: `Deployment to ${url} failed for commit "${commitMsg}" (${author}). Error: ${errorMsg}`,
+            targetView: 'ai-engineering' as PageView,
+            targetId: 'deployment-monitor',
+            cryptographicHash: `0x${evt.id}_${Math.random().toString(16).substring(2, 10)}`,
+            metadata: {
+              verifiedBy: 'Vercel Build Webhook Gateway',
+              certaintyScore: 100,
+              epistemicTier: 'Authoritative CI/CD Webhook',
+              targetEnvironment: target,
+              branch,
+              commitMessage: commitMsg,
+              deploymentUrl: url,
+              errorMessage: errorMsg,
+              remediation: 'Inspect build logs in AI Engineering View -> Deployment Monitor or fix typescript / chunking errors.'
+            }
+          });
+        } else if (evt.type === 'deployment.succeeded' || evt.type === 'deployment.ready') {
+          addAlert({
+            missionId: 'system-infrastructure-core',
+            missionTitle: `Vercel CI/CD (${target.toUpperCase()})`,
+            type: 'vercel_build_succeeded',
+            severity: 'success',
+            title: `Vercel ${target.toUpperCase()} Build Succeeded: ${branch}`,
+            message: `New build successfully deployed to ${url}. Global edge functions verified and active.`,
+            targetView: 'ai-engineering' as PageView,
+            targetId: 'deployment-monitor',
+            cryptographicHash: `0x${evt.id}_${Math.random().toString(16).substring(2, 10)}`,
+            metadata: {
+              verifiedBy: 'Vercel Edge Delivery Mesh',
+              certaintyScore: 100,
+              targetEnvironment: target,
+              branch,
+              deploymentUrl: url
+            }
+          });
+        }
+      });
+    } catch (err) {
+      console.warn('[VERCEL-WEBHOOK] Webhook poll error:', err);
+    }
+  };
+
+  const simulateVercelWebhook = async (
+    type: 'deployment.error' | 'deployment.succeeded' | 'deployment.canceled',
+    target: 'production' | 'preview' = 'production',
+    customError?: string
+  ) => {
+    try {
+      const res = await fetch('/api/webhooks/vercel/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, target, customError }),
+      });
+      if (res.ok) {
+        audioFeedback.playSubtleClick();
+        await pollVercelWebhooks();
+      }
+    } catch (err) {
+      console.warn('[VERCEL-WEBHOOK] Simulate failed:', err);
+    }
+  };
+
+  // Initial and periodic background connectivity & environment health audit + webhook polling
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      checkInfrastructureHealth();
+      pollVercelWebhooks();
+    }, 2000);
+
+    const interval = setInterval(() => {
+      checkInfrastructureHealth();
+      pollVercelWebhooks();
+    }, 15000); // Check webhook event queue every 15s
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [processedWebhookIds]);
+
   const simulateTriggerAlert = (type?: MissionAlertType) => {
     const simulations: Array<Omit<MissionAlert, 'id' | 'timestamp' | 'read'>> = [
+      {
+        missionId: 'system-infrastructure-core',
+        missionTitle: 'Atlas Infrastructure & Deployment Mesh',
+        type: 'infrastructure_error',
+        severity: 'critical',
+        title: 'Infrastructure Alert: Vercel Edge Serverless Timeout (504)',
+        message: 'Edge function /api/gemini/stream exceeded execution timeout threshold (10,000ms). Manual chunking and streaming buffer recalibrated.',
+        cryptographicHash: `0x${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`,
+        targetView: 'ai-engineering' as PageView,
+        targetId: 'diagnostic-panel',
+        metadata: {
+          verifiedBy: 'Vercel Edge Telemetry Monitor',
+          certaintyScore: 99,
+          anomalyMetric: 'Function Latency',
+          reading: '10,240ms',
+          threshold: '10,000ms'
+        }
+      },
+      {
+        missionId: 'system-infrastructure-core',
+        missionTitle: 'Atlas Infrastructure & Deployment Mesh',
+        type: 'environment_failure',
+        severity: 'warning',
+        title: 'Environment Variable Notice: GEMINI_API_KEY Deprecated Version',
+        message: 'Detected Gemini API token nearing rate-limit quota or requiring rotation. Falling back to Gemini 3.7 Flash high-efficiency tier.',
+        cryptographicHash: `0x${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`,
+        targetView: 'ai-engineering' as PageView,
+        targetId: 'diagnostic-panel',
+        metadata: {
+          verifiedBy: 'Atlas Secret Watcher'
+        }
+      },
       {
         missionId: 'mission-mathare-river',
         missionTitle: 'Mathare River Regeneration',
@@ -286,7 +512,11 @@ export const MissionAlertProvider: React.FC<{ children: React.ReactNode }> = ({ 
         markAllAsRead,
         clearAlerts,
         addAlert,
-        simulateTriggerAlert
+        simulateTriggerAlert,
+        triggerInfrastructureAlert,
+        checkInfrastructureHealth,
+        simulateVercelWebhook,
+        pollVercelWebhooks
       }}
     >
       {children}

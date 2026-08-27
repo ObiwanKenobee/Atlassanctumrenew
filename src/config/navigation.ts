@@ -102,6 +102,18 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
       analytics: { category: 'Navigation', action: 'navigate_agent_mission_control' }
     },
 
+    // 1c. AI Engineering & Epistemic Insights Workbench
+    {
+      id: 'ai-engineering',
+      label: 'AI Engineering',
+      labelKey: 'nav.ai_engineering',
+      type: 'link',
+      icon: Cpu,
+      targetTab: 'ai-engineering',
+      badge: { text: 'Gemini 3.7', variant: 'emerald', pulse: true },
+      analytics: { category: 'Navigation', action: 'navigate_ai_engineering' }
+    },
+
     // 2. Civilization Observatory & Sensory Mesh (High-Density Mega Menu)
     {
       id: 'observatory-mega',
@@ -674,6 +686,18 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
           isExternal: true
         }
       ]
+    },
+
+    // 8. About & Sanctum Governance Charter
+    {
+      id: 'about-nav',
+      label: 'About',
+      labelKey: 'nav.about',
+      type: 'link',
+      icon: Info,
+      targetTab: 'about',
+      badge: { text: 'Charter', variant: 'gold' },
+      analytics: { category: 'Navigation', action: 'navigate_about' }
     }
   ],
 
