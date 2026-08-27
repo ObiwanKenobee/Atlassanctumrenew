@@ -5,7 +5,6 @@
 
 export type PageView =
   | 'home'
-  | 'roadmap'
   | 'agent-mission-control'
   | 'ai-engineering'
   | 'system-model-studio'
@@ -63,84 +62,6 @@ export interface AIEpistemicAuditResult {
   epistemicGaps: string[];
   suggestedCalibrations: string[];
   timestamp: string;
-}
-
-export interface ConnectivityDiagnosticResult {
-  overallHealth: 'HEALTHY' | 'DEGRADED' | 'CRITICAL';
-  geminiApi: {
-    status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'KEY_MISSING';
-    latencyMs: number;
-    model: string;
-    keyConfigured: boolean;
-    endpoint: string;
-    details?: string;
-  };
-  vercelEdge: {
-    status: 'ONLINE' | 'STANDALONE_DEV' | 'UNAVAILABLE';
-    latencyMs: number;
-    region: string;
-    isVercelServerless: boolean;
-    runtime: string;
-    details?: string;
-  };
-  firestore: {
-    status: 'ONLINE' | 'OFFLINE' | 'UNCONFIGURED';
-    latencyMs: number;
-    projectId: string;
-    details?: string;
-  };
-  webSocket: {
-    status: 'READY' | 'UNAVAILABLE' | 'DISABLED';
-    path: string;
-    details?: string;
-  };
-  environmentVariables: Array<{
-    name: string;
-    configured: boolean;
-    required: boolean;
-    scope: 'SERVER' | 'CLIENT';
-    description: string;
-  }>;
-  diagnosticChecks: Array<{
-    id: string;
-    name: string;
-    status: 'PASS' | 'WARN' | 'FAIL';
-    message: string;
-    remediation?: string;
-  }>;
-  timestamp: string;
-}
-
-export interface VercelBuildLog {
-  id: string;
-  timestamp: string;
-  level: 'info' | 'warn' | 'error' | 'success';
-  phase: 'INIT' | 'CLONE' | 'BUILD' | 'CHUNKING' | 'EDGE_FUNCTIONS' | 'DEPLOY' | 'HEALTH_CHECK';
-  message: string;
-  durationMs?: number;
-}
-
-export interface VercelDeploymentStatus {
-  deploymentId: string;
-  url: string;
-  state: 'READY' | 'BUILDING' | 'ERROR' | 'QUEUED' | 'CANCELED';
-  creator: string;
-  branch: string;
-  commitMessage: string;
-  createdAt: string;
-  readyAt?: string;
-  buildDurationSeconds: number;
-  environment: 'production' | 'preview' | 'development';
-  bundleStats: {
-    totalSizeKb: number;
-    chunkCount: number;
-    largestChunk: string;
-    largestChunkSizeKb: number;
-    serverlessFunctionCount: number;
-    gzipSavingsPct: number;
-  };
-  logs: VercelBuildLog[];
-  source: 'live_vercel_api' | 'synthetic_build_monitor';
 }
 
 export interface AITelemetryMetrics {
@@ -918,13 +839,7 @@ export type MissionAlertType =
   | 'telemetry_anomaly'
   | 'stewardship_endorsed'
   | 'tranche_released'
-  | 'reality_check_warning'
-  | 'infrastructure_error'
-  | 'environment_failure'
-  | 'connectivity_degraded'
-  | 'vercel_build_failed'
-  | 'vercel_preview_failed'
-  | 'vercel_build_succeeded';
+  | 'reality_check_warning';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical' | 'success';
 
@@ -949,12 +864,6 @@ export interface MissionAlert {
     anomalyMetric?: string;
     reading?: string;
     threshold?: string;
-    remediation?: string;
-    endpoint?: string;
-    httpStatus?: number;
-    geminiStatus?: string;
-    vercelEdge?: string;
-    [key: string]: any;
   };
 }
 
@@ -1254,175 +1163,8 @@ export interface AgentDefinition {
   deploymentEnvironment: string;
 }
 
-// -------------------------------------------------------------
-// VERCEL BUILD WEBHOOKS, API INTEGRATION & EDGE HEALTH TYPES
-// -------------------------------------------------------------
-
-export type VercelWebhookEventType =
-  | 'deployment.created'
-  | 'deployment.building'
-  | 'deployment.succeeded'
-  | 'deployment.ready'
-  | 'deployment.error'
-  | 'deployment.canceled';
-
-export type VercelDeploymentTarget = 'production' | 'preview' | 'development';
-
-export interface VercelWebhookPayload {
-  id: string;
-  type: VercelWebhookEventType;
-  createdAt: number;
-  payload: {
-    user: {
-      id: string;
-      username: string;
-    };
-    team?: {
-      id: string;
-      slug: string;
-      name: string;
-    };
-    deployment: {
-      id: string;
-      name: string;
-      url: string;
-      inspectorUrl?: string;
-      target?: VercelDeploymentTarget;
-      meta?: {
-        githubCommitRef?: string;
-        githubCommitSha?: string;
-        githubCommitMessage?: string;
-        githubCommitAuthorName?: string;
-        [key: string]: any;
-      };
-      errorMessage?: string;
-      errorCode?: string;
-      errorLink?: string;
-    };
-    links?: {
-      deployment?: string;
-      project?: string;
-    };
-    plan?: string;
-    project?: {
-      id: string;
-      name: string;
-    };
-  };
-  signatureVerified?: boolean;
-  receivedAt: string;
-}
-
-export interface VercelRuntimeErrorLog {
-  id: string;
-  timestamp: string;
-  deploymentId: string;
-  deploymentUrl: string;
-  environment: VercelDeploymentTarget;
-  functionName: string;
-  statusCode: number;
-  errorCode: string;
-  message: string;
-  stackTrace?: string;
-  region: string;
-  executionDurationMs: number;
-  memoryUsedMb: number;
-}
-
-export interface EdgeHealthStats {
-  status: 'HEALTHY' | 'DEGRADED' | 'OUTAGE';
-  region: string;
-  latencyMs: number;
-  uptimePercentage30d: number;
-  timeoutsLast24h: number;
-  lastSuccessfulDeployTime: string;
-  lastSuccessfulDeployBranch: string;
-  lastSuccessfulDeployCommit: string;
-  activeDeployUrl: string;
-  serverlessFunctionCount: number;
-  cacheHitRatioPct: number;
-}
-
-export interface PrefetchStats {
-  totalPrefetched: number;
-  cacheHitCount: number;
-  prefetchedViews: string[];
-  lastPrefetchedView?: string;
-  networkCondition: '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
-  saveDataEnabled: boolean;
-  predictionAccuracy: number; // percentage
-}
-
-// Strategic Platform Roadmap & Milestone Delivery Types
-export type RoadmapStatus = 'COMPLETED' | 'ACTIVE_EXECUTION' | 'SCHEDULED' | 'RESEARCH';
-export type MilestoneVerificationType = 
-  | 'CODE_AUDIT' 
-  | 'MERKLE_ROOT' 
-  | 'TELEMETRY_STREAM' 
-  | 'SMART_CONTRACT' 
-  | 'PEER_REVIEW' 
-  | 'EDGE_ENDPOINT'
-  | 'HARDWARE_PILOT';
-
-export interface RoadmapDeliverable {
-  id: string;
-  name: string;
-  completed: boolean;
-  verificationType: MilestoneVerificationType;
-  verificationDetails?: string;
-  linkedView?: PageView;
-  linkedDoc?: string;
-  completionDate?: string;
-  hashProof?: string;
-}
-
-export interface RoadmapMilestone {
-  id: string;
-  title: string;
-  phaseId: string;
-  status: 'COMPLETED' | 'IN_PROGRESS' | 'PLANNED' | 'HORIZON';
-  completionPercentage: number;
-  targetQuarter: string;
-  description: string;
-  deliverables: RoadmapDeliverable[];
-  architecturalLayer: 
-    | 'FOUNDATION' 
-    | 'INTELLIGENCE' 
-    | 'COORDINATION' 
-    | 'VERIFICATION' 
-    | 'PHYSICAL_INTEGRATION' 
-    | 'ECOSYSTEM' 
-    | 'SOVEREIGN_COMMONS';
-  commandmentAlignment: string;
-  telemetryMetric?: {
-    label: string;
-    value: string;
-    unit?: string;
-  };
-}
-
-export interface RoadmapPhase {
-  id: string;
-  phaseNumber: string;
-  title: string;
-  subtitle: string;
-  timeline: string;
-  status: RoadmapStatus;
-  progressPercentage: number;
-  iconName: string;
-  description: string;
-  primaryFocus: string[];
-  keyArchitectureLayers: string[];
-  milestones: RoadmapMilestone[];
-  governanceThreshold: string;
-  verifiedArtifactCount: number;
-  totalDeliverablesCount: number;
-  completedDeliverablesCount: number;
-}
-
 // Re-export all Systems Dynamics & Modelling types
 export * from './types/systemsDynamics';
-
 
 
 

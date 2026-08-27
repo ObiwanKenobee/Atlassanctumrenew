@@ -23,17 +23,13 @@ import {
   Globe,
   Radio,
   Share2,
-  Compass,
-  Server,
-  CloudLightning
+  Compass
 } from 'lucide-react';
 import { AIEpistemicAuditResult, AITelemetryMetrics, AgentToolExecutionRecord } from '../../types';
 import { audioFeedback } from '../../lib/audioFeedback';
-import { ConnectivityDiagnosticPanel } from '../ai-engineering/ConnectivityDiagnosticPanel';
-import { VercelDeploymentStatusMonitor } from '../ai-engineering/VercelDeploymentStatusMonitor';
 
 export function AIEngineeringView() {
-  const [activeSubTab, setActiveSubTab] = useState<'streaming' | 'epistemic_audit' | 'tool_execution' | 'telemetry' | 'diagnostics' | 'deployment'>('streaming');
+  const [activeSubTab, setActiveSubTab] = useState<'streaming' | 'epistemic_audit' | 'tool_execution' | 'telemetry'>('streaming');
 
   // 1. Streaming Workbench State
   const [streamPrompt, setStreamPrompt] = useState<string>(
@@ -357,32 +353,6 @@ export function AIEngineeringView() {
           >
             <Activity className="w-4 h-4" />
             4. AI Telemetry & Observability Hub
-          </button>
-
-          <button
-            id="tab-btn-diagnostics"
-            onClick={() => { setActiveSubTab('diagnostics'); audioFeedback.playSoftClick(); }}
-            className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all flex items-center gap-2 ${
-              activeSubTab === 'diagnostics'
-                ? 'bg-[#C5A059] text-black shadow-lg shadow-[#C5A059]/20 font-bold'
-                : 'bg-[#1F1F1F] text-[#A3A3A3] hover:text-white hover:bg-[#2A2A2A]'
-            }`}
-          >
-            <CloudLightning className="w-4 h-4" />
-            5. Connectivity & Edge Diagnostics
-          </button>
-
-          <button
-            id="tab-btn-deployment"
-            onClick={() => { setActiveSubTab('deployment'); audioFeedback.playSoftClick(); }}
-            className={`px-4 py-2 rounded-xl text-xs font-mono font-medium transition-all flex items-center gap-2 ${
-              activeSubTab === 'deployment'
-                ? 'bg-[#C5A059] text-black shadow-lg shadow-[#C5A059]/20 font-bold'
-                : 'bg-[#1F1F1F] text-[#A3A3A3] hover:text-white hover:bg-[#2A2A2A]'
-            }`}
-          >
-            <Server className="w-4 h-4" />
-            6. Vercel Deployment Monitor
           </button>
         </div>
       </div>
@@ -940,20 +910,6 @@ export function AIEngineeringView() {
               </table>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* TAB 5: CONNECTIVITY & EDGE DIAGNOSTICS */}
-      {activeSubTab === 'diagnostics' && (
-        <div id="diagnostic-panel">
-          <ConnectivityDiagnosticPanel />
-        </div>
-      )}
-
-      {/* TAB 6: VERCEL DEPLOYMENT & BUILD LOGS */}
-      {activeSubTab === 'deployment' && (
-        <div id="deployment-panel">
-          <VercelDeploymentStatusMonitor />
         </div>
       )}
     </div>

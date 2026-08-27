@@ -23,7 +23,6 @@ import { GlobalEpistemicSearch } from './components/GlobalEpistemicSearch';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
-import { usePrefetchController } from './hooks/usePrefetchController';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
 
 // Lazy-Loaded Views for instant code-splitting and progressive delivery
@@ -77,9 +76,6 @@ export default function App() {
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false);
   const [provenanceModalData, setProvenanceModalData] = useState<DataProvenance | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
-
-  // Automated Prefetch Controller: proactively preloads dynamic view bundles based on user navigation affinity
-  usePrefetchController(currentTab);
 
   // Global keyboard shortcuts & custom event listeners
   useEffect(() => {
