@@ -12,8 +12,7 @@ import {
   Moon,
   Sun,
   Contrast,
-  Mic,
-  Layers
+  Mic
 } from 'lucide-react';
 import { PageView } from '../types';
 import { PrimaryNavigationItem, BadgeColorVariant } from '../types/navigation';
@@ -26,7 +25,6 @@ import { useActiveRoute } from '../hooks/useActiveRoute';
 import { MegaMenuDropdown } from './navigation/MegaMenuDropdown';
 import { NestedSubmenuDropdown } from './navigation/NestedSubmenuDropdown';
 import { MobileNavigationDrawer } from './navigation/MobileNavigationDrawer';
-import { EcosystemDirectoryModal } from './navigation/EcosystemDirectoryModal';
 import { UserSettingsDropdown } from './UserSettingsDropdown';
 import { useMissionAlerts } from '../context/MissionAlertContext';
 import { useAuth } from '../context/AuthContext';
@@ -53,7 +51,6 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const [ecosystemModalOpen, setEcosystemModalOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const { unreadCount, setIsDrawerOpen } = useMissionAlerts();
   const { userProfile, currentUser, updatePlatformSettings } = useAuth();
@@ -129,13 +126,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   useEffect(() => {
     setActiveMenuId(null);
   }, [currentTab]);
-
-  // Open ecosystem directory listener
-  useEffect(() => {
-    const handleOpenEcosystem = () => setEcosystemModalOpen(true);
-    window.addEventListener('open-ecosystem-directory', handleOpenEcosystem);
-    return () => window.removeEventListener('open-ecosystem-directory', handleOpenEcosystem);
-  }, []);
 
   const handlePrimaryItemClick = (item: PrimaryNavigationItem) => {
     trackNavigationEvent(item.analytics, item.label);
@@ -411,21 +401,6 @@ export const Navigation: React.FC<NavigationProps> = ({
             </kbd>
           </button>
 
-          {/* Product Ecosystem Directory Trigger Button */}
-          <button
-            id="open-ecosystem-directory-btn"
-            onClick={() => {
-              audioFeedback.playSubtleClick();
-              setEcosystemModalOpen(true);
-            }}
-            aria-label="Open Product Ecosystem Directory"
-            title="Browse all 50+ deep ecosystem routes across core, execution, and intelligence layers"
-            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 min-h-[36px] sm:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#C5A059]/30 hover:border-[#C5A059] transition-all text-xs font-mono text-[#C5A059] cursor-pointer"
-          >
-            <Layers className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span className="text-[10px] font-bold">Ecosystem</span>
-          </button>
-
           {/* Live Voice Commands Trigger Button */}
           <button
             id="open-live-voice-btn"
@@ -537,13 +512,6 @@ export const Navigation: React.FC<NavigationProps> = ({
           onOpenCommandments={onOpenCommandments}
         />
       )}
-      {/* Product Ecosystem Routes Modal */}
-      <EcosystemDirectoryModal
-        isOpen={ecosystemModalOpen}
-        onClose={() => setEcosystemModalOpen(false)}
-        onSelectTab={onSelectTab}
-        currentTab={currentTab}
-      />
     </header>
   );
 };

@@ -288,10 +288,6 @@ export interface BioregionalGeospatialMapProps {
   onToggleSidebar?: () => void;
   thematicLayers?: ThematicLayerState;
   onToggleThematicLayer?: (layer: keyof ThematicLayerState) => void;
-  isClusteredMode?: boolean;
-  onToggleClusteredMode?: () => void;
-  showAnnotationsOnMap?: boolean;
-  onToggleAnnotationsOnMap?: () => void;
 }
 
 export const BioregionalGeospatialMap: React.FC<BioregionalGeospatialMapProps> = ({
@@ -304,38 +300,10 @@ export const BioregionalGeospatialMap: React.FC<BioregionalGeospatialMapProps> =
   showFilteringSidebar = true,
   onToggleSidebar,
   thematicLayers: externalThematicLayers,
-  onToggleThematicLayer: externalToggleThematicLayer,
-  isClusteredMode: externalIsClusteredMode,
-  onToggleClusteredMode: externalToggleClusteredMode,
-  showAnnotationsOnMap: externalShowAnnotations,
-  onToggleAnnotationsOnMap: externalToggleAnnotations
+  onToggleThematicLayer: externalToggleThematicLayer
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // Clustered View vs Individual Markers State
-  const [internalIsClusteredMode, setInternalIsClusteredMode] = useState<boolean>(false);
-  const isClusteredMode = externalIsClusteredMode ?? internalIsClusteredMode;
-  const toggleClusteredMode = () => {
-    if (externalToggleClusteredMode) {
-      externalToggleClusteredMode();
-    } else {
-      setInternalIsClusteredMode(prev => !prev);
-    }
-    audioFeedback.playMicroTick();
-  };
-
-  // Annotations Sticky Notes Layer on Map State
-  const [internalShowAnnotations, setInternalShowAnnotations] = useState<boolean>(true);
-  const showAnnotationsOnMap = externalShowAnnotations ?? internalShowAnnotations;
-  const toggleShowAnnotations = () => {
-    if (externalToggleAnnotations) {
-      externalToggleAnnotations();
-    } else {
-      setInternalShowAnnotations(prev => !prev);
-    }
-    audioFeedback.playMicroTick();
-  };
 
   // Thematic Data Layers Control State ('Hydrological', 'Reforestation', 'Urban Greening')
   const [internalThematicLayers, setInternalThematicLayers] = useState<ThematicLayerState>({
@@ -866,261 +834,91 @@ export const BioregionalGeospatialMap: React.FC<BioregionalGeospatialMapProps> =
       });
     }
 
-    // 6. FIELD EVIDENCE MARKERS (Individual vs Clustered View with Animated Pulse-Rings)
+    // 6. FIELD EVIDENCE MARKERS (Flora, Fauna, Hydrology, Soil)
     const evidenceG = g.append('g').attr('class', 'field-evidence-markers');
 
-    if (isClusteredMode) {
-      // Group visible evidence into 4 geographic bioregional clusters
-      const clusterBuckets: Record<string, { name: string; lat: number; lng: number; markers: FieldEvidenceMarker[] }> = {
-        aberdare: { name: 'Aberdare Cloud Forest & Canopy Cluster', lat: -0.44, lng: 36.72, markers: [] },
-        mara: { name: 'Mara Basin & Riparian Infiltration Cluster', lat: -1.48, lng: 35.32, markers: [] },
-        naivasha: { name: 'Naivasha Volcanic Aquifer Cluster', lat: -0.74, lng: 36.42, markers: [] },
-        mathare: { name: 'Mathare & Nairobi Agro-Riparian Cluster', lat: -1.27, lng: 36.86, markers: [] }
-      };
+    visibleEvidenceMarkers.forEach(ev => {
+      const ex = xScale(ev.lng);
+      const ey = yScale(ev.lat);
+      const isSelected = selectedEvidence?.id === ev.id;
 
-      visibleEvidenceMarkers.forEach(ev => {
-        if (ev.lat > -0.7) {
-          clusterBuckets.aberdare.markers.push(ev);
-        } else if (ev.lng < 35.8) {
-          clusterBuckets.mara.markers.push(ev);
-        } else if (ev.lng >= 35.8 && ev.lng < 36.6) {
-          clusterBuckets.naivasha.markers.push(ev);
-        } else {
-          clusterBuckets.mathare.markers.push(ev);
-        }
-      });
-
-      // Render each populated cluster hub with animated pulse rings
-      Object.values(clusterBuckets).filter(c => c.markers.length > 0).forEach(cluster => {
-        const cx = xScale(cluster.lng);
-        const cy = yScale(cluster.lat);
-        const count = cluster.markers.length;
-
-        const clusterG = evidenceG.append('g')
-          .attr('class', 'cluster-hub cursor-pointer')
-          .attr('transform', `translate(${cx}, ${cy})`)
-          .on('click', () => {
-            handleSelectEvidence(cluster.markers[0]);
-            audioFeedback.playMicroTick();
-          });
-
-        // 1st Outer Animated Pulse Ring (Wide Density Field)
-        clusterG.append('circle')
-          .attr('r', 18)
-          .attr('fill', 'none')
-          .attr('stroke', '#10B981')
-          .attr('stroke-width', 1.8)
-          .attr('opacity', 0.8)
-          .append('animate')
-          .attr('attributeName', 'r')
-          .attr('values', '16;38;16')
-          .attr('dur', '2.6s')
-          .attr('repeatCount', 'indefinite');
-
-        // 2nd Animated Pulse Ring (Middle Core Pulse)
-        clusterG.append('circle')
-          .attr('r', 12)
-          .attr('fill', 'none')
-          .attr('stroke', '#C5A059')
-          .attr('stroke-width', 1.2)
-          .attr('opacity', 0.7)
-          .append('animate')
-          .attr('attributeName', 'r')
-          .attr('values', '10;26;10')
-          .attr('dur', '1.8s')
-          .attr('repeatCount', 'indefinite');
-
-        // Center cluster disk
-        clusterG.append('circle')
-          .attr('r', 16)
-          .attr('fill', '#0A2016')
-          .attr('stroke', '#10B981')
-          .attr('stroke-width', 2)
-          .attr('filter', 'drop-shadow(0 0 10px rgba(16,185,129,0.5))');
-
-        // Count Text in Disk Center
-        clusterG.append('text')
-          .attr('y', 4)
-          .attr('text-anchor', 'middle')
-          .attr('fill', '#A7F3D0')
-          .attr('font-size', '12px')
-          .attr('font-family', 'monospace')
-          .attr('font-weight', 'bold')
-          .text(count);
-
-        // Cluster Header Pill
-        clusterG.append('rect')
-          .attr('x', 22)
-          .attr('y', -16)
-          .attr('width', 190)
-          .attr('height', 30)
-          .attr('rx', 3)
-          .attr('fill', '#0D0D0D')
-          .attr('fill-opacity', 0.9)
-          .attr('stroke', '#C5A059')
-          .attr('stroke-width', 0.8);
-
-        clusterG.append('text')
-          .attr('x', 28)
-          .attr('y', -4)
-          .attr('fill', '#C5A059')
-          .attr('font-size', '9px')
-          .attr('font-family', 'monospace')
-          .attr('font-weight', 'bold')
-          .text(`[CLUSTER] ${cluster.name.split('&')[0]}`);
-
-        // Category breakdown in cluster
-        const catSummary = Array.from(new Set(cluster.markers.map(m => m.category))).join(', ');
-        clusterG.append('text')
-          .attr('x', 28)
-          .attr('y', 8)
-          .attr('fill', '#F5F5F0')
-          .attr('font-size', '8px')
-          .attr('font-family', 'monospace')
-          .text(`${count} Evidence Markers • ${catSummary}`);
-      });
-    } else {
-      // Individual Markers Mode
-      visibleEvidenceMarkers.forEach(ev => {
-        const ex = xScale(ev.lng);
-        const ey = yScale(ev.lat);
-        const isSelected = selectedEvidence?.id === ev.id;
-
-        // Color mapping by category
-        let categoryColor = '#10B981'; // Flora
-        let categoryBg = '#064E3B';
-        if (ev.category === 'Fauna') {
-          categoryColor = '#F59E0B'; // Amber
-          categoryBg = '#78350F';
-        } else if (ev.category === 'Hydrology') {
-          categoryColor = '#06B6D4'; // Cyan
-          categoryBg = '#164E63';
-        } else if (ev.category === 'Soil') {
-          categoryColor = '#D97706'; // Orange
-          categoryBg = '#451A03';
-        }
-
-        const evNode = evidenceG.append('g')
-          .attr('class', 'evidence-node cursor-pointer')
-          .attr('transform', `translate(${ex}, ${ey})`)
-          .on('click', (e) => {
-            e.stopPropagation();
-            handleSelectEvidence(ev);
-          })
-          .on('mouseenter', () => {
-            setHoveredEvidence(ev);
-          })
-          .on('mouseleave', () => {
-            setHoveredEvidence(null);
-          });
-
-        // Outer active ring if selected
-        if (isSelected) {
-          evNode.append('circle')
-            .attr('r', 16)
-            .attr('fill', 'none')
-            .attr('stroke', categoryColor)
-            .attr('stroke-width', 1.8)
-            .attr('stroke-dasharray', '3 2')
-            .append('animate')
-            .attr('attributeName', 'r')
-            .attr('values', '14;20;14')
-            .attr('dur', '2s')
-            .attr('repeatCount', 'indefinite');
-        }
-
-        // Diamond or Hexagon Badge
-        evNode.append('polygon')
-          .attr('points', '0,-9 9,0 0,9 -9,0')
-          .attr('fill', isSelected ? categoryColor : categoryBg)
-          .attr('stroke', isSelected ? '#FFFFFF' : categoryColor)
-          .attr('stroke-width', isSelected ? 2.0 : 1.2)
-          .attr('filter', isSelected ? 'drop-shadow(0 0 8px ' + categoryColor + ')' : 'none');
-
-        // Center Core Dot
-        evNode.append('circle')
-          .attr('r', 2.5)
-          .attr('fill', isSelected ? '#000000' : '#FFFFFF');
-
-        // Category Tag Pill text
-        evNode.append('text')
-          .attr('x', 12)
-          .attr('y', -4)
-          .attr('fill', categoryColor)
-          .attr('font-size', '8px')
-          .attr('font-family', 'monospace')
-          .attr('font-weight', 'bold')
-          .text(`[${ev.category.toUpperCase()}]`);
-
-        evNode.append('text')
-          .attr('x', 12)
-          .attr('y', 6)
-          .attr('fill', isSelected ? '#FFFFFF' : '#D4D4D8')
-          .attr('font-size', '9px')
-          .attr('font-family', 'monospace')
-          .attr('font-weight', isSelected ? 'bold' : 'normal')
-          .text(ev.title.length > 20 ? ev.title.slice(0, 18) + '...' : ev.title);
-      });
-    }
-
-    // 7. BIOREGIONAL ANNOTATION STICKY NOTE PINS
-    if (showAnnotationsOnMap) {
-      try {
-        const saved = localStorage.getItem('atlas_sanctum_bioregional_annotations');
-        if (saved) {
-          const parsedAnnotations = JSON.parse(saved);
-          if (Array.isArray(parsedAnnotations)) {
-            const annG = g.append('g').attr('class', 'bioregional-annotation-pins');
-
-            parsedAnnotations.forEach((ann: any) => {
-              if (typeof ann.lat === 'number' && typeof ann.lng === 'number') {
-                const ax = xScale(ann.lng);
-                const ay = yScale(ann.lat);
-
-                const annNode = annG.append('g')
-                  .attr('class', 'annotation-pin-node cursor-pointer')
-                  .attr('transform', `translate(${ax}, ${ay})`)
-                  .on('click', () => {
-                    audioFeedback.playMicroTick();
-                    const el = document.getElementById('bioregional-annotation-layer');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  });
-
-                // Sticky Pin Badge
-                annNode.append('rect')
-                  .attr('x', -7)
-                  .attr('y', -7)
-                  .attr('width', 14)
-                  .attr('height', 14)
-                  .attr('rx', 2)
-                  .attr('fill', '#C5A059')
-                  .attr('stroke', '#0D0D0D')
-                  .attr('stroke-width', 1.5)
-                  .attr('filter', 'drop-shadow(0 0 5px rgba(197, 160, 89, 0.6))');
-
-                annNode.append('circle')
-                  .attr('r', 2)
-                  .attr('fill', '#000000');
-
-                // Label
-                annNode.append('text')
-                  .attr('x', 10)
-                  .attr('y', 4)
-                  .attr('fill', '#C5A059')
-                  .attr('font-size', '8px')
-                  .attr('font-family', 'monospace')
-                  .attr('font-weight', 'bold')
-                  .text(`📌 [INSIGHT] ${ann.title.slice(0, 16)}...`);
-              }
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Could not render annotations on D3 map', err);
+      // Color mapping by category
+      let categoryColor = '#10B981'; // Flora
+      let categoryBg = '#064E3B';
+      if (ev.category === 'Fauna') {
+        categoryColor = '#F59E0B'; // Amber
+        categoryBg = '#78350F';
+      } else if (ev.category === 'Hydrology') {
+        categoryColor = '#06B6D4'; // Cyan
+        categoryBg = '#164E63';
+      } else if (ev.category === 'Soil') {
+        categoryColor = '#D97706'; // Orange
+        categoryBg = '#451A03';
       }
-    }
 
-  }, [filteredProjects, visibleEvidenceMarkers, activeLayer, thematicLayers, zoomLevel, selectedProject, selectedEvidence, isClusteredMode, showAnnotationsOnMap]);
+      const evNode = evidenceG.append('g')
+        .attr('class', 'evidence-node cursor-pointer')
+        .attr('transform', `translate(${ex}, ${ey})`)
+        .on('click', (e) => {
+          e.stopPropagation();
+          handleSelectEvidence(ev);
+        })
+        .on('mouseenter', () => {
+          setHoveredEvidence(ev);
+        })
+        .on('mouseleave', () => {
+          setHoveredEvidence(null);
+        });
+
+      // Outer active ring if selected
+      if (isSelected) {
+        evNode.append('circle')
+          .attr('r', 16)
+          .attr('fill', 'none')
+          .attr('stroke', categoryColor)
+          .attr('stroke-width', 1.8)
+          .attr('stroke-dasharray', '3 2')
+          .append('animate')
+          .attr('attributeName', 'r')
+          .attr('values', '14;20;14')
+          .attr('dur', '2s')
+          .attr('repeatCount', 'indefinite');
+      }
+
+      // Diamond or Hexagon Badge
+      evNode.append('polygon')
+        .attr('points', '0,-9 9,0 0,9 -9,0')
+        .attr('fill', isSelected ? categoryColor : categoryBg)
+        .attr('stroke', isSelected ? '#FFFFFF' : categoryColor)
+        .attr('stroke-width', isSelected ? 2.0 : 1.2)
+        .attr('filter', isSelected ? 'drop-shadow(0 0 8px ' + categoryColor + ')' : 'none');
+
+      // Center Core Dot
+      evNode.append('circle')
+        .attr('r', 2.5)
+        .attr('fill', isSelected ? '#000000' : '#FFFFFF');
+
+      // Category Tag Pill text
+      evNode.append('text')
+        .attr('x', 12)
+        .attr('y', -4)
+        .attr('fill', categoryColor)
+        .attr('font-size', '8px')
+        .attr('font-family', 'monospace')
+        .attr('font-weight', 'bold')
+        .text(`[${ev.category.toUpperCase()}]`);
+
+      evNode.append('text')
+        .attr('x', 12)
+        .attr('y', 6)
+        .attr('fill', isSelected ? '#FFFFFF' : '#D4D4D8')
+        .attr('font-size', '9px')
+        .attr('font-family', 'monospace')
+        .attr('font-weight', isSelected ? 'bold' : 'normal')
+        .text(ev.title.length > 20 ? ev.title.slice(0, 18) + '...' : ev.title);
+    });
+
+  }, [filteredProjects, visibleEvidenceMarkers, activeLayer, thematicLayers, zoomLevel, selectedProject, selectedEvidence]);
 
   return (
     <div 
@@ -1148,38 +946,8 @@ export const BioregionalGeospatialMap: React.FC<BioregionalGeospatialMapProps> =
           </p>
         </div>
 
-        {/* Zoom, Clustered View & Sidebar Toggle Controls */}
-        <div className="flex items-center gap-2 self-start sm:self-center font-mono text-xs flex-wrap">
-          {/* Clustered Evidence Toggle */}
-          <button
-            id="toggle-clustered-evidence-view-btn"
-            onClick={toggleClusteredMode}
-            className={`px-3 py-1.5 border rounded-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
-              isClusteredMode
-                ? 'bg-emerald-950/70 border-emerald-500/70 text-emerald-300 font-bold shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                : 'bg-[#141414] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
-            }`}
-            title="Toggle between individual markers and Clustered Evidence View with animated pulse-rings"
-          >
-            <Radio className={`w-3.5 h-3.5 ${isClusteredMode ? 'text-emerald-400 animate-pulse' : 'text-[#F5F5F0]/50'}`} />
-            <span className="text-[11px]">{isClusteredMode ? 'Clustered View' : 'Individual Markers'}</span>
-          </button>
-
-          {/* Sticky Notes Annotations Toggle */}
-          <button
-            id="toggle-map-annotations-btn"
-            onClick={toggleShowAnnotations}
-            className={`px-3 py-1.5 border rounded-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
-              showAnnotationsOnMap
-                ? 'bg-[#2A2315] border-[#C5A059] text-[#C5A059] font-bold'
-                : 'bg-[#141414] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
-            }`}
-            title="Toggle persistent sticky note insights on the map"
-          >
-            <span className="text-xs">📌</span>
-            <span className="text-[11px]">{showAnnotationsOnMap ? 'Annotations On' : 'Annotations Off'}</span>
-          </button>
-
+        {/* Zoom & Sidebar Toggle Controls */}
+        <div className="flex items-center gap-2 self-start sm:self-center font-mono text-xs">
           <button
             onClick={() => setSidebarOpen(prev => !prev)}
             className={`px-3 py-1.5 border rounded-xs transition-colors flex items-center gap-1.5 cursor-pointer ${
