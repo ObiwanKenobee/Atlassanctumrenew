@@ -23,6 +23,10 @@ import { BIOREGIONAL_TWIN_SCENARIOS } from '../../data/aiEnginesData';
 import { EcologicalAlertSystem } from '../EcologicalAlertSystem';
 import { RealityCheck } from '../RealityCheck';
 import { BioregionalGoalsPanel } from '../bioregional/BioregionalGoalsPanel';
+import { BioregionalIndicators } from '../bioregional/BioregionalIndicators';
+import { BioregionalGeospatialMap } from '../bioregional/BioregionalGeospatialMap';
+import { BioregionalEventMonitor } from '../bioregional/BioregionalEventMonitor';
+import { BioregionalSnap } from '../bioregional/BioregionalSnap';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 // High-fidelity abstract bioregional health visual backgrounds generated via Imagen
@@ -353,12 +357,35 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
         </div>
       </div>
 
+      {/* D3 Geospatial Map Overlay: Ecological Restoration Corridors */}
+      <BioregionalGeospatialMap
+        selectedBioregionId={selectedScenario.id}
+      />
+
+      {/* Real-Time Bioregional Event Monitor: Milestone & Telemetry Alerts */}
+      <BioregionalEventMonitor
+        currentBioregionId={selectedScenario.id}
+        currentBioregionName={selectedScenario.bioregion}
+      />
+
       {/* Real-Time Ecological Alert System Section */}
       <EcologicalAlertSystem 
         currentBioregionId={selectedScenario.id}
         currentBioregionName={selectedScenario.bioregion}
         onOpenMoralSimulator={onOpenMoralSimulator}
         onSelectTab={onSelectTab}
+      />
+
+      {/* Bioregional Indicators: Longitudinal Ecological Restoration Progress Over Time */}
+      <BioregionalIndicators
+        selectedBioregionId={selectedScenario.id}
+        bioregionName={selectedScenario.bioregion}
+      />
+
+      {/* Bioregional Snap: Camera In-Situ Field Evidence Collector */}
+      <BioregionalSnap
+        currentBioregionId={selectedScenario.id}
+        currentBioregionName={selectedScenario.bioregion}
       />
 
       {/* Scenario Hero Stats */}

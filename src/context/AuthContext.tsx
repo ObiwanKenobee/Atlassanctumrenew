@@ -14,7 +14,7 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  updatePlatformSettings: (settings: Partial<Pick<UserProfileDoc, 'themePreference' | 'accessLevel' | 'reducedMotion' | 'telemetryStreamActive' | 'ethicalReviewNotification' | 'sabbathModeActive'>>) => Promise<void>;
+  updatePlatformSettings: (settings: Partial<Pick<UserProfileDoc, 'themePreference' | 'accessLevel' | 'reducedMotion' | 'telemetryStreamActive' | 'ethicalReviewNotification' | 'sabbathModeActive' | 'highContrast'>>) => Promise<void>;
   error: string | null;
 }
 

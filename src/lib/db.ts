@@ -127,7 +127,8 @@ export interface UserProfileDoc {
   photoURL?: string | null;
   role: string;
   accessLevel?: 'visitor' | 'researcher' | 'steward' | 'systems_architect' | 'council_admin';
-  themePreference?: 'dark' | 'solarized' | 'biophilic_night';
+  themePreference?: 'dark' | 'solarized' | 'biophilic_night' | 'light' | 'high_contrast';
+  highContrast?: boolean;
   reducedMotion?: boolean;
   telemetryStreamActive?: boolean;
   ethicalReviewNotification?: boolean;

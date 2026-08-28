@@ -8,7 +8,11 @@ import {
   Search, 
   ChevronDown, 
   Scale,
-  Compass
+  Compass,
+  Moon,
+  Sun,
+  Contrast,
+  Mic
 } from 'lucide-react';
 import { PageView } from '../types';
 import { PrimaryNavigationItem, BadgeColorVariant } from '../types/navigation';
@@ -49,7 +53,38 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   const { unreadCount, setIsDrawerOpen } = useMissionAlerts();
-  const { userProfile, currentUser } = useAuth();
+  const { userProfile, currentUser, updatePlatformSettings } = useAuth();
+
+  // Theme mode state ('dark' | 'light' | 'high-contrast') persisted to localStorage
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'high-contrast'>(() => {
+    return (localStorage.getItem('atlas_theme_mode') as any) || 'dark';
+  });
+
+  useEffect(() => {
+    const handleSyncTheme = (e: any) => {
+      if (e.detail?.theme) {
+        setCurrentTheme(e.detail.theme);
+      }
+    };
+    window.addEventListener('atlas-theme-changed' as any, handleSyncTheme);
+    return () => window.removeEventListener('atlas-theme-changed' as any, handleSyncTheme);
+  }, []);
+
+  const handleToggleTheme = () => {
+    audioFeedback.playSubtleClick();
+    let nextTheme: 'dark' | 'light' | 'high-contrast';
+    if (currentTheme === 'dark') nextTheme = 'light';
+    else if (currentTheme === 'light') nextTheme = 'high-contrast';
+    else nextTheme = 'dark';
+
+    setCurrentTheme(nextTheme);
+    localStorage.setItem('atlas_theme_mode', nextTheme);
+    window.dispatchEvent(new CustomEvent('atlas-theme-changed', { detail: { theme: nextTheme } }));
+
+    if (userProfile && updatePlatformSettings) {
+      updatePlatformSettings({ themePreference: nextTheme === 'high-contrast' ? 'high_contrast' : nextTheme });
+    }
+  };
 
   // Active route detection and permission filtering hook with AuthContext integration
   const { 
@@ -148,6 +183,18 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4 shrink-0 pl-3">
+          <button
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              window.dispatchEvent(new CustomEvent('start-interactive-walkthrough'));
+            }}
+            className="text-[#C5A059] hover:underline font-semibold text-[9px] sm:text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
+            title="Start Interactive Platform Walkthrough"
+          >
+            <Sparkles className="w-3 h-3 text-[#C5A059]" />
+            <span className="hidden xs:inline">Platform Tour</span>
+          </button>
+          <span className="text-[#F5F5F0]/20">•</span>
           {onOpenCommandments && (
             <button
               onClick={() => {
@@ -177,6 +224,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2 sm:gap-4 flex-nowrap">
         {/* Brand */}
         <div 
+          id="nav-brand-logo"
           onClick={() => {
             onSelectTab('home');
             setActiveMenuId(null);
@@ -353,6 +401,21 @@ export const Navigation: React.FC<NavigationProps> = ({
             </kbd>
           </button>
 
+          {/* Live Voice Commands Trigger Button */}
+          <button
+            id="open-live-voice-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              window.dispatchEvent(new CustomEvent('open-live-voice'));
+            }}
+            aria-label="Open Live Voice Commands"
+            title="Speak voice commands to search Command Center"
+            className="flex items-center gap-1.5 px-2.5 py-1 min-h-[36px] sm:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/80 hover:text-[#C5A059] cursor-pointer"
+          >
+            <Mic className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span className="text-[10px] hidden xl:inline font-mono">Voice</span>
+          </button>
+
           {/* Persistent Global Forced Offline Mode Toggle */}
           <OfflineModeToggle />
 
@@ -366,6 +429,34 @@ export const Navigation: React.FC<NavigationProps> = ({
           <div className="hidden 2xl:block">
             <UncertaintyOverlayToggle />
           </div>
+
+          {/* Theme Toggle Button (Switches between 'dark', 'light', and 'high-contrast' modes) */}
+          <button
+            id="theme-toggle-btn"
+            onClick={handleToggleTheme}
+            aria-label={`Current theme: ${currentTheme}. Click to switch theme`}
+            title={`Switch Theme: currently ${currentTheme === 'high-contrast' ? 'High-Contrast' : currentTheme.toUpperCase()} (Click for ${currentTheme === 'dark' ? 'Light' : currentTheme === 'light' ? 'High-Contrast' : 'Dark'} mode)`}
+            className="flex items-center gap-1.5 px-2.5 py-1 min-h-[36px] sm:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/80 hover:text-[#F5F5F0] cursor-pointer"
+          >
+            {currentTheme === 'dark' && (
+              <>
+                <Moon className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span className="text-[10px] hidden md:inline font-mono">Dark</span>
+              </>
+            )}
+            {currentTheme === 'light' && (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[10px] hidden md:inline font-mono">Light</span>
+              </>
+            )}
+            {currentTheme === 'high-contrast' && (
+              <>
+                <Contrast className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-[10px] hidden md:inline font-mono">Contrast</span>
+              </>
+            )}
+          </button>
 
           {/* User Profile & Firestore Settings Synchronizer */}
           <UserSettingsDropdown />

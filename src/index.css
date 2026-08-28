@@ -21,25 +21,96 @@ html.theme-transitioning *:after {
   transition-delay: 0s !important;
 }
 
-/* Light Theme Variables */
+/* Light Theme Variables & Class Overrides */
 html.theme-light {
-  background-color: #F8F9FA;
-  color: #1A1A1A;
+  background-color: #F4F5F7;
+  color: #111827;
 }
 
-html.theme-light body {
-  background-color: #F8F9FA;
-  color: #1A1A1A;
+html.theme-light body,
+html.theme-light .min-h-screen,
+html.theme-light main {
+  background-color: #F4F5F7 !important;
+  color: #111827 !important;
+}
+
+html.theme-light header {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border-color: #E2E8F0 !important;
+  color: #111827 !important;
+}
+
+html.theme-light [class*="bg-[#0A0A0A]"],
+html.theme-light [class*="bg-[#080808]"],
+html.theme-light [class*="bg-[#0D0D0D]"],
+html.theme-light [class*="bg-[#121212]"],
+html.theme-light [class*="bg-[#141414]"],
+html.theme-light [class*="bg-[#111111]"],
+html.theme-light [class*="bg-[#181818]"] {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  color: #111827 !important;
+}
+
+html.theme-light [class*="text-[#F5F5F0]"] {
+  color: #111827 !important;
+}
+
+html.theme-light [class*="text-[#F5F5F0]/70"],
+html.theme-light [class*="text-[#F5F5F0]/60"],
+html.theme-light [class*="text-[#F5F5F0]/50"],
+html.theme-light [class*="text-[#F5F5F0]/40"] {
+  color: #4B5563 !important;
+}
+
+html.theme-light [class*="border-[#F5F5F0]/10"],
+html.theme-light [class*="border-[#F5F5F0]/5"],
+html.theme-light [class*="border-[#F5F5F0]/15"],
+html.theme-light [class*="border-[#F5F5F0]/20"] {
+  border-color: #E2E8F0 !important;
+}
+
+html.theme-light input,
+html.theme-light textarea {
+  background-color: #F8F9FA !important;
+  color: #111827 !important;
+  border-color: #CBD5E1 !important;
 }
 
 /* High Contrast Mode */
 html.high-contrast {
-  filter: contrast(1.15);
+  filter: contrast(1.2);
 }
 
-html.high-contrast body {
-  background-color: #000000;
-  color: #FFFFFF;
+html.high-contrast body,
+html.high-contrast .min-h-screen,
+html.high-contrast main {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+}
+
+html.high-contrast [class*="bg-[#0A0A0A]"],
+html.high-contrast [class*="bg-[#080808]"],
+html.high-contrast [class*="bg-[#0D0D0D]"],
+html.high-contrast [class*="bg-[#121212]"],
+html.high-contrast [class*="bg-[#141414]"] {
+  background-color: #050505 !important;
+  border-color: #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+
+html.high-contrast [class*="text-[#F5F5F0]"] {
+  color: #FFFFFF !important;
+}
+
+html.high-contrast [class*="text-[#C5A059]"] {
+  color: #FFD700 !important;
+  font-weight: 700 !important;
+}
+
+html.high-contrast [class*="border-[#F5F5F0]"],
+html.high-contrast button {
+  border-color: #FFFFFF !important;
 }
 
 /* Reduced Motion Mode */

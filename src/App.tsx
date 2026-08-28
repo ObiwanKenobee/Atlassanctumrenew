@@ -74,6 +74,7 @@ export default function App() {
   const [commandmentsModalOpen, setCommandmentsModalOpen] = useState(false);
   const [geminiChatOpen, setGeminiChatOpen] = useState(false);
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false);
+  const [commandCenterInitialQuery, setCommandCenterInitialQuery] = useState<string>('');
   const [provenanceModalData, setProvenanceModalData] = useState<DataProvenance | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -109,6 +110,14 @@ export default function App() {
     const handleOpenCommandments = () => setCommandmentsModalOpen(true);
     const handleOpenSearch = () => setGlobalSearchOpen(true);
     const handleOpenShortcuts = () => setShortcutsModalOpen(true);
+    const handleVoiceCommandSearch = (e: any) => {
+      const q = e.detail?.query;
+      if (q) {
+        setLiveVoiceOpen(false);
+        setCommandCenterInitialQuery(q);
+        setCommandCenterOpen(true);
+      }
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('open-gemini-chat', handleOpenChat);
@@ -116,6 +125,7 @@ export default function App() {
     window.addEventListener('open-commandments', handleOpenCommandments);
     window.addEventListener('open-global-search', handleOpenSearch);
     window.addEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
+    window.addEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
 
     // Proactively prefetch priority modules on idle
     prefetchPriorityViews();
@@ -127,6 +137,7 @@ export default function App() {
       window.removeEventListener('open-commandments', handleOpenCommandments);
       window.removeEventListener('open-global-search', handleOpenSearch);
       window.removeEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
+      window.removeEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
     };
   }, []);
 
@@ -495,12 +506,21 @@ export default function App() {
             <LiveVoiceModal
               isOpen={liveVoiceOpen}
               onClose={() => setLiveVoiceOpen(false)}
+              onTriggerCommandCenterSearch={(query) => {
+                setLiveVoiceOpen(false);
+                setCommandCenterInitialQuery(query);
+                setCommandCenterOpen(true);
+              }}
             />
 
             {/* Global AI Command Center Modal (⌘K) */}
             <CommandCenterModal
               isOpen={commandCenterOpen}
-              onClose={() => setCommandCenterOpen(false)}
+              initialQuery={commandCenterInitialQuery}
+              onClose={() => {
+                setCommandCenterOpen(false);
+                setCommandCenterInitialQuery('');
+              }}
               onSelectProject={(proj) => {
                 setCommandCenterOpen(false);
                 handleSelectTab('observatory');
