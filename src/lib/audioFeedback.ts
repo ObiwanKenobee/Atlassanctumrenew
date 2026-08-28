@@ -214,6 +214,13 @@ class AudioFeedbackEngine {
   }
 
   /**
+   * Data save / export feedback tone
+   */
+  public playDataSave() {
+    this.playSyncComplete();
+  }
+
+  /**
    * Generic dispatcher for named UI audio feedback events
    */
   public play(eventName: 'softClick' | 'actionSuccess' | 'warningAlert' | 'failure' | string) {

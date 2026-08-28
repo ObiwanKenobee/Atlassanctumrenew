@@ -5,6 +5,7 @@ import { MissionAlertProvider } from './context/MissionAlertContext';
 import { UncertaintyOverlayProvider } from './context/UncertaintyOverlayContext';
 import { OfflineSyncProvider } from './context/OfflineSyncContext';
 import { Navigation } from './components/Navigation';
+import { NavigationalSpine } from './components/navigation/NavigationalSpine';
 import { Footer } from './components/Footer';
 import { GlobalLoadingIndicator } from './components/GlobalLoadingIndicator';
 import { ViewLoadingSkeleton } from './components/ViewLoadingSkeleton';
@@ -186,6 +187,12 @@ export default function App() {
               onOpenCommandCenter={() => setCommandCenterOpen(true)}
               onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
               onOpenCommandments={() => setCommandmentsModalOpen(true)}
+            />
+
+            {/* Core Navigational Spine: Observatory → Opportunity → Decision → Project → Impact */}
+            <NavigationalSpine
+              currentTab={currentTab}
+              onSelectTab={handleSelectTab}
             />
 
             {/* Main View Router */}

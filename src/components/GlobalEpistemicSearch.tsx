@@ -4,6 +4,7 @@ import { SearchableItem, fuzzySearch } from '../lib/fuzzySearch';
 import { PageView } from '../types';
 import { FAILURE_LEDGER_ENTRIES } from '../data/failureLedgerData';
 import { MISSION_ANALYTICS_DATA } from '../data/missionAnalyticsData';
+import { ECOSYSTEM_ROUTES } from '../config/ecosystemRoutes';
 import { audioFeedback } from '../lib/audioFeedback';
 
 interface GlobalEpistemicSearchProps {
@@ -212,6 +213,25 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
         category: 'ledger',
         targetTab: 'mission-analytics',
         tags: ['deployment', m.biomeType, m.status, m.bioregion]
+      });
+    });
+
+    // Add Atlas Sanctum Product Ecosystem routes
+    ECOSYSTEM_ROUTES.forEach((route) => {
+      items.push({
+        id: `route-${route.path.replace(/[^a-zA-Z0-9]/g, '-')}`,
+        title: `${route.name} (${route.path})`,
+        subtitle: `${route.category}${route.isSpineNode ? ' • Core Spine Node' : ''}`,
+        description: route.description,
+        category: 'view',
+        targetTab: route.targetTab,
+        tags: [
+          'route',
+          'ecosystem',
+          route.path,
+          route.category.toLowerCase(),
+          ...(route.isSpineNode ? ['spine', route.isSpineNode] : [])
+        ]
       });
     });
 

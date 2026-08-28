@@ -16,7 +16,18 @@ import {
   Maximize2,
   Globe2,
   Play,
-  Radio
+  Radio,
+  Download,
+  FileText,
+  Filter,
+  Copy,
+  Check,
+  X,
+  Eye,
+  EyeOff,
+  TreePine,
+  Bird,
+  Droplets
 } from 'lucide-react';
 import { BioregionalTwinScenario, CausalInterventionParam } from '../../types';
 import { BIOREGIONAL_TWIN_SCENARIOS } from '../../data/aiEnginesData';
@@ -24,7 +35,13 @@ import { EcologicalAlertSystem } from '../EcologicalAlertSystem';
 import { RealityCheck } from '../RealityCheck';
 import { BioregionalGoalsPanel } from '../bioregional/BioregionalGoalsPanel';
 import { BioregionalIndicators } from '../bioregional/BioregionalIndicators';
-import { BioregionalGeospatialMap } from '../bioregional/BioregionalGeospatialMap';
+import { 
+  BioregionalGeospatialMap, 
+  DEFAULT_FIELD_EVIDENCE_MARKERS, 
+  FieldEvidenceMarker 
+} from '../bioregional/BioregionalGeospatialMap';
+import { BioregionalTimeline } from '../bioregional/BioregionalTimeline';
+import { BiodiversityRadar } from '../bioregional/BiodiversityRadar';
 import { BioregionalEventMonitor } from '../bioregional/BioregionalEventMonitor';
 import { BioregionalSnap } from '../bioregional/BioregionalSnap';
 import { audioFeedback } from '../../lib/audioFeedback';
@@ -81,6 +98,20 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
   const [activeHorizon, setActiveHorizon] = useState<'year5' | 'year15' | 'year30'>('year15');
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
+  // Field evidence categories filter state for the D3 map
+  const [activeEvidenceCategories, setActiveEvidenceCategories] = useState<string[]>([
+    'Flora',
+    'Fauna',
+    'Hydrology',
+    'Soil'
+  ]);
+  const [selectedEvidenceMarker, setSelectedEvidenceMarker] = useState<FieldEvidenceMarker | null>(null);
+
+  // Field Report Export Modal state
+  const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [exportedReportPayload, setExportedReportPayload] = useState<any>(null);
+  const [hasCopiedJson, setHasCopiedJson] = useState<boolean>(false);
+
   const selectedScenario = scenarios.find(s => s.id === selectedScenarioId) || scenarios[0];
   const currentBackground = BIOREGIONAL_HEALTH_BACKGROUNDS.find(b => b.id === selectedBgId) || BIOREGIONAL_HEALTH_BACKGROUNDS[0];
 
@@ -111,6 +142,14 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
     }, 600);
   };
 
+  // Toggle category on D3 map
+  const handleToggleEvidenceCategory = (cat: string) => {
+    setActiveEvidenceCategories(prev =>
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+    audioFeedback.playMicroTick();
+  };
+
   // Calculate dynamic multiplier based on current slider values relative to default
   const calculateScenarioMultiplier = () => {
     let factor = 1.0;
@@ -123,6 +162,105 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
   };
 
   const dynamicMultiplier = calculateScenarioMultiplier();
+
+  // Export Local Field Report as JSON file (Simulates verifiable field audit report)
+  const handleExportFieldReport = () => {
+    const currentInterventions = selectedScenario.activeInterventions.map(param => ({
+      id: param.id,
+      name: param.name,
+      configuredValue: interventionValues[`${selectedScenario.id}_${param.id}`] ?? param.currentValue,
+      unit: param.unit,
+      costEstimate: param.costEstimate,
+      description: param.description
+    }));
+
+    const simulatedNodes = selectedScenario.nodes.map(node => {
+      const simulatedVal = Math.round(node.currentBaseline * (1 / dynamicMultiplier) * 10) / 10;
+      return {
+        id: node.id,
+        name: node.name,
+        category: node.category,
+        baseline: node.currentBaseline,
+        simulatedCurrent: simulatedVal,
+        unit: node.unit,
+        biophysicalThreshold: node.biophysicalThreshold
+      };
+    });
+
+    const reportPayload = {
+      reportTitle: `Atlas Sanctum - Local Bioregional Field Report (${selectedScenario.bioregion})`,
+      philosophicalGrounding: "Commandment II: Reality Above Model (Ground Truth Epistemic Priority)",
+      exportTimestamp: new Date().toISOString(),
+      engineVersion: "Atlas Sanctum Causal Bioregional Twin v3.2-production",
+      bioregion: {
+        id: selectedScenario.id,
+        name: selectedScenario.name,
+        bioregion: selectedScenario.bioregion,
+        description: selectedScenario.description,
+        populationAffected: selectedScenario.populationAffected,
+        monteCarloProbabilityOfSuccess: parseFloat((selectedScenario.monteCarloProbabilityOfSuccess * (dynamicMultiplier > 1.1 ? 1.02 : 0.98)).toFixed(1)),
+        ecologicalPlanetaryMarginSafe: selectedScenario.ecologicalPlanetaryMarginSafe,
+        dynamicCausalMultiplier: parseFloat(dynamicMultiplier.toFixed(2))
+      },
+      activeInterventions: currentInterventions,
+      restorationIndicators: {
+        canopyCrownDensity: "78% Verified (+14.2% over 2020 baseline)",
+        aquiferHeadRecovery: "+1.82 bar Piezometric Head Normalized",
+        soilOrganicMatter: "4.8% SOM Density across keyline terraces",
+        biodiversityIndex: "79/100 Composite Trophic Equilibrium",
+        acousticComplexityIndex: "0.84 ACI Bio-Richness",
+        carbonStockSequestered: "1,420 tCO2e/ha Decadal Rate"
+      },
+      biophysicalThresholdSensors: simulatedNodes,
+      flourishingImpactTrajectories: selectedScenario.flourishingImpact,
+      systemicConsequences: selectedScenario.consequences,
+      fieldEvidenceLedger: DEFAULT_FIELD_EVIDENCE_MARKERS.map(ev => ({
+        id: ev.id,
+        title: ev.title,
+        category: ev.category,
+        coordinates: [ev.lat, ev.lng],
+        locationName: ev.locationName,
+        metricObserved: ev.metricObserved,
+        timestamp: ev.timestamp,
+        cryptographicHash: ev.hash,
+        verifiedBy: ev.verifiedBy,
+        status: ev.status,
+        notes: ev.notes
+      })),
+      epistemicProvenance: {
+        canonicalStandard: "Atlas Epistemic Verification Standard v2.4",
+        provenanceHash: "0x99201a4e76110f8234719bbca098234190872615",
+        sensorHealthConfidenceScore: 94.8,
+        groundTruthCalibrated: true,
+        signatoryCouncil: "East African Bioregional Custodians & Water Basin Directorate"
+      }
+    };
+
+    setExportedReportPayload(reportPayload);
+
+    // Trigger file download
+    const blob = new Blob([JSON.stringify(reportPayload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = selectedScenario.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+    a.download = `Atlas_Sanctum_Field_Report_${safeName}_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    audioFeedback.playDataSave();
+    setShowExportModal(true);
+  };
+
+  const copyReportToClipboard = () => {
+    if (!exportedReportPayload) return;
+    navigator.clipboard.writeText(JSON.stringify(exportedReportPayload, null, 2));
+    setHasCopiedJson(true);
+    audioFeedback.playMicroTick();
+    setTimeout(() => setHasCopiedJson(false), 2000);
+  };
 
   const getConsequenceBadge = (type: string, severity: string) => {
     if (type === 'synergy' || type === 'regenerative_lock_in') {
@@ -154,23 +292,34 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Export Local Field Report Button */}
+          <button
+            onClick={handleExportFieldReport}
+            className="px-3.5 py-2 bg-[#17221A] hover:bg-[#203125] border border-emerald-500/60 text-emerald-300 text-xs font-mono font-bold rounded-sm flex items-center gap-1.5 transition-all shadow-md cursor-pointer group"
+            title="Export full indicators and evidence ledger as a JSON Field Report"
+          >
+            <Download className="w-4 h-4 text-emerald-400 group-hover:translate-y-0.5 transition-transform" />
+            <span>Export Field Report (JSON)</span>
+          </button>
+
           <button
             onClick={() => {
               onSelectTab('flourishing-index');
               audioFeedback.playViewTransition();
             }}
-            className="px-4 py-2.5 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#F5F5F0] text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all shadow"
+            className="px-3.5 py-2 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#F5F5F0] text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all shadow"
           >
             <TrendingUp className="w-4 h-4 text-[#C5A059]" />
             <span>Flourishing Index</span>
           </button>
+
           <button
             onClick={() => {
               onSelectTab('moral-arbiter');
               audioFeedback.playCovenantResonance();
             }}
-            className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#b08e4c] text-black font-bold text-xs uppercase tracking-widest rounded-sm flex items-center gap-1.5 transition-all shadow"
+            className="px-3.5 py-2 bg-[#C5A059] hover:bg-[#b08e4c] text-black font-bold text-xs uppercase tracking-widest rounded-sm flex items-center gap-1.5 transition-all shadow"
           >
             <ShieldCheck className="w-4 h-4" />
             <span>Moral Arbiter</span>
@@ -223,30 +372,38 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
                   setSelectedScenarioId(scen.id);
                   audioFeedback.playMicroTick();
                 }}
-                className={`p-4 rounded-sm border cursor-pointer transition-all space-y-2 text-left ${
+                className={`p-4 rounded-sm border transition-all cursor-pointer text-left space-y-2 ${
                   isSelected
-                    ? 'bg-[#181818] border-[#C5A059] shadow-md scale-[1.01]'
-                    : 'bg-[#111111] border-[#F5F5F0]/5 hover:border-[#F5F5F0]/20'
+                    ? 'bg-[#181818] border-[#C5A059] shadow-lg scale-[1.01]'
+                    : 'bg-[#111111] border-[#F5F5F0]/10 hover:border-[#F5F5F0]/30 hover:bg-[#141414]'
                 }`}
               >
-                <div className="flex items-center justify-between text-[10px] font-mono">
-                  <span className="text-[#C5A059] font-bold">{scen.bioregion}</span>
-                  <span className="text-emerald-400 font-bold">{scen.monteCarloProbabilityOfSuccess}% Success</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase text-[#C5A059]">
+                    {scen.bioregion}
+                  </span>
+                  {isSelected && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  )}
                 </div>
-                <h3 className="text-sm font-serif font-bold text-[#F5F5F0] leading-snug">
+                <h4 className="text-sm font-serif font-bold text-[#F5F5F0] line-clamp-1">
                   {scen.name}
-                </h3>
-                <p className="text-xs text-[#F5F5F0]/50 line-clamp-2 leading-relaxed font-sans">
+                </h4>
+                <p className="text-xs text-[#F5F5F0]/60 line-clamp-2">
                   {scen.description}
                 </p>
+                <div className="pt-2 border-t border-[#F5F5F0]/10 flex items-center justify-between text-[10px] font-mono text-[#F5F5F0]/40">
+                  <span>{(scen.populationAffected / 1000).toFixed(0)}k Inhabitants</span>
+                  <span className="text-emerald-400">{scen.monteCarloProbabilityOfSuccess}% Success</span>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* High-Fidelity Bioregional Health Background Canvas & Telemetry Overlay */}
-      <div className="relative rounded-sm border border-[#C5A059]/40 overflow-hidden bg-[#0A0A0A] shadow-2xl">
+      {/* Visual Imagen Canvas Stage with Background Switching */}
+      <div className="relative w-full rounded-sm border border-[#C5A059]/40 overflow-hidden shadow-2xl bg-[#050505]">
         {/* Background Image Layer with opacity and subtle gradient overlay */}
         <div className="relative w-full h-[280px] sm:h-[340px] overflow-hidden bg-black">
           <img
@@ -326,7 +483,7 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
                     setSelectedBgId(bg.id);
                     audioFeedback.playMicroTick();
                   }}
-                  className={`px-3 py-1.5 rounded-xs border text-xs font-mono transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-xs border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
                     isSelected
                       ? 'bg-[#1F2720] border-emerald-500/60 text-emerald-300 shadow-sm'
                       : 'bg-[#151515] border-[#F5F5F0]/10 text-[#F5F5F0]/60 hover:text-[#F5F5F0] hover:border-[#F5F5F0]/25'
@@ -357,9 +514,26 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
         </div>
       </div>
 
-      {/* D3 Geospatial Map Overlay: Ecological Restoration Corridors */}
+      {/* D3 Geospatial Map Overlay with Field Evidence Filtering Sidebar */}
       <BioregionalGeospatialMap
         selectedBioregionId={selectedScenario.id}
+        activeEvidenceCategories={activeEvidenceCategories}
+        onToggleEvidenceCategory={handleToggleEvidenceCategory}
+        selectedEvidence={selectedEvidenceMarker}
+        onSelectEvidence={setSelectedEvidenceMarker}
+      />
+
+      {/* Bioregional Timeline: Historical + Predicted Restoration Milestones */}
+      <BioregionalTimeline
+        selectedBioregionId={selectedScenario.id}
+        bioregionName={selectedScenario.bioregion}
+        activeHorizon={activeHorizon}
+      />
+
+      {/* Biodiversity Radar: Species Population Health Across Indicators (Recharts) */}
+      <BiodiversityRadar
+        selectedBioregionId={selectedScenario.id}
+        bioregionName={selectedScenario.bioregion}
       />
 
       {/* Real-Time Bioregional Event Monitor: Milestone & Telemetry Alerts */}
@@ -432,7 +606,7 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
               <button
                 onClick={handleRunMonteCarlo}
                 disabled={isSimulating}
-                className="px-3 py-1 bg-[#1B3022] hover:bg-[#254530] border border-emerald-500/40 text-emerald-300 text-[10px] font-mono rounded flex items-center gap-1 transition-all"
+                className="px-3 py-1 bg-[#1B3022] hover:bg-[#254530] border border-emerald-500/40 text-emerald-300 text-[10px] font-mono rounded flex items-center gap-1 transition-all cursor-pointer"
               >
                 <Play className={`w-3 h-3 ${isSimulating ? 'animate-spin' : ''}`} />
                 <span>{isSimulating ? 'Simulating...' : 'Run Simulation'}</span>
@@ -448,9 +622,9 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
                 const currentVal = interventionValues[`${selectedScenario.id}_${param.id}`] ?? param.currentValue;
                 return (
                   <div key={param.id} className="p-3.5 bg-[#121212] border border-[#F5F5F0]/5 rounded-sm space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="text-[#F5F5F0] font-bold">{param.name}</span>
-                      <span className="text-[#C5A059] font-bold">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-serif font-bold text-[#F5F5F0]">{param.name}</span>
+                      <span className="text-xs font-mono font-bold text-emerald-400">
                         {currentVal} {param.unit}
                       </span>
                     </div>
@@ -459,19 +633,21 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
                       {param.description}
                     </p>
 
-                    <input
-                      type="range"
-                      min={param.min}
-                      max={param.max}
-                      step={param.step}
-                      value={currentVal}
-                      onChange={(e) => handleSliderChange(selectedScenario.id, param.id, parseFloat(e.target.value))}
-                      className="w-full accent-[#C5A059] bg-[#1A1A1A] h-1.5 rounded-lg appearance-none cursor-pointer"
-                    />
+                    <div className="flex items-center gap-3 pt-1">
+                      <input
+                        type="range"
+                        min={param.min}
+                        max={param.max}
+                        step={param.step}
+                        value={currentVal}
+                        onChange={(e) => handleSliderChange(selectedScenario.id, param.id, parseFloat(e.target.value))}
+                        className="w-full accent-[#C5A059] bg-[#1E1E1E] h-1.5 rounded appearance-none cursor-pointer"
+                      />
+                    </div>
 
-                    <div className="flex items-center justify-between text-[9px] font-mono text-[#F5F5F0]/40">
+                    <div className="flex items-center justify-between text-[9px] font-mono text-[#F5F5F0]/30 pt-0.5">
                       <span>Min: {param.min}</span>
-                      <span>Cost: <span className="text-emerald-400">{param.costEstimate}</span></span>
+                      <span className="text-[#C5A059]">{param.costEstimate}</span>
                       <span>Max: {param.max}</span>
                     </div>
                   </div>
@@ -486,8 +662,9 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
                   resetState[`${selectedScenario.id}_${p.id}`] = p.currentValue;
                 });
                 setInterventionValues(prev => ({ ...prev, ...resetState }));
+                audioFeedback.playMicroTick();
               }}
-              className="w-full py-2 bg-[#141414] hover:bg-[#1C1C1C] border border-[#F5F5F0]/10 text-xs font-mono text-[#F5F5F0]/60 hover:text-[#F5F5F0] rounded-xs transition-all flex items-center justify-center gap-1.5"
+              className="w-full py-2 bg-[#141414] hover:bg-[#1C1C1C] border border-[#F5F5F0]/10 text-xs font-mono text-[#F5F5F0]/60 hover:text-[#F5F5F0] rounded-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset Scenario Parameters</span>
@@ -541,8 +718,11 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
                 {(['year5', 'year15', 'year30'] as const).map((h) => (
                   <button
                     key={h}
-                    onClick={() => setActiveHorizon(h)}
-                    className={`px-3 py-1 text-xs font-mono rounded-xs transition-all ${
+                    onClick={() => {
+                      setActiveHorizon(h);
+                      audioFeedback.playMicroTick();
+                    }}
+                    className={`px-3 py-1 text-xs font-mono rounded-xs transition-all cursor-pointer ${
                       activeHorizon === h
                         ? 'bg-[#C5A059] text-black font-bold'
                         : 'text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
@@ -630,6 +810,88 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Field Report Export Verification Modal */}
+      {showExportModal && exportedReportPayload && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0E0E0E] border border-[#C5A059] rounded-sm max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl text-[#F5F5F0] animate-in fade-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-[#F5F5F0]/10 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xs bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-[#C5A059] font-bold block">
+                    LOCAL FIELD REPORT EXPORTED (JSON)
+                  </span>
+                  <h3 className="text-base font-serif font-bold text-[#F5F5F0]">
+                    {exportedReportPayload.reportTitle}
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="p-1 text-[#F5F5F0]/40 hover:text-[#F5F5F0] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body: Summary + JSON Inspector */}
+            <div className="p-5 overflow-y-auto space-y-4 font-mono text-xs">
+              <div className="p-3 bg-[#141414] border border-emerald-500/30 rounded-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px]">
+                <div>
+                  <span className="text-emerald-400 font-bold block">File Download Initiated</span>
+                  <span className="text-[#F5F5F0]/60">
+                    Compiled {exportedReportPayload.fieldEvidenceLedger?.length || 0} Field Evidence items & {exportedReportPayload.activeInterventions?.length || 0} configured parameters.
+                  </span>
+                </div>
+
+                <button
+                  onClick={copyReportToClipboard}
+                  className="px-3 py-1.5 bg-[#1F2720] hover:bg-[#2A372C] border border-emerald-500/50 text-emerald-300 rounded-xs flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+                >
+                  {hasCopiedJson ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{hasCopiedJson ? 'Copied JSON' : 'Copy JSON'}</span>
+                </button>
+              </div>
+
+              {/* Provenance Hash */}
+              <div className="p-3 bg-[#0A0A0A] border border-[#F5F5F0]/5 rounded-xs space-y-1">
+                <span className="text-[9px] uppercase text-[#C5A059] block font-bold">
+                  Epistemic Provenance Merkle Hash
+                </span>
+                <span className="text-[11px] text-emerald-400 break-all font-mono">
+                  {exportedReportPayload.epistemicProvenance?.provenanceHash}
+                </span>
+              </div>
+
+              {/* JSON Code Viewer */}
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase text-[#F5F5F0]/40 block font-bold">
+                  Simulated Field Report JSON Payload:
+                </span>
+                <pre className="p-3 bg-[#050505] border border-[#F5F5F0]/10 rounded-xs max-h-72 overflow-y-auto text-[10px] text-[#A3E635] font-mono leading-relaxed select-all">
+                  {JSON.stringify(exportedReportPayload, null, 2)}
+                </pre>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-[#F5F5F0]/10 bg-[#090909] flex items-center justify-between font-mono text-[10px] text-[#F5F5F0]/50">
+              <span>Ground Truth Epistemic Standard v2.4</span>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="px-4 py-1.5 bg-[#C5A059] hover:bg-[#B08E4C] text-black font-bold rounded-xs cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -16,10 +16,17 @@ import {
   X,
   FileImage,
   Share2,
-  Maximize2
+  Maximize2,
+  SlidersHorizontal,
+  Download,
+  FileText,
+  Zap,
+  Sliders,
+  Layers
 } from 'lucide-react';
 import { useMissionAlerts } from '../../context/MissionAlertContext';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { FieldEvidenceModal } from './FieldEvidenceModal';
 
 export interface FieldEvidenceItem {
   id: string;
@@ -33,11 +40,67 @@ export interface FieldEvidenceItem {
   epistemicTier: string;
   bioregionId: string;
   isUserCaptured: boolean;
+  filterApplied?: string;
 }
+
+export type SnapFilterId = 'none' | 'soil_moisture' | 'veg_health' | 'greyscale' | 'thermal_micro';
+
+export interface SnapFilterConfig {
+  id: SnapFilterId;
+  name: string;
+  shortLabel: string;
+  cssFilter: string;
+  description: string;
+  colorTag: string;
+}
+
+export const SNAP_IMAGE_FILTERS: SnapFilterConfig[] = [
+  {
+    id: 'none',
+    name: 'Raw Optical Telemetry',
+    shortLabel: 'Raw Optical',
+    cssFilter: 'none',
+    description: 'Unprocessed natural light photographic sensor stream.',
+    colorTag: 'text-[#F5F5F0]'
+  },
+  {
+    id: 'soil_moisture',
+    name: 'Soil Moisture Contrast',
+    shortLabel: 'Soil Moisture',
+    cssFilter: 'contrast(1.65) brightness(0.85) saturate(1.4) sepia(0.25)',
+    description: 'Amplifies organic humus attenuation and topsoil moisture pooling boundaries.',
+    colorTag: 'text-amber-400'
+  },
+  {
+    id: 'veg_health',
+    name: 'Vegetation Health Index',
+    shortLabel: 'Vegetation Health',
+    cssFilter: 'hue-rotate(60deg) contrast(1.7) saturate(2.2)',
+    description: 'Simulates near-infrared reflectance highlighting active vegetative vigor and chlorophyll.',
+    colorTag: 'text-emerald-400'
+  },
+  {
+    id: 'greyscale',
+    name: 'Greyscale Analysis',
+    shortLabel: 'Greyscale Analysis',
+    cssFilter: 'grayscale(1) contrast(1.9) brightness(1.08)',
+    description: 'High-contrast monochromatic channel isolating root structure fissures and soil aggregate edges.',
+    colorTag: 'text-zinc-300'
+  },
+  {
+    id: 'thermal_micro',
+    name: 'Thermal Micro-Variance',
+    shortLabel: 'Thermal Variance',
+    cssFilter: 'invert(0.15) hue-rotate(185deg) saturate(2.1) contrast(1.4)',
+    description: 'Micro-climatic cooling divergence distinguishing shaded transpiration pockets from heat stress.',
+    colorTag: 'text-cyan-400'
+  }
+];
 
 interface BioregionalSnapProps {
   currentBioregionId?: string;
   currentBioregionName?: string;
+  onOpenFieldReport?: () => void;
 }
 
 // Initial baseline field evidence items
@@ -108,6 +171,13 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [capturedDataUrl, setCapturedDataUrl] = useState<string | null>(null);
   const [inspectItem, setInspectItem] = useState<FieldEvidenceItem | null>(null);
+
+  // Image Processing Filters State
+  const [activeFilterId, setActiveFilterId] = useState<SnapFilterId>('none');
+
+  // Session evidence tracking for export trigger (>5 evidence captured)
+  const [sessionEvidenceCount, setSessionEvidenceCount] = useState<number>(0);
+  const [showExportTriggerBanner, setShowExportTriggerBanner] = useState<boolean>(false);
 
   // Form states for newly snapped photo
   const [observationTitle, setObservationTitle] = useState<string>('');
@@ -200,6 +270,7 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
 
     setCapturedDataUrl(dataUrl);
+    setActiveFilterId('none');
     setObservationTitle(`Field Observation #${Date.now().toString().slice(-4)}`);
     stopCamera();
   };
@@ -214,11 +285,36 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
     reader.onload = (event) => {
       if (event.target?.result) {
         setCapturedDataUrl(event.target.result as string);
+        setActiveFilterId('none');
         setObservationTitle(file.name.replace(/\.[^/.]+$/, "") || `Field Snap #${Date.now().toString().slice(-4)}`);
         stopCamera();
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  // Client-side canvas processor to bake selected filter into final data URL
+  const applyFilterToDataUrl = (baseDataUrl: string, filterCss: string): Promise<string> => {
+    if (filterCss === 'none') return Promise.resolve(baseDataUrl);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width || 800;
+        c.height = img.height || 600;
+        const ctx = c.getContext('2d');
+        if (!ctx) {
+          resolve(baseDataUrl);
+          return;
+        }
+        ctx.filter = filterCss;
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/jpeg', 0.9));
+      };
+      img.onerror = () => resolve(baseDataUrl);
+      img.src = baseDataUrl;
+    });
   };
 
   // Compute a cryptographic hash for image provenance
@@ -232,9 +328,12 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
   };
 
   // Commit and save the snapped field evidence
-  const saveFieldEvidence = () => {
+  const saveFieldEvidence = async () => {
     if (!capturedDataUrl) return;
     audioFeedback.playSyncComplete();
+
+    const activeConfig = SNAP_IMAGE_FILTERS.find(f => f.id === activeFilterId) || SNAP_IMAGE_FILTERS[0];
+    const finalDataUrl = await applyFilterToDataUrl(capturedDataUrl, activeConfig.cssFilter);
 
     const hash = generateProvenanceHash();
     const newEvidence: FieldEvidenceItem = {
@@ -242,7 +341,7 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
       title: observationTitle.trim() || 'Unlabeled Bioregional Field Snap',
       location: observationLocation.trim() || currentBioregionName,
       metricObserved: observationMetric.trim() || 'Empirical ground truth confirmed by citizen steward',
-      imageUrl: capturedDataUrl,
+      imageUrl: finalDataUrl,
       timestamp: new Date().toLocaleString([], { 
         month: 'short', 
         day: 'numeric', 
@@ -253,10 +352,19 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
       verifiedBy: 'Local Field Citizen Steward & Camera Sensor',
       epistemicTier: 'Ground Truth Photographic Telemetry',
       bioregionId: currentBioregionId,
-      isUserCaptured: true
+      isUserCaptured: true,
+      filterApplied: activeConfig.name
     };
 
     setEvidenceList(prev => [newEvidence, ...prev]);
+
+    // Track session evidence count & trigger export notification if >5
+    const nextCount = sessionEvidenceCount + 1;
+    setSessionEvidenceCount(nextCount);
+    if (nextCount >= 5) {
+      setShowExportTriggerBanner(true);
+      audioFeedback.playSuccessChime();
+    }
 
     // Push notification to MissionAlertProvider
     addAlert({
@@ -265,7 +373,7 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
       type: 'milestone_verified',
       severity: 'success',
       title: `Field Evidence Logged: ${newEvidence.title}`,
-      message: `In-situ photographic observation captured at ${newEvidence.location}. Cryptographic hash: ${hash.slice(0, 16)}...`,
+      message: `In-situ photographic observation (${activeConfig.shortLabel}) captured at ${newEvidence.location}. Cryptographic hash: ${hash.slice(0, 16)}...`,
       cryptographicHash: hash,
       targetView: 'bioregional-twin',
       targetId: newEvidence.id,
@@ -273,13 +381,14 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
         verifiedBy: newEvidence.verifiedBy,
         certaintyScore: 99,
         epistemicTier: newEvidence.epistemicTier,
-        anomalyMetric: 'Visual Proof',
+        anomalyMetric: activeConfig.shortLabel,
         reading: 'Valid Hash Verified'
       }
     });
 
     // Reset capture form
     setCapturedDataUrl(null);
+    setActiveFilterId('none');
     setObservationTitle('');
   };
 
@@ -318,8 +427,29 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
           </p>
         </div>
 
-        {/* Shutter / Capture Trigger Buttons */}
-        <div className="flex items-center gap-2 self-start sm:self-center">
+        {/* Shutter / Capture Trigger Buttons & Test Controls */}
+        <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+          {sessionEvidenceCount > 0 && (
+            <span className="px-2.5 py-1 bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 text-[10px] font-mono rounded-xs font-bold">
+              Session Snaps: {sessionEvidenceCount}
+            </span>
+          )}
+
+          {/* Test / Simulate Export Trigger Button */}
+          <button
+            id="simulate-5-snaps-btn"
+            onClick={() => {
+              setSessionEvidenceCount(5);
+              setShowExportTriggerBanner(true);
+              audioFeedback.playSuccessChime();
+            }}
+            className="px-2.5 py-1.5 bg-[#141414] hover:bg-[#1E1E1E] border border-[#F5F5F0]/15 text-[#F5F5F0]/60 hover:text-[#C5A059] rounded-xs text-[10px] font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Test notification trigger prompting users to export field report when >5 items captured"
+          >
+            <Zap className="w-3 h-3 text-[#C5A059]" />
+            <span>Simulate &gt;5 Snaps Trigger</span>
+          </button>
+
           {!isCameraActive && !capturedDataUrl && (
             <>
               <button
@@ -363,6 +493,63 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
           />
         </div>
       </div>
+
+      {/* Field Report Export Notification Trigger Banner (>5 pieces of evidence captured in session) */}
+      {(showExportTriggerBanner || sessionEvidenceCount >= 5) && (
+        <div 
+          id="field-report-export-trigger-banner"
+          className="p-4 bg-[#0A1A12] border-2 border-emerald-500/80 rounded-sm shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-[#F5F5F0] animate-in fade-in"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-emerald-500/20 rounded-full border border-emerald-400 text-emerald-300 shrink-0">
+              <FileText className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono uppercase bg-emerald-900 text-emerald-200 px-2 py-0.5 rounded font-bold border border-emerald-500/40">
+                  Empirical Session Trigger Active
+                </span>
+                <span className="text-xs font-mono text-emerald-300 font-bold">
+                  {sessionEvidenceCount} pieces of ground truth evidence logged
+                </span>
+              </div>
+              <h4 className="text-sm font-serif font-bold text-[#F5F5F0]">
+                Ready to Export Bioregional Field Report?
+              </h4>
+              <p className="text-xs text-[#F5F5F0]/75 font-sans leading-relaxed max-w-2xl">
+                You have captured substantial ground truth observations in this session. Compile your in-situ photographic telemetry and restorative indicators into an audited cryptographically verified JSON Field Report.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <button
+              id="trigger-field-report-export-btn"
+              onClick={() => {
+                audioFeedback.playDataSave();
+                if (onOpenFieldReport) {
+                  onOpenFieldReport();
+                } else {
+                  window.dispatchEvent(new CustomEvent('atlas:open-field-report'));
+                }
+                setShowExportTriggerBanner(false);
+              }}
+              className="px-4 py-2 bg-[#C5A059] hover:bg-[#b08e4c] text-black font-mono font-bold text-xs uppercase tracking-wider rounded-xs flex items-center gap-2 shadow-lg transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Field Report</span>
+            </button>
+
+            <button
+              onClick={() => setShowExportTriggerBanner(false)}
+              className="p-1.5 text-[#F5F5F0]/40 hover:text-[#F5F5F0] cursor-pointer"
+              title="Dismiss prompt"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Camera Viewfinder / Capture Stage */}
       {isCameraActive && (
@@ -545,12 +732,19 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
               key={item.id}
               className="bg-[#141414] border border-[#F5F5F0]/10 hover:border-[#C5A059]/50 rounded-sm overflow-hidden group transition-all flex flex-col justify-between text-left shadow"
             >
-              {/* Thumbnail Container */}
-              <div className="relative w-full aspect-video bg-black overflow-hidden">
+              {/* Thumbnail Container - clicking image opens FieldEvidenceModal */}
+              <div 
+                onClick={() => {
+                  setInspectItem(item);
+                  audioFeedback.playMicroTick();
+                }}
+                className="relative w-full aspect-video bg-black overflow-hidden cursor-pointer group/img"
+                title="Click image to open full Field Evidence Provenance"
+              >
                 <img
                   src={item.imageUrl}
                   alt={item.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
                 />
 
                 {/* Overlaid Badges */}
@@ -562,7 +756,8 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
 
                 <div className="absolute bottom-2 right-2">
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setInspectItem(item);
                       audioFeedback.playMicroTick();
                     }}
@@ -613,72 +808,11 @@ export const BioregionalSnap: React.FC<BioregionalSnapProps> = ({
         </div>
       </div>
 
-      {/* Full-Screen Modal to Inspect Field Evidence Certificate */}
-      {inspectItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-2xl bg-[#0D0D0D] border border-[#C5A059] rounded-sm p-6 space-y-4 text-[#F5F5F0] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#F5F5F0]/15 pb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-base font-serif font-bold text-[#F5F5F0]">
-                  Field Evidence Provenance Certificate
-                </h3>
-              </div>
-              <button
-                onClick={() => setInspectItem(null)}
-                className="p-1 text-[#F5F5F0]/50 hover:text-[#F5F5F0] cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="relative aspect-video bg-black rounded-sm overflow-hidden border border-[#F5F5F0]/20">
-              <img
-                src={inspectItem.imageUrl}
-                alt={inspectItem.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="space-y-2 text-xs font-mono">
-              <h4 className="text-lg font-serif font-bold text-[#F5F5F0]">
-                {inspectItem.title}
-              </h4>
-              <p className="text-xs text-[#F5F5F0]/80 font-sans">
-                {inspectItem.metricObserved}
-              </p>
-
-              <div className="grid grid-cols-2 gap-2 pt-2 text-[10px] text-[#F5F5F0]/60 border-t border-[#F5F5F0]/10">
-                <div>
-                  <span className="text-[#C5A059] block">Location:</span>
-                  <span>{inspectItem.location}</span>
-                </div>
-                <div>
-                  <span className="text-[#C5A059] block">Captured:</span>
-                  <span>{inspectItem.timestamp}</span>
-                </div>
-                <div>
-                  <span className="text-[#C5A059] block">Epistemic Tier:</span>
-                  <span className="text-emerald-400">{inspectItem.epistemicTier}</span>
-                </div>
-                <div>
-                  <span className="text-[#C5A059] block">Cryptographic Hash:</span>
-                  <span className="text-[#F5F5F0] break-all">{inspectItem.hash}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end pt-3 border-t border-[#F5F5F0]/10">
-              <button
-                onClick={() => setInspectItem(null)}
-                className="px-4 py-1.5 bg-[#C5A059] hover:bg-[#b08e4c] text-black font-mono font-bold text-xs uppercase rounded-xs cursor-pointer"
-              >
-                Close Certificate
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Dedicated Full-Screen Field Evidence Provenance Modal */}
+      <FieldEvidenceModal
+        evidence={inspectItem}
+        onClose={() => setInspectItem(null)}
+      />
     </div>
   );
 };
