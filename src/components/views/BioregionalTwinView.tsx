@@ -44,6 +44,10 @@ import { BioregionalTimeline } from '../bioregional/BioregionalTimeline';
 import { BiodiversityRadar } from '../bioregional/BiodiversityRadar';
 import { BioregionalEventMonitor } from '../bioregional/BioregionalEventMonitor';
 import { BioregionalSnap } from '../bioregional/BioregionalSnap';
+import { BioregionalInsightsFeed } from '../bioregional/BioregionalInsightsFeed';
+import { BioregionalEvidenceTimeline } from '../bioregional/BioregionalEvidenceTimeline';
+import { BioregionalKnowledgeGraph } from '../bioregional/BioregionalKnowledgeGraph';
+import { ExportDataWizardModal } from '../bioregional/ExportDataWizardModal';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 // High-fidelity abstract bioregional health visual backgrounds generated via Imagen
@@ -109,6 +113,7 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
 
   // Field Report Export Modal state
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
+  const [showWizardModal, setShowWizardModal] = useState<boolean>(false);
   const [exportedReportPayload, setExportedReportPayload] = useState<any>(null);
   const [hasCopiedJson, setHasCopiedJson] = useState<boolean>(false);
 
@@ -293,6 +298,19 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Export Data Wizard (JSON Research Package) Button */}
+          <button
+            onClick={() => {
+              setShowWizardModal(true);
+              audioFeedback.playMicroTick();
+            }}
+            className="px-3.5 py-2 bg-[#1B2735] hover:bg-[#243447] border border-[#8FB8DE]/60 text-[#8FB8DE] text-xs font-mono font-bold rounded-sm flex items-center gap-1.5 transition-all shadow-md cursor-pointer group"
+            title="Package bioregional snapshots, indicators, and field evidence into a verified JSON package"
+          >
+            <Sparkles className="w-4 h-4 text-[#8FB8DE] group-hover:scale-110 transition-transform" />
+            <span>Export Data Wizard</span>
+          </button>
+
           {/* Export Local Field Report Button */}
           <button
             onClick={handleExportFieldReport}
@@ -300,7 +318,7 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
             title="Export full indicators and evidence ledger as a JSON Field Report"
           >
             <Download className="w-4 h-4 text-emerald-400 group-hover:translate-y-0.5 transition-transform" />
-            <span>Export Field Report (JSON)</span>
+            <span>Quick Export (JSON)</span>
           </button>
 
           <button
@@ -560,6 +578,31 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
       <BioregionalSnap
         currentBioregionId={selectedScenario.id}
         currentBioregionName={selectedScenario.bioregion}
+      />
+
+      {/* Bioregional Insights Feed: Indigenous Wisdom, Ecological Science & Regenerative Practice Tips */}
+      <BioregionalInsightsFeed
+        currentBioregionId={selectedScenario.id}
+        currentBioregionName={selectedScenario.bioregion}
+      />
+
+      {/* Bioregional Evidence Timeline: Vertical Chronological Sequence of Captured Field Evidence & Rich Sticky Notes */}
+      <BioregionalEvidenceTimeline
+        currentBioregionId={selectedScenario.id}
+        currentBioregionName={selectedScenario.bioregion}
+        onNavigateToModule={(modId) => {
+          onSelectTab(modId);
+          audioFeedback.playViewTransition();
+        }}
+      />
+
+      {/* Bioregional Knowledge Graph: D3 Ecological Dependency Network */}
+      <BioregionalKnowledgeGraph
+        selectedBioregionId={selectedScenario.id}
+        onSelectModuleTab={(tabId) => {
+          onSelectTab(tabId);
+          audioFeedback.playViewTransition();
+        }}
       />
 
       {/* Scenario Hero Stats */}
@@ -892,6 +935,15 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Structured JSON Research Package Export Data Wizard Modal */}
+      <ExportDataWizardModal
+        isOpen={showWizardModal}
+        onClose={() => setShowWizardModal(false)}
+        selectedScenario={selectedScenario}
+        interventionValues={interventionValues}
+        dynamicMultiplier={dynamicMultiplier}
+      />
     </div>
   );
 };

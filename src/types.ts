@@ -839,7 +839,8 @@ export type MissionAlertType =
   | 'telemetry_anomaly'
   | 'stewardship_endorsed'
   | 'tranche_released'
-  | 'reality_check_warning';
+  | 'reality_check_warning'
+  | 'tipping_point';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical' | 'success';
 

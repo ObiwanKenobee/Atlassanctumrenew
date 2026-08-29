@@ -2,6 +2,17 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MissionAlert, MissionAlertType, PageView } from '../types';
 import { audioFeedback } from '../lib/audioFeedback';
 
+export interface TippingPointTriggerParams {
+  bioregionId?: string;
+  bioregionName?: string;
+  metricName?: string;
+  positiveDeviationPct?: number;
+  daysPeriod?: number;
+  details?: string;
+  targetView?: PageView;
+  targetId?: string;
+}
+
 export interface MissionAlertContextType {
   alerts: MissionAlert[];
   unreadCount: number;
@@ -19,6 +30,7 @@ export interface MissionAlertContextType {
   clearAlerts: () => void;
   addAlert: (alert: Omit<MissionAlert, 'id' | 'timestamp' | 'read'>) => void;
   simulateTriggerAlert: (type?: MissionAlertType) => void;
+  triggerTippingPointAlert: (params?: TippingPointTriggerParams) => void;
 }
 
 const INITIAL_ALERTS: MissionAlert[] = [
@@ -258,6 +270,23 @@ export const MissionAlertProvider: React.FC<{ children: React.ReactNode }> = ({ 
         metadata: {
           verifiedBy: 'Maasai Pastoralist Council'
         }
+      },
+      {
+        missionId: 'bioregion-aberdare-watershed',
+        missionTitle: 'Aberdare Highland Watershed & Riparian Corridor',
+        type: 'tipping_point',
+        severity: 'success',
+        title: 'Positive Tipping Point: +14.2% Sustained Metric Deviation (30-Day)',
+        message: 'Forecast Model projection verified a sustained +14.2% positive deviation in Mycorrhizal Living Sponge & Aquifer Piezometric Head across 30 consecutive days. Regenerative trajectory has transitioned into self-reinforcing ecological lock-in.',
+        cryptographicHash: `0x${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`,
+        targetView: 'bioregional-twin',
+        targetId: 'tipping-point-aberdare-som',
+        metadata: {
+          verifiedBy: 'Bioregional Causal Forecast Kernel & Sentinel-2 Mesh',
+          certaintyScore: 97.4,
+          epistemicTier: 'Non-Linear Ecological Attractor Verified',
+          anomalyMetric: 'Aquifer Infiltration & Soil Carbon Stock'
+        }
       }
     ];
 
@@ -266,6 +295,35 @@ export const MissionAlertProvider: React.FC<{ children: React.ReactNode }> = ({ 
       : simulations[Math.floor(Math.random() * simulations.length)];
 
     addAlert(selected);
+  };
+
+  const triggerTippingPointAlert = (params?: TippingPointTriggerParams) => {
+    const deviation = params?.positiveDeviationPct ?? 12.8;
+    const days = params?.daysPeriod ?? 30;
+    const bioregion = params?.bioregionName ?? 'Aberdare Riparian Watershed';
+    const bioregionId = params?.bioregionId ?? 'aberdare_riparian_watershed';
+    const metric = params?.metricName ?? 'Soil Organic Carbon & Aquifer Head';
+    const details = params?.details ?? `Forecast Model projection confirms a sustained +${deviation.toFixed(1)}% positive deviation in ${metric} over a ${days}-day window, surpassing the biophysical threshold for self-sustaining ecological equilibrium.`;
+
+    const tippingAlert: Omit<MissionAlert, 'id' | 'timestamp' | 'read'> = {
+      missionId: bioregionId,
+      missionTitle: bioregion,
+      type: 'tipping_point',
+      severity: 'success',
+      title: `Positive Tipping Point: +${deviation.toFixed(1)}% Deviation (${days}-Day Sustained)`,
+      message: details,
+      cryptographicHash: `0x${Math.random().toString(16).substring(2)}${Math.random().toString(16).substring(2)}`,
+      targetView: params?.targetView ?? 'bioregional-twin',
+      targetId: params?.targetId ?? `tipping-point-${bioregionId}`,
+      metadata: {
+        verifiedBy: 'Atlas Sanctum Causal Forecast Engine & In-Situ Sensor Mesh',
+        certaintyScore: 98.2,
+        epistemicTier: 'Non-Linear Positive Attractor Confirmed',
+        anomalyMetric: metric
+      }
+    };
+
+    addAlert(tippingAlert);
   };
 
   return (
@@ -286,7 +344,8 @@ export const MissionAlertProvider: React.FC<{ children: React.ReactNode }> = ({ 
         markAllAsRead,
         clearAlerts,
         addAlert,
-        simulateTriggerAlert
+        simulateTriggerAlert,
+        triggerTippingPointAlert
       }}
     >
       {children}

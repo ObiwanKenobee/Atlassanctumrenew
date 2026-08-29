@@ -31,7 +31,8 @@ export type BioregionalAlertCategory =
   | 'Water Quality'
   | 'Biodiversity Spike'
   | 'Canopy Health'
-  | 'Civilizational Governance';
+  | 'Civilizational Governance'
+  | 'Ecological Tipping Point';
 
 interface BioregionalAlertFeedProps {
   currentBioregionId?: string;
@@ -43,6 +44,10 @@ interface BioregionalAlertFeedProps {
  * Categorize a MissionAlert into one of the bioregional categories
  */
 export function getBioregionalCategory(alert: MissionAlert): BioregionalAlertCategory {
+  if (alert.type === 'tipping_point' || alert.title.toLowerCase().includes('tipping point')) {
+    return 'Ecological Tipping Point';
+  }
+
   const text = `${alert.title} ${alert.message} ${alert.missionTitle || ''} ${alert.metadata?.anomalyMetric || ''}`.toLowerCase();
 
   if (text.includes('soil') || text.includes('mycelium') || text.includes('carbon') || text.includes('zaï') || text.includes('som') || text.includes('edaphic') || text.includes('glomalin') || text.includes('desiccation')) {
@@ -65,7 +70,7 @@ export const BioregionalAlertFeed: React.FC<BioregionalAlertFeedProps> = ({
   currentBioregionName = 'Aberdare Range & Mara-Rift Watershed',
   onNavigateToEvidence
 }) => {
-  const { alerts, unreadCount, markAsRead, markAllAsRead, addAlert } = useMissionAlerts();
+  const { alerts, unreadCount, markAsRead, markAllAsRead, addAlert, triggerTippingPointAlert } = useMissionAlerts();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedSeverity, setSelectedSeverity] = useState<string>('All');
@@ -90,7 +95,8 @@ export const BioregionalAlertFeed: React.FC<BioregionalAlertFeedProps> = ({
       'Water Quality': 0,
       'Biodiversity Spike': 0,
       'Canopy Health': 0,
-      'Civilizational Governance': 0
+      'Civilizational Governance': 0,
+      'Ecological Tipping Point': 0
     };
     categorizedAlerts.forEach(a => {
       if (counts[a.bioregionalCategory] !== undefined) {
@@ -234,6 +240,8 @@ export const BioregionalAlertFeed: React.FC<BioregionalAlertFeedProps> = ({
 
   const getCategoryIcon = (category: BioregionalAlertCategory) => {
     switch (category) {
+      case 'Ecological Tipping Point':
+        return <Sparkles className="w-3.5 h-3.5 text-emerald-300 animate-pulse" />;
       case 'Soil Health':
         return <Sprout className="w-3.5 h-3.5 text-amber-400" />;
       case 'Water Quality':
@@ -250,6 +258,8 @@ export const BioregionalAlertFeed: React.FC<BioregionalAlertFeedProps> = ({
 
   const getCategoryBadgeClass = (category: BioregionalAlertCategory) => {
     switch (category) {
+      case 'Ecological Tipping Point':
+        return 'bg-emerald-950/80 text-emerald-200 border-emerald-400/50 shadow-[0_0_12px_rgba(52,211,153,0.2)] font-bold';
       case 'Soil Health':
         return 'bg-amber-950/60 text-amber-300 border-amber-500/30';
       case 'Water Quality':
@@ -264,7 +274,16 @@ export const BioregionalAlertFeed: React.FC<BioregionalAlertFeedProps> = ({
     }
   };
 
-  const getSeverityBadge = (severity: AlertSeverity) => {
+  const getSeverityBadge = (severity: AlertSeverity, alertType?: string) => {
+    if (alertType === 'tipping_point') {
+      return (
+        <span className="px-2 py-0.5 bg-gradient-to-r from-emerald-950 to-[#2A2315] text-emerald-300 border border-emerald-400/50 text-[9px] font-mono font-bold uppercase rounded flex items-center gap-1.5 shadow-[0_0_8px_rgba(52,211,153,0.25)]">
+          <Sparkles className="w-2.5 h-2.5 text-emerald-300 animate-spin" />
+          <span>Tipping Point (+10% 30d)</span>
+        </span>
+      );
+    }
+
     switch (severity) {
       case 'critical':
         return (
@@ -354,6 +373,24 @@ export const BioregionalAlertFeed: React.FC<BioregionalAlertFeedProps> = ({
               <Bird className="w-3 h-3 text-emerald-400" />
               <span>Bio Spike</span>
             </button>
+            <button
+              onClick={() => {
+                triggerTippingPointAlert({
+                  bioregionId: currentBioregionId,
+                  bioregionName: currentBioregionName,
+                  metricName: 'Soil Carbon Stock & Aquifer Piezometric Head',
+                  positiveDeviationPct: 14.6,
+                  daysPeriod: 30,
+                  details: `Forecast Model projection confirms a sustained +14.6% positive deviation in Soil Carbon Stock & Aquifer Head across 30 consecutive days. Bioregional regeneration in ${currentBioregionName} has transitioned into self-sustaining ecological lock-in.`
+                });
+                audioFeedback.playCovenantResonance();
+              }}
+              className="px-2.5 py-1 bg-gradient-to-r from-[#17301F] to-[#2E2812] hover:from-[#21432C] hover:to-[#413919] border border-emerald-400/60 text-emerald-200 text-[10px] font-mono font-bold rounded-xs flex items-center gap-1 transition-all cursor-pointer shadow-[0_0_10px_rgba(52,211,153,0.25)]"
+              title="Trigger Forecast 30-Day Sustained +10% Positive Tipping Point Alert"
+            >
+              <Sparkles className="w-3 h-3 text-emerald-300" />
+              <span>Tipping Point (+10%)</span>
+            </button>
           </div>
 
           {unreadCount > 0 && (
@@ -378,7 +415,7 @@ export const BioregionalAlertFeed: React.FC<BioregionalAlertFeedProps> = ({
             <Filter className="w-3 h-3 text-[#C5A059]" />
             Category:
           </span>
-          {(['All', 'Soil Health', 'Water Quality', 'Biodiversity Spike', 'Canopy Health', 'Civilizational Governance'] as const).map(cat => {
+          {(['All', 'Ecological Tipping Point', 'Soil Health', 'Water Quality', 'Biodiversity Spike', 'Canopy Health', 'Civilizational Governance'] as const).map(cat => {
             const isSelected = selectedCategory === cat;
             const count = categoryCounts[cat] || 0;
             return (
@@ -499,7 +536,7 @@ export const BioregionalAlertFeed: React.FC<BioregionalAlertFeedProps> = ({
                     </span>
 
                     {/* Severity */}
-                    {getSeverityBadge(alert.severity)}
+                    {getSeverityBadge(alert.severity, alert.type)}
 
                     {/* Unread indicator */}
                     {!alert.read && (
