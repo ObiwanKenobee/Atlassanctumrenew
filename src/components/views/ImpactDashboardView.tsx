@@ -19,6 +19,8 @@ import { INTELLIGENCE_LAYERS, CIVILIZATION_METRICS, SAMPLE_PROVENANCE } from '..
 import { CivilizationMetric } from '../../types';
 import { CausalImpactD3Graph } from '../CausalImpactD3Graph';
 import { HumanFlourishingTimelineChart } from '../analytics/HumanFlourishingTimelineChart';
+import { ProjectFlourishingD3Network } from '../analytics/ProjectFlourishingD3Network';
+import { KnowledgeGraphStudio } from '../intelligence/KnowledgeGraphStudio';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 interface ImpactDashboardViewProps {
@@ -32,7 +34,7 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
 }) => {
   const [selectedLayerId, setSelectedLayerId] = useState<string>('flourishing-os');
   const [selectedMetric, setSelectedMetric] = useState<CivilizationMetric>(CIVILIZATION_METRICS[0]);
-  const [activeTab, setActiveTab] = useState<'flourishing-timeline' | 'causal-graph' | 'telemetry-grid'>('flourishing-timeline');
+  const [activeTab, setActiveTab] = useState<'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid'>('restoration-mesh');
 
   const activeLayer = INTELLIGENCE_LAYERS.find(l => l.id === selectedLayerId) || INTELLIGENCE_LAYERS[0];
   const layerMetrics = CIVILIZATION_METRICS;
@@ -70,9 +72,39 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         </div>
       </div>
 
-      {/* View Switcher: Recharts Flourishing Timeline vs Interactive Causal D3 Graph vs Telemetry Matrix */}
+      {/* View Switcher: Recharts Flourishing Timeline vs Restoration Mesh D3 vs Knowledge Graph Studio vs Interactive Causal D3 Graph vs Telemetry Matrix */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F5F5F0]/10 pb-3">
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => {
+              setActiveTab('restoration-mesh');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'restoration-mesh'
+                ? 'bg-[#C5A059] text-black shadow-md'
+                : 'bg-[#141414] text-[#F5F5F0]/70 hover:text-white border border-[#F5F5F0]/10'
+            }`}
+          >
+            <GitBranch className="w-3.5 h-3.5" />
+            <span>Restoration Mesh (Project ➔ Index)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('knowledge-studio');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'knowledge-studio'
+                ? 'bg-[#C5A059] text-black shadow-md'
+                : 'bg-[#141414] text-[#F5F5F0]/70 hover:text-white border border-[#F5F5F0]/10'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Knowledge Graph Studio</span>
+          </button>
+
           <button
             onClick={() => {
               setActiveTab('flourishing-timeline');
@@ -85,7 +117,7 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             }`}
           >
             <LineChartIcon className="w-3.5 h-3.5" />
-            <span>Human Flourishing (Recharts Timeline)</span>
+            <span>Human Flourishing (Timeline)</span>
           </button>
 
           <button
@@ -100,7 +132,7 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             }`}
           >
             <GitBranch className="w-3.5 h-3.5" />
-            <span>Interactive D3 Causal Graph</span>
+            <span>5-Level Causal D3</span>
           </button>
 
           <button
@@ -115,7 +147,7 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>5-Layer Epistemic Matrix</span>
+            <span>Epistemic Matrix Grid</span>
           </button>
         </div>
 
@@ -124,6 +156,20 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           <span className="text-[#C5A059] font-bold">REALITY ➔ DATA ➔ MODEL ➔ DECISION</span>
         </div>
       </div>
+
+      {/* Primary Tab: D3 Global Restoration Network Graph */}
+      {activeTab === 'restoration-mesh' && (
+        <div className="space-y-6">
+          <ProjectFlourishingD3Network onInspectProvenance={onInspectProvenance} />
+        </div>
+      )}
+
+      {/* Primary Tab: D3 Knowledge Graph Studio */}
+      {activeTab === 'knowledge-studio' && (
+        <div className="space-y-6">
+          <KnowledgeGraphStudio onInspectProvenance={onInspectProvenance} />
+        </div>
+      )}
 
       {/* Primary Tab 1: Recharts Human Flourishing Timeline */}
       {activeTab === 'flourishing-timeline' && (

@@ -33,6 +33,8 @@ import { MORAL_PRINCIPLES } from '../../data/mockCivilizationData';
 import { ARCHITECTURAL_COMMANDMENTS } from '../../data/commandmentsData';
 import { GovernancePillar, GovernanceProposal, ConstitutionalFloorRule } from '../../types/platformContent';
 import { PageView } from '../../types';
+import { LiquidDemocracyVotingPortal } from '../governance/LiquidDemocracyVotingPortal';
+import { audioFeedback } from '../../lib/audioFeedback';
 
 interface GovernanceHubViewProps {
   onSelectTab?: (tab: PageView) => void;
@@ -384,17 +386,23 @@ export const GovernanceHubView: React.FC<GovernanceHubViewProps> = ({
       {/* PILLAR 4: DECISION-MAKING & PROPOSALS */}
       {/* ========================================================================= */}
       {activePillar === 'decision_making' && (
-        <div className="space-y-8">
+        <div className="space-y-10">
+          {/* Liquid Democracy Voting Portal */}
+          <LiquidDemocracyVotingPortal
+            proposals={GOVERNANCE_PROPOSALS}
+            onInspectProvenance={onInspectProvenance || (() => {})}
+          />
+
           <div className="p-6 bg-[#0E1511] border border-[#C5A059]/40 rounded-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="space-y-1 max-w-3xl">
               <div className="text-[10px] font-mono uppercase text-[#C5A059] font-bold">
-                COMMUNITY DEMOCRACY & ELDER CONSENSUS
+                COMMUNITY DEMOCRACY & ELDER CONSENSUS ARCHIVE
               </div>
               <h2 className="text-2xl font-serif font-bold text-[#F5F5F0]">
-                Active Governance Proposals (AGPs) & Decision Records
+                Historic AGP Catalogs & Precedents
               </h2>
               <p className="text-xs text-[#F5F5F0]/70 font-sans">
-                Review, deliberate, and vote on community capital releases and schema upgrades. All proposals must pass both quadratic community quorum and strict Priority Floor defenses.
+                Review historic proposals, quadratic voting channels, and autonomous Priority Floor defenses.
               </p>
             </div>
           </div>

@@ -21,6 +21,9 @@ import {
 } from 'lucide-react';
 import { CapitalAllocationTranche, CapitalForm } from '../../types';
 import { CAPITAL_TRANCHES } from '../../data/prompt2CivilizationData';
+import { BlendedFinanceStructuringEngine } from '../capital/BlendedFinanceStructuringEngine';
+import { MilestoneEscrowTrancheController } from '../capital/MilestoneEscrowTrancheController';
+import { audioFeedback } from '../../lib/audioFeedback';
 
 interface CapitalEngineViewProps {
   onSelectTab: (tab: any) => void;
@@ -283,6 +286,16 @@ export const CapitalEngineView: React.FC<CapitalEngineViewProps> = ({ onSelectTa
           </div>
         </div>
       </div>
+
+      {/* Phase 03 Coordination: Blended Capital Stack Structuring Engine */}
+      <BlendedFinanceStructuringEngine
+        targetProjectName={selectedTranche.recipientProject}
+      />
+
+      {/* Smart Escrow: Telemetry-Triggered Multi-Sig Tranche Disbursements */}
+      <MilestoneEscrowTrancheController
+        facilityName={selectedTranche.recipientProject}
+      />
     </div>
   );
 };

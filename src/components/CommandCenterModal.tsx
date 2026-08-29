@@ -39,6 +39,35 @@ export const CommandCenterModal: React.FC<CommandCenterModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IntelligenceResponse | null>(null);
   const [sourceTag, setSourceTag] = useState<string>('');
+  
+  // Touch swipe-to-dismiss gesture state for tablets and mobile
+  const [touchOffsetY, setTouchOffsetY] = useState<number>(0);
+  const touchStartRef = React.useRef<{ y: number; active: boolean }>({ y: 0, active: false });
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      y: e.touches[0].clientY,
+      active: true
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current.active) return;
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - touchStartRef.current.y;
+    // Only pull downwards to dismiss
+    if (deltaY > 0) {
+      setTouchOffsetY(Math.min(deltaY, 150));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchOffsetY > 90) {
+      onClose();
+    }
+    setTouchOffsetY(0);
+    touchStartRef.current.active = false;
+  };
 
   const handleRunQuery = async (queryToRun: string) => {
     if (!queryToRun.trim()) return;
@@ -133,13 +162,37 @@ export const CommandCenterModal: React.FC<CommandCenterModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div 
         id="command-center-modal"
+        style={{
+          transform: `translateY(${touchOffsetY}px)`,
+          transition: touchOffsetY === 0 ? 'transform 0.2s ease-out' : 'none'
+        }}
         className="relative w-full max-w-4xl max-h-[94vh] sm:max-h-[90vh] flex flex-col bg-[#0D0D0D] border border-[#F5F5F0]/15 rounded-sm shadow-2xl overflow-hidden text-[#F5F5F0]"
       >
+        {/* Mobile / Tablet Gesture Grab Handle */}
+        <div 
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="sm:hidden flex justify-center items-center pt-2 pb-1 bg-[#080808] cursor-grab active:cursor-grabbing border-b border-[#F5F5F0]/5"
+        >
+          <div className="w-12 h-1 bg-[#F5F5F0]/30 rounded-full" />
+        </div>
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#F5F5F0]/10 bg-[#080808] shrink-0">
+        <div 
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#F5F5F0]/10 bg-[#080808] shrink-0 select-none"
+        >
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="w-8 h-8 rounded-full border border-[#C5A059]/40 bg-[#1B3022] flex items-center justify-center text-[#C5A059] shrink-0">
               <Sparkles className="w-4 h-4" />

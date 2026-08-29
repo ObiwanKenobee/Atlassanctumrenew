@@ -15,6 +15,8 @@ import {
 import { ATLAS_FIELD_LABS } from '../../data/prompt2CivilizationData';
 import { FieldLab } from '../../types';
 import { FieldNoteRecorder } from '../field/FieldNoteRecorder';
+import { OfflineFieldSyncManager } from '../field/OfflineFieldSyncManager';
+import { HardwareTelemetryGateway } from '../field/HardwareTelemetryGateway';
 
 interface FieldLabsViewProps {
   onInspectProvenance?: (prov: any) => void;
@@ -188,6 +190,15 @@ export const FieldLabsView: React.FC<FieldLabsViewProps> = ({
           labLocation={selectedLab.location}
         />
       </div>
+
+      {/* Phase 05 Physical Integration: Local-First Offline Sync Gateway */}
+      <OfflineFieldSyncManager
+        currentFieldLabId={selectedLab.id}
+        currentFieldLabName={selectedLab.name}
+      />
+
+      {/* IoT Hardware Telemetry & Sensor Bridge */}
+      <HardwareTelemetryGateway />
     </div>
   );
 };

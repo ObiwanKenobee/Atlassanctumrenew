@@ -398,6 +398,20 @@ export const BioregionalGeospatialMap: React.FC<BioregionalGeospatialMapProps> =
   const [hoveredEvidence, setHoveredEvidence] = useState<FieldEvidenceMarker | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const touchStateRef = React.useRef<{
+    isDragging: boolean;
+    startX: number;
+    startY: number;
+    initialDistance: number;
+    initialZoom: number;
+  }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    initialDistance: 0,
+    initialZoom: 1
+  });
 
   const activeCategories = externalCategories ?? internalCategories;
   const selectedEvidence = externalSelectedEvidence !== undefined ? externalSelectedEvidence : internalSelectedEvidence;
@@ -463,7 +477,7 @@ export const BioregionalGeospatialMap: React.FC<BioregionalGeospatialMapProps> =
 
     const g = svg.append('g')
       .attr('class', 'map-viewport')
-      .attr('transform', `scale(${zoomLevel}) translate(${(1 - zoomLevel) * width / 2}, ${(1 - zoomLevel) * height / 2})`);
+      .attr('transform', `translate(${panOffset.x}, ${panOffset.y}) scale(${zoomLevel}) translate(${(1 - zoomLevel) * width / 2}, ${(1 - zoomLevel) * height / 2})`);
 
     // 1. Grid & Coordinates Layer
     const gridG = g.append('g').attr('class', 'cartographic-grid');
@@ -1076,7 +1090,60 @@ export const BioregionalGeospatialMap: React.FC<BioregionalGeospatialMapProps> =
         .text(ev.title.length > 20 ? ev.title.slice(0, 18) + '...' : ev.title);
     });
 
-  }, [filteredProjects, visibleEvidenceMarkers, activeLayer, thematicLayers, zoomLevel, selectedProject, selectedEvidence, selectedHexCell, heatmapOpacity, heatmapMetric]);
+  }, [filteredProjects, visibleEvidenceMarkers, activeLayer, thematicLayers, zoomLevel, panOffset, selectedProject, selectedEvidence, selectedHexCell, heatmapOpacity, heatmapMetric]);
+
+  // Touch & Mouse Gesture Handlers for Tablet / Mobile / Desktop Pan & Pinch Zoom
+  const handleTouchStart = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length === 1) {
+      touchStateRef.current.isDragging = true;
+      touchStateRef.current.startX = e.touches[0].clientX - panOffset.x;
+      touchStateRef.current.startY = e.touches[0].clientY - panOffset.y;
+    } else if (e.touches.length === 2) {
+      touchStateRef.current.isDragging = false;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStateRef.current.initialDistance = Math.hypot(dx, dy);
+      touchStateRef.current.initialZoom = zoomLevel;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length === 1 && touchStateRef.current.isDragging) {
+      const newX = e.touches[0].clientX - touchStateRef.current.startX;
+      const newY = e.touches[0].clientY - touchStateRef.current.startY;
+      setPanOffset({ x: newX, y: newY });
+    } else if (e.touches.length === 2 && touchStateRef.current.initialDistance > 0) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const currentDistance = Math.hypot(dx, dy);
+      const scaleDelta = currentDistance / touchStateRef.current.initialDistance;
+      const nextZoom = Math.min(2.5, Math.max(0.6, touchStateRef.current.initialZoom * scaleDelta));
+      setZoomLevel(Number(nextZoom.toFixed(2)));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStateRef.current.isDragging = false;
+    touchStateRef.current.initialDistance = 0;
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.button !== 0) return; // Only primary button
+    touchStateRef.current.isDragging = true;
+    touchStateRef.current.startX = e.clientX - panOffset.x;
+    touchStateRef.current.startY = e.clientY - panOffset.y;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!touchStateRef.current.isDragging) return;
+    const newX = e.clientX - touchStateRef.current.startX;
+    const newY = e.clientY - touchStateRef.current.startY;
+    setPanOffset({ x: newX, y: newY });
+  };
+
+  const handleMouseUp = () => {
+    touchStateRef.current.isDragging = false;
+  };
 
   return (
     <div 
@@ -1139,12 +1206,15 @@ export const BioregionalGeospatialMap: React.FC<BioregionalGeospatialMapProps> =
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => setZoomLevel(1)}
+            onClick={() => {
+              setZoomLevel(1);
+              setPanOffset({ x: 0, y: 0 });
+            }}
             className="px-2.5 py-1.5 bg-[#141414] hover:bg-[#202020] border border-[#F5F5F0]/10 rounded-xs text-[#F5F5F0]/70 hover:text-[#F5F5F0] transition-colors flex items-center gap-1 cursor-pointer"
-            title="Reset Map Scale"
+            title="Reset Map Scale & Pan"
           >
             <RotateCcw className="w-3 h-3" />
-            <span className="text-[10px]">100%</span>
+            <span className="text-[10px]">Reset</span>
           </button>
         </div>
       </div>
@@ -1617,8 +1687,16 @@ export const BioregionalGeospatialMap: React.FC<BioregionalGeospatialMapProps> =
             <svg
               ref={svgRef}
               viewBox="0 0 860 480"
-              className="w-full h-auto block select-none"
+              className="w-full h-auto block select-none cursor-grab active:cursor-grabbing touch-none"
               style={{ minHeight: '380px' }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchEnd}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
             />
 
             {/* Hover Tooltip */}

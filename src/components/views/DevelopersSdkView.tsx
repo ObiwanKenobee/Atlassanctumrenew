@@ -16,6 +16,8 @@ import {
   FileCode
 } from 'lucide-react';
 import { GovernanceSdkPlayground } from '../GovernanceSdkPlayground';
+import { AtlasApiInteractiveSandbox } from '../developers/AtlasApiInteractiveSandbox';
+import { VerifiableCredentialsExport } from '../developers/VerifiableCredentialsExport';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 export const DevelopersSdkView: React.FC = () => {
@@ -212,6 +214,12 @@ if (evaluation.status === 'APPROVED_WITH_GUARDRAILS') {
           </div>
         </div>
       )}
+
+      {/* Phase 06 Ecosystem: Interactive OpenAPI & GraphQL Sandbox */}
+      <AtlasApiInteractiveSandbox />
+
+      {/* W3C Verifiable Credentials & Planetary Commons Export */}
+      <VerifiableCredentialsExport />
     </div>
   );
 };

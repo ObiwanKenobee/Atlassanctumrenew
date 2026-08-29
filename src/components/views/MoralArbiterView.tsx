@@ -18,6 +18,9 @@ import {
 } from 'lucide-react';
 import { CovenantAuditDossier, PredatoryRiskFlag } from '../../types';
 import { COVENANT_AUDITS } from '../../data/aiEnginesData';
+import { ScientificDocumentIngestion } from '../intelligence/ScientificDocumentIngestion';
+import { AdversarialMoralStressTester } from '../intelligence/AdversarialMoralStressTester';
+import { audioFeedback } from '../../lib/audioFeedback';
 
 interface MoralArbiterViewProps {
   onSelectTab: (tab: any) => void;
@@ -325,6 +328,12 @@ export const MoralArbiterView: React.FC<MoralArbiterViewProps> = ({ onSelectTab 
           </div>
         </div>
       </div>
+
+      {/* Phase 02 Intelligence: Scientific Evidence Ingestion & Hypotheses Synthesis */}
+      <ScientificDocumentIngestion />
+
+      {/* Adversarial Moral Stress-Testing Suite */}
+      <AdversarialMoralStressTester />
     </div>
   );
 };

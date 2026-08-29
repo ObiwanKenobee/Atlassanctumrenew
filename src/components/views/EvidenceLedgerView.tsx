@@ -28,6 +28,8 @@ import { db } from '../../lib/db';
 import { StewardshipTierProgression } from '../StewardshipTierProgression';
 import { FirestoreSyncStatusIndicator } from '../FirestoreSyncStatusIndicator';
 import { LedgerConflictResolutionModal, LedgerSyncConflict } from '../ledger/LedgerConflictResolutionModal';
+import { CounterfactualAttributionSimulator } from '../verification/CounterfactualAttributionSimulator';
+import { MultiPartyAttestationModal } from '../verification/MultiPartyAttestationModal';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 interface EvidenceLedgerViewProps {
@@ -88,6 +90,9 @@ export const EvidenceLedgerView: React.FC<EvidenceLedgerViewProps> = ({
   const [activeConflict, setActiveConflict] = useState<LedgerSyncConflict | null>(null);
   const [activeConflictId, setActiveConflictId] = useState<string | null>(null);
   const [conflictSuccessMessage, setConflictSuccessMessage] = useState<string | null>(null);
+
+  // Multi-Party Attestation Modal State
+  const [isAttestationModalOpen, setIsAttestationModalOpen] = useState<boolean>(false);
 
   // Priority ranking helper
   const priorityWeight = (p?: EvidenceLedgerEntry['regenerativePotentialPriority']) => {
@@ -682,6 +687,20 @@ export const EvidenceLedgerView: React.FC<EvidenceLedgerViewProps> = ({
         </div>
 
       </div>
+
+      {/* Phase 04 Verification: Formal Counterfactual Attribution Engine */}
+      <CounterfactualAttributionSimulator
+        projectName={selectedEntry.intervention}
+        onMintVerifiedCredential={() => setIsAttestationModalOpen(true)}
+      />
+
+      {/* Multi-Party Attestation & Verification Cryptographic Co-signing Modal */}
+      <MultiPartyAttestationModal
+        isOpen={isAttestationModalOpen}
+        onClose={() => setIsAttestationModalOpen(false)}
+        claimId={selectedEntry.id}
+        claimTitle={selectedEntry.claim}
+      />
 
       {/* Conflict Resolution Modal */}
       {activeConflict && (
