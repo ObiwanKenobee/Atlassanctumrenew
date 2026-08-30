@@ -80,5 +80,12 @@ service cloud.firestore {
       allow create, update: if true; // Allows field and telemetry updates
       allow delete: if isSignedIn();
     }
+
+    // 10. Bioregional Knowledge Graph Custom Labels & Color Tags
+    match /bioregional_custom_tags/{tagId} {
+      allow read: if true;
+      allow create, update: if true; // Allow stewards and users to tag graph nodes across sessions
+      allow delete: if true;
+    }
   }
 }

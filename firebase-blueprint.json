@@ -91,6 +91,22 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "name", "stocks", "flows"]
+    },
+    "BioregionalCustomTag": {
+      "title": "BioregionalCustomTag",
+      "description": "User-defined custom labels, steward priorities, and color-coded tags on ecological graph nodes",
+      "type": "object",
+      "properties": {
+        "nodeId": { "type": "string", "maxLength": 128 },
+        "customLabel": { "type": "string", "maxLength": 256 },
+        "tagColor": { "type": "string", "maxLength": 32 },
+        "tagCategory": { "type": "string", "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "authorName": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nodeId", "tagColor"]
     }
   },
   "firestore": {
@@ -109,6 +125,10 @@
     "/system_models/{modelId}": {
       "schema": "SystemModelDocument",
       "description": "Persisted Systems Dynamics models and scenario calibrations"
+    },
+    "/bioregional_custom_tags/{tagId}": {
+      "schema": "BioregionalCustomTag",
+      "description": "User and steward custom annotations and color-coded tags on bioregional knowledge graph nodes"
     }
   }
 }

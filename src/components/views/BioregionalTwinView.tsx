@@ -27,7 +27,12 @@ import {
   EyeOff,
   TreePine,
   Bird,
-  Droplets
+  Droplets,
+  Camera,
+  SlidersHorizontal,
+  BookmarkPlus,
+  BookmarkCheck,
+  ChevronRight
 } from 'lucide-react';
 import { BioregionalTwinScenario, CausalInterventionParam } from '../../types';
 import { BIOREGIONAL_TWIN_SCENARIOS } from '../../data/aiEnginesData';
@@ -47,7 +52,16 @@ import { BioregionalSnap } from '../bioregional/BioregionalSnap';
 import { BioregionalInsightsFeed } from '../bioregional/BioregionalInsightsFeed';
 import { BioregionalEvidenceTimeline } from '../bioregional/BioregionalEvidenceTimeline';
 import { BioregionalKnowledgeGraph } from '../bioregional/BioregionalKnowledgeGraph';
+import { RestorationTimelineView } from '../bioregional/RestorationTimelineView';
+import { VoiceNarrativeLayer } from '../bioregional/VoiceNarrativeLayer';
+import { RegenerationHeatmapOverlay } from '../bioregional/RegenerationHeatmapOverlay';
+import { BioregionalAnnotationLayer } from '../bioregional/BioregionalAnnotationLayer';
+import { BioregionalAlertFeed } from '../bioregional/BioregionalAlertFeed';
+import { ExportScenarioInsightsModal } from '../bioregional/ExportScenarioInsightsModal';
 import { ExportDataWizardModal } from '../bioregional/ExportDataWizardModal';
+import { TemporalRegenerationSlider } from '../bioregional/TemporalRegenerationSlider';
+import { NodeComparator } from '../bioregional/NodeComparator';
+import { GenerativeSoundscapeEngine } from '../bioregional/GenerativeSoundscapeEngine';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 // High-fidelity abstract bioregional health visual backgrounds generated via Imagen
@@ -102,6 +116,36 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
   const [activeHorizon, setActiveHorizon] = useState<'year5' | 'year15' | 'year30'>('year15');
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
+  // Ecological Layer Filter and Temporal Synchronization State
+  const [activeTimelineYear, setActiveTimelineYear] = useState<number>(2026);
+  const [selectedEcologicalLayer, setSelectedEcologicalLayer] = useState<string>('all');
+  const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState<boolean>(false);
+
+  // Local State Snapshot Capture
+  const [capturedSnapshots, setCapturedSnapshots] = useState<Array<{
+    id: string;
+    timestamp: string;
+    title: string;
+    year: number;
+    layer: string;
+    scenarioName: string;
+    notes: string;
+    p90Certainty: number;
+  }>>([
+    {
+      id: 'snap-init-1',
+      timestamp: '10:15 AM',
+      title: 'Aberdare Ridge Baseline & Mycelial Network Snapshot',
+      year: 2026,
+      layer: 'Soil Health',
+      scenarioName: 'Aberdare Highland Watershed & Riparian Corridor',
+      notes: 'Initial high-resolution baseline showing +14.2% SOM potential and Podocarpus canopy anchors.',
+      p90Certainty: 91.2
+    }
+  ]);
+  const [showSnapshotsDrawer, setShowSnapshotsDrawer] = useState<boolean>(false);
+  const [showSnapshotNotification, setShowSnapshotNotification] = useState<boolean>(false);
+
   // Field evidence categories filter state for the D3 map
   const [activeEvidenceCategories, setActiveEvidenceCategories] = useState<string[]>([
     'Flora',
@@ -114,11 +158,30 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
   // Field Report Export Modal state
   const [showExportModal, setShowExportModal] = useState<boolean>(false);
   const [showWizardModal, setShowWizardModal] = useState<boolean>(false);
+  const [showScenarioInsightsModal, setShowScenarioInsightsModal] = useState<boolean>(false);
   const [exportedReportPayload, setExportedReportPayload] = useState<any>(null);
   const [hasCopiedJson, setHasCopiedJson] = useState<boolean>(false);
 
   const selectedScenario = scenarios.find(s => s.id === selectedScenarioId) || scenarios[0];
   const currentBackground = BIOREGIONAL_HEALTH_BACKGROUNDS.find(b => b.id === selectedBgId) || BIOREGIONAL_HEALTH_BACKGROUNDS[0];
+
+  // Capture Snapshot Handler
+  const handleCaptureSnapshot = () => {
+    const newSnapshot = {
+      id: `snap-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      title: `Snapshot #${capturedSnapshots.length + 1} — ${selectedScenario.name}`,
+      year: activeTimelineYear,
+      layer: selectedEcologicalLayer === 'all' ? 'All Ecological Layers' : selectedEcologicalLayer,
+      scenarioName: selectedScenario.name,
+      notes: `Captured at Horizon ${activeHorizon.toUpperCase()} with dynamic multiplier ${dynamicMultiplier.toFixed(2)}x. Active layer: ${selectedEcologicalLayer}.`,
+      p90Certainty: selectedScenario.monteCarloProbabilityOfSuccess
+    };
+    setCapturedSnapshots(prev => [newSnapshot, ...prev]);
+    setShowSnapshotNotification(true);
+    audioFeedback.playDataSave();
+    setTimeout(() => setShowSnapshotNotification(false), 3500);
+  };
 
   // Dynamic user intervention slider states
   const [interventionValues, setInterventionValues] = useState<Record<string, number>>(() => {
@@ -298,6 +361,65 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Capture Snapshot Button */}
+          <button
+            onClick={handleCaptureSnapshot}
+            className="px-3.5 py-2 bg-[#0E1A13] hover:bg-[#152B1E] border border-emerald-500 text-emerald-300 text-xs font-mono font-bold rounded-sm flex items-center gap-1.5 transition-all shadow-md cursor-pointer group"
+            title="Save current knowledge graph, heatmap, and simulation state as a local snapshot"
+          >
+            <Camera className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span>Capture Snapshot</span>
+          </button>
+
+          {/* View Saved Snapshots Drawer Button */}
+          <button
+            onClick={() => {
+              setShowSnapshotsDrawer(true);
+              audioFeedback.playMicroTick();
+            }}
+            className="px-3.5 py-2 bg-[#141414] hover:bg-[#1A1A1A] border border-[#F5F5F0]/20 text-[#F5F5F0]/80 text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer relative"
+            title="View captured snapshots library"
+          >
+            <BookmarkCheck className="w-4 h-4 text-[#C5A059]" />
+            <span>Saved Snapshots</span>
+            <span className="ml-1 px-1.5 py-0.2 bg-[#C5A059]/20 border border-[#C5A059]/40 text-[#C5A059] text-[10px] font-bold rounded-full">
+              {capturedSnapshots.length}
+            </span>
+          </button>
+
+          {/* Layer Filter Sidebar Toggle Button */}
+          <button
+            onClick={() => {
+              setIsFilterSidebarOpen(!isFilterSidebarOpen);
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 py-2 border text-xs font-mono font-bold rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+              isFilterSidebarOpen || selectedEcologicalLayer !== 'all'
+                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500 shadow-md'
+                : 'bg-[#141414] hover:bg-[#1A1A1A] border-[#F5F5F0]/20 text-[#F5F5F0]/80'
+            }`}
+            title="Filter knowledge graph & simulation by ecological layer"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-emerald-400" />
+            <span>Layer Filter</span>
+            {selectedEcologicalLayer !== 'all' && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            )}
+          </button>
+
+          {/* Export Scenario Insights & PDF Snapshot Button */}
+          <button
+            onClick={() => {
+              setShowScenarioInsightsModal(true);
+              audioFeedback.playMicroTick();
+            }}
+            className="px-3.5 py-2 bg-[#2D1F08] hover:bg-[#3D2C0C] border border-[#C5A059] text-[#C5A059] text-xs font-mono font-bold rounded-sm flex items-center gap-1.5 transition-all shadow-md cursor-pointer group"
+            title="Generate a PDF snapshot and formatted regeneration insights of the current knowledge graph state"
+          >
+            <FileText className="w-4 h-4 text-[#C5A059] group-hover:scale-110 transition-transform" />
+            <span>Export Scenario PDF</span>
+          </button>
+
           {/* Export Data Wizard (JSON Research Package) Button */}
           <button
             onClick={() => {
@@ -596,11 +718,141 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
         }}
       />
 
+      {/* Ecological Layer Filter Sidebar / Bar */}
+      <div className="p-4 bg-[#0A0D0B] border border-emerald-500/30 rounded-sm space-y-3 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F5F5F0]/10 pb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold flex items-center gap-1.5">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" />
+              ECOLOGICAL LAYER FILTER & TEMPORAL SYNCHRONIZER
+            </span>
+            <span className="text-[9px] font-mono bg-[#141414] text-[#C5A059] border border-[#C5A059]/30 px-2 py-0.5 rounded">
+              Active Period: Year {activeTimelineYear}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 text-[10px] font-mono text-[#F5F5F0]/60">
+            <span>Filtered Layer: <strong className="text-white capitalize">{selectedEcologicalLayer === 'all' ? 'All Ecological Layers' : selectedEcologicalLayer}</strong></span>
+            {selectedEcologicalLayer !== 'all' && (
+              <button
+                onClick={() => {
+                  setSelectedEcologicalLayer('all');
+                  audioFeedback.playMicroTick();
+                }}
+                className="text-emerald-400 hover:underline ml-1 cursor-pointer"
+              >
+                Reset Filter
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
+          {[
+            { id: 'all', label: 'All Layers', icon: Layers, count: 18, color: 'text-white' },
+            { id: 'Soil Health', label: 'Soil Health', icon: TreePine, count: 4, color: 'text-amber-400' },
+            { id: 'Water Cycles', label: 'Water Cycles', icon: Droplets, count: 4, color: 'text-cyan-400' },
+            { id: 'Biodiversity Indices', label: 'Biodiversity Indices', icon: Bird, count: 4, color: 'text-emerald-400' },
+            { id: 'Canopy & Carbon Sinks', label: 'Canopy & Carbon Sinks', icon: TreePine, count: 3, color: 'text-emerald-300' },
+            { id: 'Customary Governance', label: 'Customary Governance', icon: ShieldCheck, count: 3, color: 'text-purple-400' }
+          ].map((layer) => {
+            const isSelected = selectedEcologicalLayer === layer.id;
+            const Icon = layer.icon;
+            return (
+              <button
+                key={layer.id}
+                onClick={() => {
+                  setSelectedEcologicalLayer(layer.id);
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-emerald-950 border border-emerald-400 text-emerald-200 font-bold shadow-md'
+                    : 'bg-[#141414] border border-[#F5F5F0]/10 text-[#F5F5F0]/60 hover:text-white hover:border-[#F5F5F0]/30'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${layer.color}`} />
+                <span>{layer.label}</span>
+                <span className={`text-[10px] px-1 rounded ${isSelected ? 'bg-emerald-800 text-emerald-100' : 'bg-[#222] text-[#F5F5F0]/40'}`}>
+                  {layer.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Temporal Regeneration Slider: Seamless Scrubbing of Baseline & Future Trajectory Projections */}
+      <TemporalRegenerationSlider
+        currentYear={activeTimelineYear}
+        selectedBioregionName={selectedScenario.name}
+        onYearChange={(year) => {
+          setActiveTimelineYear(year);
+        }}
+      />
+
       {/* Bioregional Knowledge Graph: D3 Ecological Dependency Network */}
       <BioregionalKnowledgeGraph
         selectedBioregionId={selectedScenario.id}
+        activePeriodYear={activeTimelineYear}
+        selectedLayerFilter={selectedEcologicalLayer}
+        onTimelinePeriodChange={(year) => {
+          setActiveTimelineYear(year);
+        }}
         onSelectModuleTab={(tabId) => {
           onSelectTab(tabId);
+          audioFeedback.playViewTransition();
+        }}
+      />
+
+      {/* Node Comparator: Side-by-Side D3.js Ecological Marker Comparison Tool */}
+      <NodeComparator
+        selectedBioregionName={selectedScenario.name}
+      />
+
+      {/* Generative Soundscape Engine: Real-Time Spatial Audio Synthesizer */}
+      <GenerativeSoundscapeEngine
+        bioregionName={selectedScenario.name}
+      />
+
+      {/* Voice Narrative Layer: AI-Powered Audio Context Summary of Knowledge Graph */}
+      <VoiceNarrativeLayer
+        selectedZoneId="zone-aberdare-ridge"
+        selectedZoneName={selectedScenario.name}
+        onSelectInsightModule={(modId) => {
+          onSelectTab(modId);
+          audioFeedback.playViewTransition();
+        }}
+      />
+
+      {/* Restoration Timeline View: D3.js Multi-Temporal Chronology (2016-2050) */}
+      <RestorationTimelineView
+        selectedBioregionId={selectedScenario.id}
+        onTimelinePeriodChange={(year) => {
+          setActiveTimelineYear(year);
+        }}
+      />
+
+      {/* Regeneration Heatmap Overlay: Real-Time High-Probability Potential & Intervention Matrix */}
+      <RegenerationHeatmapOverlay
+        selectedBioregionId={selectedScenario.id}
+      />
+
+      {/* Bioregional Annotation Layer: Rich-Text Formatted Regeneration Insights & Module Linking */}
+      <BioregionalAnnotationLayer
+        selectedBioregionId={selectedScenario.id}
+        onNavigateToModule={(moduleId, targetId) => {
+          onSelectTab(moduleId);
+          audioFeedback.playViewTransition();
+        }}
+      />
+
+      {/* Bioregional Alert Feed: Live Telemetry, Anomaly Detection & Sustained Positive Tipping Point Alerts */}
+      <BioregionalAlertFeed
+        currentBioregionId={selectedScenario.id}
+        currentBioregionName={selectedScenario.name}
+        onNavigateToEvidence={() => {
+          onSelectTab('evidence-mapping');
           audioFeedback.playViewTransition();
         }}
       />
@@ -943,6 +1195,89 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
         selectedScenario={selectedScenario}
         interventionValues={interventionValues}
         dynamicMultiplier={dynamicMultiplier}
+      />
+
+      {/* Snapshot Captured Toast Notification */}
+      {showSnapshotNotification && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#0A1A10] border border-emerald-400 text-[#F5F5F0] px-4 py-3 rounded shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 font-mono text-xs">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500 flex items-center justify-center shrink-0">
+            <BookmarkCheck className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div>
+            <div className="font-bold text-emerald-300">Bioregional Snapshot Captured!</div>
+            <div className="text-[10px] text-[#F5F5F0]/70">Saved knowledge graph, heatmap & layer state to local library.</div>
+          </div>
+        </div>
+      )}
+
+      {/* Saved Snapshots Library Modal / Drawer */}
+      {showSnapshotsDrawer && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0D120E] border border-emerald-500/50 rounded max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl text-[#F5F5F0] animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-emerald-500/20 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BookmarkCheck className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#F5F5F0]">Saved Bioregional Snapshots</h3>
+                  <p className="text-[11px] font-mono text-[#F5F5F0]/60">Captured states of the Knowledge Graph, Heatmap & Causal Projections</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSnapshotsDrawer(false)}
+                className="p-1 text-[#F5F5F0]/40 hover:text-[#F5F5F0] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-3 font-mono">
+              {capturedSnapshots.length === 0 ? (
+                <div className="text-center py-10 text-[#F5F5F0]/40 text-xs">
+                  No snapshots captured yet. Click "Capture Snapshot" in the header to save a point-in-time configuration.
+                </div>
+              ) : (
+                capturedSnapshots.map(snap => (
+                  <div key={snap.id} className="p-4 bg-[#141C16] border border-emerald-500/30 rounded text-left space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-300 font-serif">{snap.title}</span>
+                      <span className="text-[10px] px-2 py-0.5 bg-emerald-950 text-emerald-300 rounded border border-emerald-500/30">
+                        {snap.timestamp}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-[10px] text-[#F5F5F0]/70">
+                      <span>Timeline Period: <strong className="text-[#C5A059]">{snap.year}</strong></span>
+                      <span>Active Layer: <strong className="text-emerald-300">{snap.layer}</strong></span>
+                      <span>P90 Certainty: <strong className="text-emerald-400">{snap.p90Certainty}%</strong></span>
+                    </div>
+                    <p className="text-[11px] text-[#F5F5F0]/80 font-sans">{snap.notes}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-4 border-t border-emerald-500/20 bg-[#090D0A] flex items-center justify-between text-xs font-mono">
+              <span className="text-[#F5F5F0]/40">{capturedSnapshots.length} snapshot(s) stored in local session</span>
+              <button
+                onClick={() => setShowSnapshotsDrawer(false)}
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black font-bold rounded cursor-pointer transition-colors"
+              >
+                Close Library
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scenario Insights PDF & Knowledge Graph Snapshot Modal */}
+      <ExportScenarioInsightsModal
+        isOpen={showScenarioInsightsModal}
+        onClose={() => setShowScenarioInsightsModal(false)}
+        selectedBioregionId={selectedScenario.id}
+        selectedBioregionName={selectedScenario.name}
+        onNavigateToModule={(modId) => {
+          onSelectTab(modId);
+          audioFeedback.playViewTransition();
+        }}
       />
     </div>
   );

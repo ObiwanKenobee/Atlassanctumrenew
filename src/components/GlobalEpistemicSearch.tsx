@@ -290,8 +290,12 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
             type="text"
             value={query}
             onChange={(e) => {
-              setQuery(e.target.value);
+              const val = e.target.value;
+              setQuery(val);
               setSelectedIndex(0);
+              try {
+                window.dispatchEvent(new CustomEvent('global-epistemic-search-query', { detail: { query: val } }));
+              } catch {}
             }}
             placeholder="Fuzzy search across views, ledgers, post-mortems, telemetry, and agent fleets..."
             className="w-full bg-transparent text-sm sm:text-base text-[#F5F5F0] placeholder-[#F5F5F0]/40 focus:outline-none font-sans"

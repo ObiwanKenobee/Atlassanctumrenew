@@ -24,9 +24,51 @@ import {
   Sliders,
   Compass,
   Cpu,
-  Share2
+  Share2,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Gauge,
+  Radio,
+  Target,
+  Zap,
+  Boxes,
+  X,
+  History,
+  Download,
+  Tag,
+  Route,
+  CheckSquare,
+  Square,
+  SlidersHorizontal,
+  FileSpreadsheet,
+  FileCode,
+  Flame,
+  Palette,
+  Cloud,
+  GitCompare,
+  Eye,
+  EyeOff,
+  RefreshCw
 } from 'lucide-react';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { HistoricalVersioningSidebar } from './HistoricalVersioningSidebar';
+import { BatchExportModal } from './BatchExportModal';
+import { NodeContextMenu } from './NodeContextMenu';
+import { PhysicsDebuggerOverlay, PhysicsParams, DEFAULT_PHYSICS_PARAMS } from './PhysicsDebuggerOverlay';
+import { AnimatedPathTracerPanel } from './AnimatedPathTracerPanel';
+import { DynamicLegendToggle, NODE_TYPE_CONFIGS, LINK_TYPE_CONFIGS } from './DynamicLegendToggle';
+import { CompareSnapshotsModal } from './CompareSnapshotsModal';
+import {
+  BioregionalCustomTag,
+  subscribeToCustomTags,
+  HISTORICAL_VERSION_SNAPSHOTS,
+  findShortestEcologicalPath,
+  ShortestPathResult,
+  compareSnapshots,
+  SnapshotComparisonResult
+} from '../../services/bioregionalKnowledgeService';
 
 export type KnowledgeNodeType = 'zone' | 'evidence_flora' | 'evidence_fauna' | 'evidence_hydrology' | 'evidence_soil' | 'keystone_mechanism';
 export type KnowledgeLinkType = 'hydrological_recharge' | 'mycorrhizal_coupling' | 'trophic_cascade' | 'microclimate_feedback' | 'stewardship_governance';
@@ -46,6 +88,8 @@ export interface KnowledgeNode extends d3.SimulationNodeDatum {
   epistemicTier: string;
   val: number; // Node size / centrality weight
   color: string;
+  era?: '2016-2020' | '2021-2025' | '2026-2030' | '2031-2040' | '2041-2050';
+  ecologicalLayer?: 'Soil Health' | 'Water Cycles' | 'Biodiversity Indices' | 'Canopy & Carbon Sinks' | 'Customary Governance';
   // D3 simulation coordinates
   x?: number;
   y?: number;
@@ -83,7 +127,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 98,
     epistemicTier: 'In-Situ Drone Lidar & Botanical Inventory',
     val: 28,
-    color: '#10B981'
+    color: '#10B981',
+    era: '2021-2025',
+    ecologicalLayer: 'Canopy & Carbon Sinks'
   },
   {
     id: 'zone-mathare-swale',
@@ -99,7 +145,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 96,
     epistemicTier: 'Galvanic Turbidity & DO Sonde Mesh',
     val: 22,
-    color: '#06B6D4'
+    color: '#06B6D4',
+    era: '2016-2020',
+    ecologicalLayer: 'Water Cycles'
   },
   {
     id: 'zone-mara-pastoral',
@@ -115,7 +163,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 95,
     epistemicTier: 'Elder Council Provenance & Satellite NDVI',
     val: 26,
-    color: '#F59E0B'
+    color: '#F59E0B',
+    era: '2021-2025',
+    ecologicalLayer: 'Customary Governance'
   },
   {
     id: 'zone-kikuyu-flyway',
@@ -131,7 +181,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 97,
     epistemicTier: 'Bio-Acoustic Waveform Analysis',
     val: 22,
-    color: '#84CC16'
+    color: '#84CC16',
+    era: '2026-2030',
+    ecologicalLayer: 'Biodiversity Indices'
   },
   {
     id: 'zone-naivasha-aquifer',
@@ -147,7 +199,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 94,
     epistemicTier: 'Continuous Galvanic Pressure Sensor Network',
     val: 24,
-    color: '#3B82F6'
+    color: '#3B82F6',
+    era: '2026-2030',
+    ecologicalLayer: 'Water Cycles'
   },
 
   // 2. Field Evidence Markers (Flora, Fauna, Hydrology, Soil)
@@ -165,7 +219,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 98,
     epistemicTier: 'Ground Truth Botanical Core Audit',
     val: 16,
-    color: '#34D399'
+    color: '#34D399',
+    era: '2016-2020',
+    ecologicalLayer: 'Canopy & Carbon Sinks'
   },
   {
     id: 'ev-002',
@@ -181,7 +237,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 95,
     epistemicTier: 'Multispectral NDVI Sentinel-2 Telemetry',
     val: 15,
-    color: '#10B981'
+    color: '#10B981',
+    era: '2016-2020',
+    ecologicalLayer: 'Canopy & Carbon Sinks'
   },
   {
     id: 'ev-003',
@@ -197,7 +255,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 99,
     epistemicTier: 'Time-Stamped Infrared Sensor Trap',
     val: 18,
-    color: '#F43F5E'
+    color: '#F43F5E',
+    era: '2021-2025',
+    ecologicalLayer: 'Biodiversity Indices'
   },
   {
     id: 'ev-004',
@@ -213,7 +273,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 97,
     epistemicTier: 'Continuous Bio-Acoustic Waveform Telemetry',
     val: 16,
-    color: '#FB7185'
+    color: '#FB7185',
+    era: '2021-2025',
+    ecologicalLayer: 'Biodiversity Indices'
   },
   {
     id: 'ev-005',
@@ -229,7 +291,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 96,
     epistemicTier: 'Indigenous In-Situ Apiary Census',
     val: 14,
-    color: '#FBBF24'
+    color: '#FBBF24',
+    era: '2026-2030',
+    ecologicalLayer: 'Biodiversity Indices'
   },
   {
     id: 'ev-006',
@@ -245,7 +309,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 96,
     epistemicTier: 'Continuous In-Situ Galvanic Sonde',
     val: 16,
-    color: '#38BDF8'
+    color: '#38BDF8',
+    era: '2016-2020',
+    ecologicalLayer: 'Water Cycles'
   },
   {
     id: 'ev-007',
@@ -261,7 +327,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 95,
     epistemicTier: 'Deep Borehole Pressure Telemetry',
     val: 15,
-    color: '#0284C7'
+    color: '#0284C7',
+    era: '2021-2025',
+    ecologicalLayer: 'Water Cycles'
   },
   {
     id: 'ev-008',
@@ -277,7 +345,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 94,
     epistemicTier: 'Drone Photogrammetry & Core Assay',
     val: 15,
-    color: '#0EA5E9'
+    color: '#0EA5E9',
+    era: '2026-2030',
+    ecologicalLayer: 'Water Cycles'
   },
   {
     id: 'ev-009',
@@ -293,7 +363,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 98,
     epistemicTier: 'Laboratory Chemical Core Assay',
     val: 17,
-    color: '#D97706'
+    color: '#D97706',
+    era: '2021-2025',
+    ecologicalLayer: 'Soil Health'
   },
   {
     id: 'ev-010',
@@ -309,7 +381,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 97,
     epistemicTier: 'Community Seed Census & Genetic Assay',
     val: 15,
-    color: '#10B981'
+    color: '#10B981',
+    era: '2016-2020',
+    ecologicalLayer: 'Soil Health'
   },
 
   // 3. Keystone Biophysical Mechanism Nodes (Intermediaries)
@@ -327,7 +401,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 97,
     epistemicTier: 'Theoretical & Empirical Biophysical Model',
     val: 20,
-    color: '#C5A059'
+    color: '#C5A059',
+    era: '2021-2025',
+    ecologicalLayer: 'Soil Health'
   },
   {
     id: 'mech-canopy-mist',
@@ -343,7 +419,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 96,
     epistemicTier: 'Thermal Satellite & Flux Tower Sensors',
     val: 20,
-    color: '#C5A059'
+    color: '#C5A059',
+    era: '2026-2030',
+    ecologicalLayer: 'Canopy & Carbon Sinks'
   },
   {
     id: 'mech-aquifer-sponge',
@@ -359,7 +437,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 98,
     epistemicTier: 'Hydrogeological Causal Mesh',
     val: 20,
-    color: '#C5A059'
+    color: '#C5A059',
+    era: '2026-2030',
+    ecologicalLayer: 'Water Cycles'
   },
   {
     id: 'mech-customary-olosho',
@@ -375,7 +455,9 @@ const KNOWLEDGE_GRAPH_NODES: KnowledgeNode[] = [
     confidenceScore: 99,
     epistemicTier: 'Indigenous Council Decree & Drone Audit',
     val: 18,
-    color: '#EAB308'
+    color: '#EAB308',
+    era: '2021-2025',
+    ecologicalLayer: 'Customary Governance'
   }
 ];
 
@@ -556,14 +638,30 @@ const KNOWLEDGE_GRAPH_LINKS: KnowledgeLink[] = [
 
 interface BioregionalKnowledgeGraphProps {
   selectedBioregionId?: string;
+  activePeriodYear?: number | string;
+  selectedLayerFilter?: string;
+  initialSearchQuery?: string;
   onNavigateToEvidence?: (markerId?: string) => void;
   onSelectModuleTab?: (tab: any) => void;
+  onTimelinePeriodChange?: (year: number) => void;
 }
+
+const TIMELINE_ERAS = [
+  { key: '2016-2020', year: 2018, label: 'Baseline (2016-2020)', milestone: 'Bio-Swales & Living Soil Infiltration' },
+  { key: '2021-2025', year: 2023, label: 'Mycelial & Olosho (2021-2025)', milestone: 'Mycelial Inoculation & Grazing Bylaws' },
+  { key: '2026-2030', year: 2028, label: 'Canopy & Aquifers (2026-2030)', milestone: 'Subsurface Piezometer & Avian Flyway' },
+  { key: '2031-2040', year: 2035, label: 'Climax Forests (2031-2040)', milestone: 'Podocarpus Climax & Escarpment Canopy' },
+  { key: '2041-2050', year: 2045, label: 'Macro Equilibrium (2041-2050)', milestone: 'Transboundary Bioregional Stability' }
+];
 
 export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps> = ({
   selectedBioregionId = 'aberdare_riparian_watershed',
+  activePeriodYear = 2026,
+  selectedLayerFilter = 'All',
+  initialSearchQuery = '',
   onNavigateToEvidence,
-  onSelectModuleTab
+  onSelectModuleTab,
+  onTimelinePeriodChange
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -572,18 +670,247 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selectedNodeTypeFilter, setSelectedNodeTypeFilter] = useState<string>('All');
   const [selectedLinkTypeFilter, setSelectedLinkTypeFilter] = useState<string>('All');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>(initialSearchQuery);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [linkDistance, setLinkDistance] = useState<number>(130);
-  const [chargeStrength, setChargeStrength] = useState<number>(-340);
-  const [isPhysicsActive, setIsPhysicsActive] = useState<boolean>(true);
+  const [isClusteringMode, setIsClusteringMode] = useState<boolean>(false);
 
-  // Filtered nodes & links
+  // 1. Historical Versioning State
+  const [isHistorySidebarOpen, setIsHistorySidebarOpen] = useState<boolean>(false);
+  const [activeSnapshotId, setActiveSnapshotId] = useState<string | null>(null);
+  const [isDiffMode, setIsDiffMode] = useState<boolean>(false);
+
+  // 2. Batch Export & Multi-Select State
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState<boolean>(false);
+  const [selectedNodeIdsSet, setSelectedNodeIdsSet] = useState<Set<string>>(new Set());
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+
+  // 3. Custom Labels & Color Tags (Firestore-synced)
+  const [customTags, setCustomTags] = useState<Record<string, BioregionalCustomTag>>({});
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    nodeId: string;
+  } | null>(null);
+
+  // 4. Physics Engine Debugger State
+  const [isPhysicsDebuggerOpen, setIsPhysicsDebuggerOpen] = useState<boolean>(false);
+  const [physicsParams, setPhysicsParams] = useState<PhysicsParams>(DEFAULT_PHYSICS_PARAMS);
+  const [isPhysicsFrozen, setIsPhysicsFrozen] = useState<boolean>(false);
+  const simulationRef = useRef<d3.Simulation<KnowledgeNode, KnowledgeLink> | null>(null);
+
+  // 5. Animated Path Tracer State
+  const [isPathTracerOpen, setIsPathTracerOpen] = useState<boolean>(false);
+  const [pathSourceNodeId, setPathSourceNodeId] = useState<string | null>('flora-podocarpus-falcatus');
+  const [pathTargetNodeId, setPathTargetNodeId] = useState<string | null>('hydro-perennial-springflow');
+
+  // 6. Dynamic Legend Visibility State
+  const [visibleNodeTypes, setVisibleNodeTypes] = useState<Set<KnowledgeNodeType>>(
+    new Set<KnowledgeNodeType>(['zone', 'evidence_flora', 'evidence_fauna', 'evidence_hydrology', 'evidence_soil', 'keystone_mechanism'])
+  );
+  const [visibleLinkTypes, setVisibleLinkTypes] = useState<Set<KnowledgeLinkType>>(
+    new Set<KnowledgeLinkType>(['hydrological_recharge', 'mycorrhizal_coupling', 'trophic_cascade', 'microclimate_feedback', 'stewardship_governance'])
+  );
+  const [isLegendOpen, setIsLegendOpen] = useState<boolean>(false);
+
+  // 7. Compare Snapshots Diff State
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState<boolean>(false);
+  const [diffOverlaySnapshotAId, setDiffOverlaySnapshotAId] = useState<string>('v1.0-2016');
+  const [diffOverlaySnapshotBId, setDiffOverlaySnapshotBId] = useState<string>('v3.2-2026');
+  const [isCompareDiffOverlayActive, setIsCompareDiffOverlayActive] = useState<boolean>(false);
+
+  // 8. Auto-Arrange High-Intensity Simulation State
+  const [isAutoArranging, setIsAutoArranging] = useState<boolean>(false);
+  
+  // Playback Animation State
+  const [isPlaybackRunning, setIsPlaybackRunning] = useState<boolean>(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [currentPlaybackYear, setCurrentPlaybackYear] = useState<number>(
+    typeof activePeriodYear === 'number' ? activePeriodYear : parseInt(String(activePeriodYear), 10) || 2026
+  );
+
+  // Dynamic Legend Toggles Handlers
+  const handleToggleNodeType = (type: KnowledgeNodeType) => {
+    setVisibleNodeTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        if (next.size > 1) next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  };
+
+  const handleSetAllNodeTypes = (visible: boolean) => {
+    if (visible) {
+      setVisibleNodeTypes(new Set<KnowledgeNodeType>(NODE_TYPE_CONFIGS.map(c => c.type)));
+    } else {
+      setVisibleNodeTypes(new Set<KnowledgeNodeType>(['zone']));
+    }
+  };
+
+  const handleToggleLinkType = (type: KnowledgeLinkType) => {
+    setVisibleLinkTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        if (next.size > 1) next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  };
+
+  const handleSetAllLinkTypes = (visible: boolean) => {
+    if (visible) {
+      setVisibleLinkTypes(new Set<KnowledgeLinkType>(LINK_TYPE_CONFIGS.map(c => c.type)));
+    } else {
+      setVisibleLinkTypes(new Set<KnowledgeLinkType>(['hydrological_recharge']));
+    }
+  };
+
+  // Auto-Arrange Handler (Runs high-intensity D3 impulse to untangle layout)
+  const handleAutoArrange = () => {
+    if (!simulationRef.current) return;
+    setIsAutoArranging(true);
+    audioFeedback.playDataSave();
+
+    // Unpin fixed node coordinates
+    simulationRef.current.nodes().forEach(node => {
+      node.fx = null;
+      node.fy = null;
+    });
+
+    // High-intensity impulse
+    simulationRef.current
+      .alpha(1.0)
+      .alphaTarget(0)
+      .force('charge', d3.forceManyBody().strength(physicsParams.chargeStrength * 1.8))
+      .force('collision', d3.forceCollide().radius((d: any) => d.val + physicsParams.collisionRadius + 28))
+      .restart();
+
+    setTimeout(() => {
+      if (simulationRef.current) {
+        simulationRef.current
+          .force('charge', d3.forceManyBody().strength(physicsParams.chargeStrength))
+          .force('collision', d3.forceCollide().radius((d: any) => d.val + physicsParams.collisionRadius));
+      }
+      setIsAutoArranging(false);
+    }, 2400);
+  };
+
+  // Compare Snapshots Diff Calculation
+  const activeDiffResult: SnapshotComparisonResult | null = useMemo(() => {
+    if (!isCompareDiffOverlayActive) return null;
+    return compareSnapshots(diffOverlaySnapshotAId, diffOverlaySnapshotBId, KNOWLEDGE_GRAPH_NODES, KNOWLEDGE_GRAPH_LINKS);
+  }, [isCompareDiffOverlayActive, diffOverlaySnapshotAId, diffOverlaySnapshotBId]);
+
+  const diffAddedNodeIds = useMemo(() => new Set(activeDiffResult?.addedNodeIds || []), [activeDiffResult]);
+  const diffRemovedNodeIds = useMemo(() => new Set(activeDiffResult?.removedNodeIds || []), [activeDiffResult]);
+  const diffAddedLinkIds = useMemo(() => new Set(activeDiffResult?.addedLinkIds || []), [activeDiffResult]);
+  const diffRemovedLinkIds = useMemo(() => new Set(activeDiffResult?.removedLinkIds || []), [activeDiffResult]);
+
+  // Subscribe to real-time custom tags from Firestore
+  useEffect(() => {
+    const unsubscribe = subscribeToCustomTags(tags => {
+      setCustomTags(tags);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Sync external search queries from GlobalEpistemicSearch
+  useEffect(() => {
+    const handleGlobalSearch = (e: any) => {
+      if (e.detail?.query !== undefined) {
+        setSearchQuery(e.detail.query);
+      }
+    };
+    window.addEventListener('global-epistemic-search-query' as any, handleGlobalSearch);
+    return () => {
+      window.removeEventListener('global-epistemic-search-query' as any, handleGlobalSearch);
+    };
+  }, []);
+
+  // Sync activePeriodYear prop changes
+  useEffect(() => {
+    if (activePeriodYear) {
+      const yr = typeof activePeriodYear === 'number' ? activePeriodYear : parseInt(String(activePeriodYear), 10);
+      if (!isNaN(yr)) {
+        setCurrentPlaybackYear(yr);
+      }
+    }
+  }, [activePeriodYear]);
+
+  // Automated Timeline Playback Engine
+  useEffect(() => {
+    if (!isPlaybackRunning) return;
+
+    const intervalMs = Math.max(400, 2200 / playbackSpeed);
+    const timer = setInterval(() => {
+      setCurrentPlaybackYear(prevYear => {
+        let nextYear = prevYear + 2;
+        if (nextYear > 2050) nextYear = 2016;
+        if (onTimelinePeriodChange) {
+          onTimelinePeriodChange(nextYear);
+        }
+        audioFeedback.playMicroTick();
+        return nextYear;
+      });
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [isPlaybackRunning, playbackSpeed, onTimelinePeriodChange]);
+
+  // Helper for timeline sync
+  const isNodeInActivePeriod = (nodeEra?: string, targetYear = currentPlaybackYear) => {
+    if (!targetYear || !nodeEra) return true;
+    if (targetYear <= 2020) return nodeEra === '2016-2020';
+    if (targetYear <= 2025) return nodeEra === '2021-2025' || nodeEra === '2016-2020';
+    if (targetYear <= 2030) return nodeEra === '2026-2030' || nodeEra === '2021-2025' || nodeEra === '2016-2020';
+    if (targetYear <= 2040) return nodeEra === '2031-2040' || nodeEra === '2026-2030' || nodeEra === '2021-2025' || nodeEra === '2016-2020';
+    return true;
+  };
+
+  // Helper for layer filter match
+  const isNodeInActiveLayer = (nodeLayer?: string) => {
+    if (!selectedLayerFilter || selectedLayerFilter === 'All' || selectedLayerFilter === 'all') return true;
+    return nodeLayer === selectedLayerFilter;
+  };
+
+  // Filtered nodes & links with Historical Snapshot & Diff Support
   const { filteredNodes, filteredLinks } = useMemo(() => {
     let nodes = [...KNOWLEDGE_GRAPH_NODES];
     let links = [...KNOWLEDGE_GRAPH_LINKS];
 
-    // Filter nodes by type
+    // Filter by Historical Snapshot if active
+    if (activeSnapshotId && activeSnapshotId !== 'v3.2-2026') {
+      const snap = HISTORICAL_VERSION_SNAPSHOTS.find(s => s.id === activeSnapshotId);
+      if (snap) {
+        if (!isDiffMode) {
+          nodes = nodes.filter(n => snap.includedNodeIds.includes(n.id));
+          const snapNodeSet = new Set(snap.includedNodeIds);
+          links = links.filter(l => {
+            const srcId = typeof l.source === 'object' ? (l.source as any).id : l.source;
+            const tgtId = typeof l.target === 'object' ? (l.target as any).id : l.target;
+            return snapNodeSet.has(srcId) && snapNodeSet.has(tgtId);
+          });
+        }
+      }
+    }
+
+    // Filter nodes by Dynamic Legend toggle
+    nodes = nodes.filter(n => visibleNodeTypes.has(n.type));
+
+    // Filter links by Dynamic Legend toggle
+    links = links.filter(l => visibleLinkTypes.has(l.relationshipType));
+
+    // Filter by global ecological layer if specified and not 'All'
+    if (selectedLayerFilter && selectedLayerFilter !== 'All' && selectedLayerFilter !== 'all') {
+      nodes = nodes.filter(n => n.ecologicalLayer === selectedLayerFilter || n.type === 'zone');
+    }
+
+    // Filter nodes by category filter pill
     if (selectedNodeTypeFilter !== 'All') {
       nodes = nodes.filter(n => {
         if (selectedNodeTypeFilter === 'Zones') return n.type === 'zone';
@@ -596,9 +923,20 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
       });
     }
 
-    // Filter links by type
+    // Filter links by dropdown filter
     if (selectedLinkTypeFilter !== 'All') {
       links = links.filter(l => l.relationshipType === selectedLinkTypeFilter);
+    }
+
+    // If diff overlay is active, ensure diff nodes/links are included
+    if (isCompareDiffOverlayActive && activeDiffResult) {
+      const neededNodeIds = new Set([
+        ...activeDiffResult.addedNodeIds,
+        ...activeDiffResult.removedNodeIds,
+        ...activeDiffResult.retainedNodeIds
+      ]);
+      const missingNodes = KNOWLEDGE_GRAPH_NODES.filter(n => neededNodeIds.has(n.id) && !nodes.some(existing => existing.id === n.id));
+      nodes = [...nodes, ...missingNodes];
     }
 
     // Ensure links only connect valid remaining nodes
@@ -610,7 +948,93 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
     });
 
     return { filteredNodes: nodes, filteredLinks: links };
-  }, [selectedNodeTypeFilter, selectedLinkTypeFilter]);
+  }, [
+    visibleNodeTypes,
+    visibleLinkTypes,
+    selectedNodeTypeFilter,
+    selectedLinkTypeFilter,
+    selectedLayerFilter,
+    activeSnapshotId,
+    isDiffMode,
+    isCompareDiffOverlayActive,
+    activeDiffResult
+  ]);
+
+  // Shortest Path Calculation
+  const activePathResult = useMemo(() => {
+    if (!isPathTracerOpen || !pathSourceNodeId || !pathTargetNodeId) return null;
+    return findShortestEcologicalPath(pathSourceNodeId, pathTargetNodeId, filteredNodes, filteredLinks);
+  }, [isPathTracerOpen, pathSourceNodeId, pathTargetNodeId, filteredNodes, filteredLinks]);
+
+  const pathNodeIdsSet = useMemo(() => {
+    return new Set(activePathResult?.pathNodeIds || []);
+  }, [activePathResult]);
+
+  const pathLinkIdsSet = useMemo(() => {
+    return new Set(activePathResult?.pathLinkIds || []);
+  }, [activePathResult]);
+
+  // Batch Selection Nodes List
+  const selectedBatchNodes = useMemo(() => {
+    if (selectedNodeIdsSet.size === 0) {
+      return selectedNodeId ? filteredNodes.filter(n => n.id === selectedNodeId) : filteredNodes.slice(0, 6);
+    }
+    return filteredNodes.filter(n => selectedNodeIdsSet.has(n.id));
+  }, [selectedNodeIdsSet, selectedNodeId, filteredNodes]);
+
+  // Dynamic Network Health Summary Metrics
+  const networkHealth = useMemo(() => {
+    const totalNodes = filteredNodes.length;
+    const totalLinks = filteredLinks.length;
+    
+    // Density calculation: 2E / (V * (V - 1))
+    const maxPossibleEdges = Math.max(1, (totalNodes * (totalNodes - 1)) / 2);
+    const rawDensityPercent = totalNodes > 1 ? (totalLinks / maxPossibleEdges) * 100 : 0;
+    const avgConnectionsPerNode = totalNodes > 0 ? (totalLinks * 2) / totalNodes : 0;
+    
+    // Mean connection strength
+    const totalStrength = filteredLinks.reduce((sum, link) => sum + (link.strength || 0.8), 0);
+    const meanStrength = totalLinks > 0 ? totalStrength / totalLinks : 0;
+    
+    // Active category clusters
+    const activeCategories = new Set(filteredNodes.map(n => n.type));
+    const activeClusterCount = activeCategories.size;
+
+    // Epistemic Confidence Average
+    const avgConfidence = totalNodes > 0
+      ? filteredNodes.reduce((acc, n) => acc + (n.confidenceScore || 90), 0) / totalNodes
+      : 96.5;
+
+    return {
+      nodeCount: totalNodes,
+      linkCount: totalLinks,
+      densityPercent: rawDensityPercent.toFixed(1),
+      avgConnections: avgConnectionsPerNode.toFixed(2),
+      avgStrengthPercent: Math.round(meanStrength * 100),
+      activeClusterCount,
+      avgConfidence: avgConfidence.toFixed(1),
+      resilienceStatus: meanStrength >= 0.85 ? 'Resilient Causal Mesh' : meanStrength >= 0.7 ? 'Moderate Symbiosis' : 'Early Succession'
+    };
+  }, [filteredNodes, filteredLinks]);
+
+  // Search Matched Nodes
+  const searchMatchedNodeIds = useMemo(() => {
+    if (!searchQuery.trim()) return new Set<string>();
+    const q = searchQuery.toLowerCase().trim();
+    const matched = new Set<string>();
+    filteredNodes.forEach(node => {
+      const match =
+        node.label.toLowerCase().includes(q) ||
+        node.categoryName.toLowerCase().includes(q) ||
+        node.description.toLowerCase().includes(q) ||
+        (node.metric && node.metric.toLowerCase().includes(q)) ||
+        (node.location && node.location.toLowerCase().includes(q)) ||
+        (node.epistemicTier && node.epistemicTier.toLowerCase().includes(q)) ||
+        (node.verifiedBy && node.verifiedBy.toLowerCase().includes(q));
+      if (match) matched.add(node.id);
+    });
+    return matched;
+  }, [filteredNodes, searchQuery]);
 
   // Selected Node Details
   const selectedNode = useMemo(() => {
@@ -654,7 +1078,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
     if (!svgRef.current || !containerRef.current) return;
 
     const width = containerRef.current.clientWidth || 800;
-    const height = isFullscreen ? window.innerHeight - 180 : 540;
+    const height = isFullscreen ? window.innerHeight - 240 : 540;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -664,7 +1088,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
       .attr('height', height)
       .attr('viewBox', [0, 0, width, height]);
 
-    // Background canvas grid
+    // Background canvas definitions
     const defs = svg.append('defs');
 
     // Arrow markers for directional dependencies
@@ -689,15 +1113,36 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
         .append('path')
         .attr('d', 'M0,-5L10,0L0,5')
         .attr('fill', color)
-        .attr('opacity', 0.8);
+        .attr('opacity', 0.85);
     });
 
-    // Radial gradient glow filters for active nodes
+    // Radial gradient glow filter for normal active nodes
     const glowFilter = defs.append('filter').attr('id', 'node-glow');
     glowFilter.append('feGaussianBlur').attr('stdDeviation', '4').attr('result', 'coloredBlur');
     const feMerge = glowFilter.append('feMerge');
     feMerge.append('feMergeNode').attr('in', 'coloredBlur');
     feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // High-visibility Hover Glow Filter (Radial expansion + luminous aura)
+    const hoverGlowFilter = defs.append('filter').attr('id', 'node-glow-hover');
+    hoverGlowFilter.append('feGaussianBlur').attr('stdDeviation', '8').attr('result', 'hoverBlur');
+    const feMergeHover = hoverGlowFilter.append('feMerge');
+    feMergeHover.append('feMergeNode').attr('in', 'hoverBlur');
+    feMergeHover.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // Search Match Golden Beacon Glow Filter
+    const searchGlowFilter = defs.append('filter').attr('id', 'search-match-glow');
+    searchGlowFilter.append('feGaussianBlur').attr('stdDeviation', '6').attr('result', 'searchBlur');
+    const feMergeSearch = searchGlowFilter.append('feMerge');
+    feMergeSearch.append('feMergeNode').attr('in', 'searchBlur');
+    feMergeSearch.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // Shortest Path Tracer Golden Particle Glow Filter
+    const pathGlowFilter = defs.append('filter').attr('id', 'path-trace-glow');
+    pathGlowFilter.append('feGaussianBlur').attr('stdDeviation', '7').attr('result', 'pathBlur');
+    const feMergePath = pathGlowFilter.append('feMerge');
+    feMergePath.append('feMergeNode').attr('in', 'pathBlur');
+    feMergePath.append('feMergeNode').attr('in', 'SourceGraphic');
 
     // Root zoom container
     const g = svg.append('g').attr('class', 'graph-root');
@@ -705,31 +1150,88 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
     // D3 Zoom behavior
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.4, 3])
+      .scaleExtent([0.35, 3.5])
       .on('zoom', event => {
         g.attr('transform', event.transform);
       });
 
     svg.call(zoom);
 
-    // Deep clones for D3 simulation to prevent object mutation bugs
+    // Deep clones for D3 simulation to prevent mutation collisions
     const simNodes: KnowledgeNode[] = filteredNodes.map(d => ({ ...d }));
     const simLinks: KnowledgeLink[] = filteredLinks.map(d => ({ ...d }));
 
-    // Create D3 Force Simulation
+    // Cluster Centers Mapping for 'Clustering Mode'
+    const clusterCenters: Record<string, { x: number; y: number; label: string; color: string }> = {
+      zone: { x: width * 0.28, y: height * 0.28, label: 'Restoration Zones', color: '#10B981' },
+      evidence_flora: { x: width * 0.74, y: height * 0.26, label: 'Flora Biomass', color: '#34D399' },
+      evidence_fauna: { x: width * 0.76, y: height * 0.74, label: 'Fauna & Bio-Acoustics', color: '#F43F5E' },
+      evidence_hydrology: { x: width * 0.50, y: height * 0.82, label: 'Hydrology Catchments', color: '#38BDF8' },
+      evidence_soil: { x: width * 0.24, y: height * 0.74, label: 'Soil Microbiome', color: '#D97706' },
+      keystone_mechanism: { x: width * 0.50, y: height * 0.44, label: 'Keystone Biophysics', color: '#C5A059' }
+    };
+
+    // Draw Cluster Background Boundaries when in Clustering Mode
+    if (isClusteringMode) {
+      const clusterBgGroup = g.append('g').attr('class', 'cluster-hulls');
+      Object.entries(clusterCenters).forEach(([typeKey, clusterInfo]) => {
+        // Soft rounded cluster zone indicator
+        const clusterBg = clusterBgGroup.append('g').attr('class', `cluster-boundary-${typeKey}`);
+        
+        clusterBg
+          .append('circle')
+          .attr('cx', clusterInfo.x)
+          .attr('cy', clusterInfo.y)
+          .attr('r', 110)
+          .attr('fill', clusterInfo.color)
+          .attr('fill-opacity', 0.04)
+          .attr('stroke', clusterInfo.color)
+          .attr('stroke-opacity', 0.18)
+          .attr('stroke-dasharray', '4,4')
+          .attr('stroke-width', 1);
+
+        clusterBg
+          .append('text')
+          .attr('x', clusterInfo.x)
+          .attr('y', clusterInfo.y - 95)
+          .attr('text-anchor', 'middle')
+          .attr('font-size', '10px')
+          .attr('font-family', 'monospace')
+          .attr('font-weight', 'bold')
+          .attr('fill', clusterInfo.color)
+          .attr('opacity', 0.7)
+          .text(`[ ${clusterInfo.label.toUpperCase()} ]`);
+      });
+    }
+
+    // Create D3 Force Simulation with dynamic physicsDebugger parameters & clustering forces
     const simulation = d3
       .forceSimulation<KnowledgeNode>(simNodes)
+      .velocityDecay(physicsParams.velocityDecay)
       .force(
         'link',
         d3
           .forceLink<KnowledgeNode, KnowledgeLink>(simLinks)
           .id(d => d.id)
-          .distance(linkDistance)
-          .strength(0.6)
+          .distance(isClusteringMode ? physicsParams.linkDistance * 0.85 : physicsParams.linkDistance)
+          .strength(isClusteringMode ? 0.35 : physicsParams.linkStrength)
       )
-      .force('charge', d3.forceManyBody().strength(chargeStrength))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(d => (d as KnowledgeNode).val + 24));
+      .force('charge', d3.forceManyBody().strength(isClusteringMode ? physicsParams.chargeStrength * 0.75 : physicsParams.chargeStrength))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(physicsParams.centerStrength))
+      .force(
+        'x',
+        d3.forceX<KnowledgeNode>(d => (isClusteringMode ? clusterCenters[d.type]?.x || width / 2 : width / 2)).strength(isClusteringMode ? physicsParams.clusterPull : 0.06)
+      )
+      .force(
+        'y',
+        d3.forceY<KnowledgeNode>(d => (isClusteringMode ? clusterCenters[d.type]?.y || height / 2 : height / 2)).strength(isClusteringMode ? physicsParams.clusterPull : 0.06)
+      )
+      .force('collision', d3.forceCollide().radius(d => (d as KnowledgeNode).val + physicsParams.collisionRadius));
+
+    simulationRef.current = simulation;
+    if (isPhysicsFrozen) {
+      simulation.stop();
+    }
 
     // 1. Draw Links
     const linkGroup = g.append('g').attr('class', 'links');
@@ -738,18 +1240,75 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
       .data(simLinks)
       .enter()
       .append('line')
-      .attr('stroke', d => d.color || '#F5F5F0')
-      .attr('stroke-width', d => Math.max(1.5, d.strength * 3))
-      .attr('stroke-opacity', d => {
-        if (!selectedNodeId) return 0.5;
-        const srcId = typeof d.source === 'object' ? (d.source as any).id : d.source;
-        const tgtId = typeof d.target === 'object' ? (d.target as any).id : d.target;
-        return srcId === selectedNodeId || tgtId === selectedNodeId ? 0.9 : 0.15;
+      .attr('stroke', d => {
+        if (isCompareDiffOverlayActive && diffAddedLinkIds.has(d.id)) return '#10B981';
+        if (isCompareDiffOverlayActive && diffRemovedLinkIds.has(d.id)) return '#F43F5E';
+        if (pathLinkIdsSet.has(d.id)) return '#F59E0B';
+        if (searchMatchedNodeIds.size > 0) {
+          const srcId = typeof d.source === 'object' ? (d.source as any).id : d.source;
+          const tgtId = typeof d.target === 'object' ? (d.target as any).id : d.target;
+          if (searchMatchedNodeIds.has(srcId) && searchMatchedNodeIds.has(tgtId)) return '#F59E0B';
+          if (searchMatchedNodeIds.has(srcId) || searchMatchedNodeIds.has(tgtId)) return '#FBBF24';
+        }
+        return d.color || '#F5F5F0';
       })
-      .attr('stroke-dasharray', d => (d.relationshipType === 'stewardship_governance' ? '4,4' : undefined))
-      .attr('marker-end', d => `url(#arrow-${d.relationshipType})`);
+      .attr('stroke-width', 0)
+      .attr('stroke-opacity', 0)
+      .attr('stroke-dasharray', d => {
+        if (isCompareDiffOverlayActive && diffRemovedLinkIds.has(d.id)) return '4,4';
+        return d.relationshipType === 'stewardship_governance' ? '4,4' : undefined;
+      })
+      .attr('marker-end', d => `url(#arrow-${d.relationshipType})`)
+      .attr('filter', d => (pathLinkIdsSet.has(d.id) ? 'url(#path-trace-glow)' : null));
 
-    // 2. Draw Link Labels (Relationship Type on Hover/Active)
+    // Smooth entry transition for links
+    link
+      .transition()
+      .duration(700)
+      .ease(d3.easeCubicInOut)
+      .attr('stroke-width', d => {
+        if (isCompareDiffOverlayActive && diffAddedLinkIds.has(d.id)) return 4;
+        if (pathLinkIdsSet.has(d.id)) return 4.5;
+        if (searchMatchedNodeIds.size > 0) {
+          const srcId = typeof d.source === 'object' ? (d.source as any).id : d.source;
+          const tgtId = typeof d.target === 'object' ? (d.target as any).id : d.target;
+          if (searchMatchedNodeIds.has(srcId) && searchMatchedNodeIds.has(tgtId)) return 3.5;
+          if (searchMatchedNodeIds.has(srcId) || searchMatchedNodeIds.has(tgtId)) return 2.5;
+          return 1;
+        }
+        return Math.max(1.5, d.strength * 3);
+      })
+      .attr('stroke-opacity', d => {
+        // Real-time Search Dimming for Links
+        if (searchMatchedNodeIds.size > 0) {
+          const srcId = typeof d.source === 'object' ? (d.source as any).id : d.source;
+          const tgtId = typeof d.target === 'object' ? (d.target as any).id : d.target;
+          if (searchMatchedNodeIds.has(srcId) && searchMatchedNodeIds.has(tgtId)) return 0.95;
+          if (searchMatchedNodeIds.has(srcId) || searchMatchedNodeIds.has(tgtId)) return 0.75;
+          return 0.04; // Non-relevant links are dimmed to subtle 4%
+        }
+        if (isCompareDiffOverlayActive) {
+          if (diffAddedLinkIds.has(d.id)) return 0.95;
+          if (diffRemovedLinkIds.has(d.id)) return 0.7;
+          return 0.25;
+        }
+        if (activePathResult) {
+          return pathLinkIdsSet.has(d.id) ? 1.0 : 0.08;
+        }
+        if (hoveredNodeId) {
+          const srcId = typeof d.source === 'object' ? (d.source as any).id : d.source;
+          const tgtId = typeof d.target === 'object' ? (d.target as any).id : d.target;
+          return srcId === hoveredNodeId || tgtId === hoveredNodeId ? 1.0 : 0.08;
+        }
+        if (selectedNodeId) {
+          const srcId = typeof d.source === 'object' ? (d.source as any).id : d.source;
+          const tgtId = typeof d.target === 'object' ? (d.target as any).id : d.target;
+          return srcId === selectedNodeId || tgtId === selectedNodeId ? 0.95 : 0.15;
+        }
+        return 0.45;
+      });
+
+    // 2. Draw Link Labels
     const linkLabelGroup = g.append('g').attr('class', 'link-labels');
     const linkLabel = linkLabelGroup
       .selectAll<SVGTextElement, KnowledgeLink>('text')
@@ -758,15 +1317,28 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
       .append('text')
       .attr('font-size', '8px')
       .attr('font-family', 'monospace')
-      .attr('fill', '#C5A059')
+      .attr('fill', d => (pathLinkIdsSet.has(d.id) ? '#FBBF24' : '#C5A059'))
+      .attr('font-weight', d => (pathLinkIdsSet.has(d.id) ? 'bold' : 'normal'))
       .attr('text-anchor', 'middle')
+      .attr('opacity', 0)
+      .text(d => d.relationshipLabel);
+
+    linkLabel
+      .transition()
+      .duration(600)
       .attr('opacity', d => {
-        if (!selectedNodeId) return 0;
+        if (searchMatchedNodeIds.size > 0) {
+          const srcId = typeof d.source === 'object' ? (d.source as any).id : d.source;
+          const tgtId = typeof d.target === 'object' ? (d.target as any).id : d.target;
+          return searchMatchedNodeIds.has(srcId) || searchMatchedNodeIds.has(tgtId) ? 0.85 : 0;
+        }
+        if (pathLinkIdsSet.has(d.id)) return 1.0;
+        const activeNode = hoveredNodeId || selectedNodeId;
+        if (!activeNode) return 0;
         const srcId = typeof d.source === 'object' ? (d.source as any).id : d.source;
         const tgtId = typeof d.target === 'object' ? (d.target as any).id : d.target;
-        return srcId === selectedNodeId || tgtId === selectedNodeId ? 0.85 : 0;
-      })
-      .text(d => d.relationshipLabel);
+        return srcId === activeNode || tgtId === activeNode ? 0.9 : 0;
+      });
 
     // 3. Draw Nodes Group
     const nodeGroup = g.append('g').attr('class', 'nodes');
@@ -775,6 +1347,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
       .data(simNodes)
       .enter()
       .append('g')
+      .attr('id', d => `node-el-${d.id}`)
       .attr('cursor', 'pointer')
       .call(
         d3
@@ -795,38 +1368,145 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
           })
       );
 
-    // Node Outer Pulsing Aura Ring (For selected or active search)
-    node
+    // Node Outer Pulsing Aura Ring (For selected, diff, path tracer, active period, or search matched)
+    const auraRing = node
       .append('circle')
-      .attr('r', d => d.val + 6)
+      .attr('class', 'pulse-ring')
+      .attr('r', 0)
       .attr('fill', 'none')
-      .attr('stroke', d => d.color)
-      .attr('stroke-width', 1.5)
-      .attr('stroke-dasharray', '3,3')
-      .attr('opacity', d => (d.id === selectedNodeId ? 0.9 : 0))
-      .attr('class', d => (d.id === selectedNodeId ? 'animate-spin' : ''));
+      .attr('stroke', d => {
+        if (isCompareDiffOverlayActive && diffAddedNodeIds.has(d.id)) return '#10B981';
+        if (isCompareDiffOverlayActive && diffRemovedNodeIds.has(d.id)) return '#F43F5E';
+        if (pathNodeIdsSet.has(d.id)) return '#F59E0B';
+        if (selectedNodeIdsSet.has(d.id)) return '#10B981';
+        if (customTags[d.id]?.tagColor) return customTags[d.id].tagColor;
+        if (searchMatchedNodeIds.has(d.id)) return '#F59E0B';
+        if (d.id === selectedNodeId) return '#C5A059';
+        return d.color;
+      })
+      .attr('stroke-width', d => {
+        if (isCompareDiffOverlayActive && (diffAddedNodeIds.has(d.id) || diffRemovedNodeIds.has(d.id))) return 3.5;
+        if (pathNodeIdsSet.has(d.id) || selectedNodeIdsSet.has(d.id)) return 3.5;
+        if (searchMatchedNodeIds.has(d.id)) return 3;
+        if (d.id === selectedNodeId) return 2.5;
+        return 1.5;
+      })
+      .attr('stroke-dasharray', d => {
+        if (isCompareDiffOverlayActive && diffRemovedNodeIds.has(d.id)) return '3,3';
+        if (selectedNodeIdsSet.has(d.id)) return '2,2';
+        if (searchMatchedNodeIds.has(d.id)) return '3,3';
+        if (d.id === selectedNodeId) return '4,4';
+        return 'none';
+      })
+      .attr('opacity', 0)
+      .attr('filter', d => (pathNodeIdsSet.has(d.id) || searchMatchedNodeIds.has(d.id) ? 'url(#search-match-glow)' : null));
 
-    // Node Main Core Circle
-    node
+    auraRing
+      .transition()
+      .duration(650)
+      .ease(d3.easeCubicInOut)
+      .attr('r', d => (pathNodeIdsSet.has(d.id) || searchMatchedNodeIds.has(d.id) ? d.val + 10 : d.val + 6))
+      .attr('opacity', d => {
+        if (searchMatchedNodeIds.size > 0) {
+          return searchMatchedNodeIds.has(d.id) ? 1.0 : 0;
+        }
+        if (isCompareDiffOverlayActive) {
+          return diffAddedNodeIds.has(d.id) || diffRemovedNodeIds.has(d.id) ? 1.0 : 0.2;
+        }
+        if (pathNodeIdsSet.has(d.id) || selectedNodeIdsSet.has(d.id) || searchMatchedNodeIds.has(d.id)) return 1.0;
+        if (customTags[d.id]) return 0.9;
+        if (d.id === selectedNodeId) return 0.95;
+        if (isNodeInActivePeriod(d.era, currentPlaybackYear)) return 0.7;
+        return 0;
+      });
+
+    // Node Main Core Circle with smooth radius & opacity morph transition + Real-Time Search Dimming
+    const coreCircle = node
       .append('circle')
-      .attr('r', d => d.val)
+      .attr('class', 'main-node-circle')
+      .attr('r', 0)
       .attr('fill', d => {
+        if (isCompareDiffOverlayActive && diffAddedNodeIds.has(d.id)) return '#065F46';
+        if (isCompareDiffOverlayActive && diffRemovedNodeIds.has(d.id)) return '#4C0519';
+        if (pathNodeIdsSet.has(d.id)) return '#F59E0B';
+        if (selectedNodeIdsSet.has(d.id)) return '#059669';
+        if (searchMatchedNodeIds.has(d.id)) return '#D97706';
         if (d.id === selectedNodeId) return d.color;
         if (neighborNodeIds.has(d.id)) return d.color;
         return '#141414';
       })
-      .attr('fill-opacity', d => {
-        if (d.id === selectedNodeId) return 0.9;
-        if (neighborNodeIds.has(d.id)) return 0.7;
-        return 0.4;
+      .attr('fill-opacity', 0)
+      .attr('stroke', d => {
+        if (isCompareDiffOverlayActive && diffAddedNodeIds.has(d.id)) return '#34D399';
+        if (isCompareDiffOverlayActive && diffRemovedNodeIds.has(d.id)) return '#F43F5E';
+        if (pathNodeIdsSet.has(d.id)) return '#FBBF24';
+        if (selectedNodeIdsSet.has(d.id)) return '#34D399';
+        if (customTags[d.id]?.tagColor) return customTags[d.id].tagColor;
+        if (searchMatchedNodeIds.has(d.id)) return '#FBBF24';
+        return d.color;
       })
-      .attr('stroke', d => d.color)
-      .attr('stroke-width', d => (d.id === selectedNodeId ? 3 : 1.5))
-      .attr('filter', d => (d.id === selectedNodeId ? 'url(#node-glow)' : null));
+      .attr('stroke-width', d => {
+        if (isCompareDiffOverlayActive && (diffAddedNodeIds.has(d.id) || diffRemovedNodeIds.has(d.id))) return 3.5;
+        return (pathNodeIdsSet.has(d.id) || searchMatchedNodeIds.has(d.id) ? 3.5 : d.id === selectedNodeId ? 3 : 1.5);
+      })
+      .attr('stroke-dasharray', d => {
+        if (isCompareDiffOverlayActive && diffRemovedNodeIds.has(d.id)) return '3,3';
+        return 'none';
+      })
+      .attr('filter', d => (pathNodeIdsSet.has(d.id) ? 'url(#path-trace-glow)' : searchMatchedNodeIds.has(d.id) ? 'url(#search-match-glow)' : d.id === selectedNodeId ? 'url(#node-glow)' : null));
+
+    coreCircle
+      .transition()
+      .duration(750)
+      .ease(d3.easeCubicInOut)
+      .attr('r', d => {
+        if (searchMatchedNodeIds.size > 0) {
+          return searchMatchedNodeIds.has(d.id) ? d.val * 1.35 : Math.max(6, d.val * 0.7);
+        }
+        const layerMatch = isNodeInActiveLayer(d.ecologicalLayer);
+        const searchMatch = searchMatchedNodeIds.has(d.id);
+        if (searchMatch || pathNodeIdsSet.has(d.id)) return d.val * 1.25;
+        return layerMatch ? d.val : Math.max(8, d.val * 0.6);
+      })
+      .attr('fill-opacity', d => {
+        // Real-Time Search Dimming for Nodes
+        if (searchMatchedNodeIds.size > 0) {
+          return searchMatchedNodeIds.has(d.id) ? 1.0 : 0.08;
+        }
+        if (isCompareDiffOverlayActive) {
+          if (diffAddedNodeIds.has(d.id) || diffRemovedNodeIds.has(d.id)) return 1.0;
+          return 0.35;
+        }
+        if (pathNodeIdsSet.has(d.id) || selectedNodeIdsSet.has(d.id)) return 1.0;
+        const periodMatch = isNodeInActivePeriod(d.era, currentPlaybackYear);
+        const layerMatch = isNodeInActiveLayer(d.ecologicalLayer);
+        if (d.id === selectedNodeId) return 0.95;
+        if (neighborNodeIds.has(d.id)) return 0.8;
+        if (!periodMatch || !layerMatch) return 0.15;
+        return 0.6;
+      })
+      .attr('stroke-opacity', d => {
+        if (searchMatchedNodeIds.size > 0) {
+          return searchMatchedNodeIds.has(d.id) ? 1.0 : 0.15;
+        }
+        return 1.0;
+      });
+
+    // Custom Tag Indicator Badge (Top right corner of node)
+    node
+      .filter(d => !!customTags[d.id])
+      .append('circle')
+      .attr('cx', d => d.val * 0.75)
+      .attr('cy', d => -d.val * 0.75)
+      .attr('r', 5)
+      .attr('fill', d => customTags[d.id]?.tagColor || '#C5A059')
+      .attr('stroke', '#0D0D0D')
+      .attr('stroke-width', 1.5);
 
     // Node Central Glyph / Icon Text
     node
       .append('text')
+      .attr('class', 'glyph-label')
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'central')
       .attr('fill', '#F5F5F0')
@@ -834,51 +1514,216 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
       .attr('font-weight', 'bold')
       .attr('font-family', 'sans-serif')
       .attr('pointer-events', 'none')
+      .attr('opacity', 0)
       .text(d => {
+        if (isCompareDiffOverlayActive && diffAddedNodeIds.has(d.id)) return '+';
+        if (isCompareDiffOverlayActive && diffRemovedNodeIds.has(d.id)) return '-';
+        if (pathNodeIdsSet.has(d.id)) {
+          const stepIndex = activePathResult?.pathNodeIds.indexOf(d.id);
+          return typeof stepIndex === 'number' && stepIndex >= 0 ? `${stepIndex + 1}` : '•';
+        }
         if (d.type === 'zone') return 'Z';
         if (d.type === 'evidence_flora') return 'FL';
         if (d.type === 'evidence_fauna') return 'FA';
         if (d.type === 'evidence_hydrology') return 'HY';
         if (d.type === 'evidence_soil') return 'SO';
         return 'KM';
+      })
+      .transition()
+      .duration(600)
+      .delay(150)
+      .attr('opacity', d => {
+        if (searchMatchedNodeIds.size > 0) {
+          return searchMatchedNodeIds.has(d.id) ? 1.0 : 0.12;
+        }
+        if (pathNodeIdsSet.has(d.id)) return 1.0;
+        const layerMatch = isNodeInActiveLayer(d.ecologicalLayer);
+        return layerMatch ? 1.0 : 0.3;
       });
 
-    // Node Name Label
-    node
+    // Node Name Label with Custom Label & Search Highlighting
+    const textLabels = node
       .append('text')
-      .attr('y', d => d.val + 14)
+      .attr('class', 'node-title-label')
+      .attr('y', d => d.val + (searchMatchedNodeIds.has(d.id) ? 18 : 14))
       .attr('text-anchor', 'middle')
-      .attr('font-size', '10px')
+      .attr('font-size', d => (searchMatchedNodeIds.has(d.id) ? '11px' : '10px'))
       .attr('font-family', 'serif')
-      .attr('font-weight', d => (d.id === selectedNodeId ? 'bold' : 'normal'))
+      .attr('font-weight', d => (pathNodeIdsSet.has(d.id) || searchMatchedNodeIds.has(d.id) || d.id === selectedNodeId ? 'bold' : 'normal'))
       .attr('fill', d => {
+        if (isCompareDiffOverlayActive && diffAddedNodeIds.has(d.id)) return '#34D399';
+        if (isCompareDiffOverlayActive && diffRemovedNodeIds.has(d.id)) return '#FB7185';
+        if (pathNodeIdsSet.has(d.id)) return '#F59E0B';
+        if (searchMatchedNodeIds.has(d.id)) return '#FBBF24';
+        if (customTags[d.id]?.tagColor) return customTags[d.id].tagColor;
         if (d.id === selectedNodeId) return '#C5A059';
-        if (neighborNodeIds.has(d.id)) return '#F5F5F0';
         return '#F5F5F0';
       })
-      .attr('opacity', d => {
-        if (searchQuery && d.label.toLowerCase().includes(searchQuery.toLowerCase())) return 1.0;
-        if (!selectedNodeId) return 0.85;
-        return neighborNodeIds.has(d.id) ? 1.0 : 0.35;
-      })
-      .text(d => (d.label.length > 24 ? d.label.substring(0, 22) + '...' : d.label));
-
-    // Node Interactions
-    node
-      .on('click', (event, d) => {
-        event.stopPropagation();
-        setSelectedNodeId(d.id);
-        audioFeedback.playSubtleClick();
-      })
-      .on('mouseenter', (event, d) => {
-        setHoveredNodeId(d.id);
-        audioFeedback.playMicroTick();
-      })
-      .on('mouseleave', () => {
-        setHoveredNodeId(null);
+      .attr('opacity', 0)
+      .text(d => {
+        const displayLabel = customTags[d.id]?.customLabel ? `[${customTags[d.id].customLabel}] ${d.label}` : d.label;
+        return displayLabel.length > 24 ? displayLabel.substring(0, 22) + '...' : displayLabel;
       });
 
-    // Tick Handler
+    textLabels
+      .transition()
+      .duration(650)
+      .delay(200)
+      .attr('opacity', d => {
+        if (searchMatchedNodeIds.size > 0) {
+          return searchMatchedNodeIds.has(d.id) ? 1.0 : 0.12;
+        }
+        if (pathNodeIdsSet.has(d.id)) return 1.0;
+        const periodMatch = isNodeInActivePeriod(d.era, currentPlaybackYear);
+        const layerMatch = isNodeInActiveLayer(d.ecologicalLayer);
+        if (d.id === selectedNodeId) return 1.0;
+        if (!periodMatch || !layerMatch) return 0.2;
+        if (!selectedNodeId) return 0.85;
+        return neighborNodeIds.has(d.id) ? 1.0 : 0.45;
+      });
+
+    // Node Interaction Handlers (Click, ContextMenu Right-Click, Hover)
+    node
+      .on('contextmenu', (event, d) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setContextMenu({
+          isOpen: true,
+          x: event.clientX,
+          y: event.clientY,
+          nodeId: d.id
+        });
+        audioFeedback.playSubtleClick();
+      })
+      .on('click', (event, d) => {
+        event.stopPropagation();
+        if (isMultiSelectMode) {
+          setSelectedNodeIdsSet(prev => {
+            const next = new Set(prev);
+            if (next.has(d.id)) next.delete(d.id);
+            else next.add(d.id);
+            return next;
+          });
+          audioFeedback.playMicroTick();
+        } else if (isPathTracerOpen) {
+          if (!pathSourceNodeId) {
+            setPathSourceNodeId(d.id);
+            audioFeedback.playSubtleClick();
+          } else if (!pathTargetNodeId && d.id !== pathSourceNodeId) {
+            setPathTargetNodeId(d.id);
+            audioFeedback.playDataSave();
+          } else {
+            setSelectedNodeId(d.id);
+            audioFeedback.playSubtleClick();
+          }
+        } else {
+          setSelectedNodeId(d.id);
+          audioFeedback.playSubtleClick();
+        }
+      })
+      .on('mouseenter', function (event, d) {
+        setHoveredNodeId(d.id);
+        audioFeedback.playMicroTick();
+
+        // 1. Radial expansion of hovered node core circle
+        d3.select(this)
+          .select('circle.main-node-circle')
+          .transition()
+          .duration(240)
+          .ease(d3.easeCubicOut)
+          .attr('r', d.val * 1.35 + 4)
+          .attr('filter', 'url(#node-glow-hover)')
+          .attr('stroke', '#F5F5F0')
+          .attr('stroke-width', 3.5);
+
+        // 2. Expand outer glowing aura ring
+        d3.select(this)
+          .select('circle.pulse-ring')
+          .transition()
+          .duration(240)
+          .ease(d3.easeCubicOut)
+          .attr('r', d.val * 1.35 + 12)
+          .attr('opacity', 1.0)
+          .attr('stroke', '#C5A059')
+          .attr('stroke-width', 3);
+
+        // 3. Emphasize connected pathways & marker arrows
+        link
+          .transition()
+          .duration(200)
+          .attr('stroke-width', l => {
+            const s = typeof l.source === 'object' ? (l.source as any).id : l.source;
+            const t = typeof l.target === 'object' ? (l.target as any).id : l.target;
+            return s === d.id || t === d.id ? Math.max(3.5, l.strength * 5) : 1;
+          })
+          .attr('stroke-opacity', l => {
+            const s = typeof l.source === 'object' ? (l.source as any).id : l.source;
+            const t = typeof l.target === 'object' ? (l.target as any).id : l.target;
+            return s === d.id || t === d.id ? 1.0 : 0.08;
+          });
+
+        // 4. Fade non-connected nodes slightly to emphasize pathway
+        node
+          .transition()
+          .duration(200)
+          .attr('opacity', n => {
+            if (n.id === d.id) return 1.0;
+            const isConnected = simLinks.some(l => {
+              const s = typeof l.source === 'object' ? (l.source as any).id : l.source;
+              const t = typeof l.target === 'object' ? (l.target as any).id : l.target;
+              return (s === d.id && t === n.id) || (t === d.id && s === n.id);
+            });
+            return isConnected ? 1.0 : 0.2;
+          });
+      })
+      .on('mouseleave', function (event, d) {
+        setHoveredNodeId(null);
+
+        // Revert hovered node circle radius
+        d3.select(this)
+          .select('circle.main-node-circle')
+          .transition()
+          .duration(300)
+          .ease(d3.easeCubicOut)
+          .attr('r', searchMatchedNodeIds.has(d.id) || pathNodeIdsSet.has(d.id) ? d.val * 1.25 : d.val)
+          .attr('filter', pathNodeIdsSet.has(d.id) ? 'url(#path-trace-glow)' : searchMatchedNodeIds.has(d.id) ? 'url(#search-match-glow)' : d.id === selectedNodeId ? 'url(#node-glow)' : null)
+          .attr('stroke', pathNodeIdsSet.has(d.id) ? '#FBBF24' : searchMatchedNodeIds.has(d.id) ? '#FBBF24' : customTags[d.id]?.tagColor || d.color)
+          .attr('stroke-width', pathNodeIdsSet.has(d.id) || searchMatchedNodeIds.has(d.id) ? 3.5 : d.id === selectedNodeId ? 3 : 1.5);
+
+        // Revert outer ring
+        d3.select(this)
+          .select('circle.pulse-ring')
+          .transition()
+          .duration(300)
+          .attr('r', pathNodeIdsSet.has(d.id) || searchMatchedNodeIds.has(d.id) ? d.val + 10 : d.val + 6)
+          .attr('opacity', pathNodeIdsSet.has(d.id) || searchMatchedNodeIds.has(d.id) ? 1.0 : d.id === selectedNodeId ? 0.95 : 0.7)
+          .attr('stroke', pathNodeIdsSet.has(d.id) ? '#F59E0B' : searchMatchedNodeIds.has(d.id) ? '#F59E0B' : d.id === selectedNodeId ? '#C5A059' : d.color);
+
+        // Revert links opacity
+        link
+          .transition()
+          .duration(300)
+          .attr('stroke-width', l => (pathLinkIdsSet.has(l.id) ? 4.5 : Math.max(1.5, l.strength * 3)))
+          .attr('stroke-opacity', l => {
+            if (activePathResult) {
+              return pathLinkIdsSet.has(l.id) ? 1.0 : 0.08;
+            }
+            if (selectedNodeId) {
+              const s = typeof l.source === 'object' ? (l.source as any).id : l.source;
+              const t = typeof l.target === 'object' ? (l.target as any).id : l.target;
+              return s === selectedNodeId || t === selectedNodeId ? 0.95 : 0.15;
+            }
+            return 0.45;
+          });
+
+        // Revert nodes opacity
+        node
+          .transition()
+          .duration(300)
+          .attr('opacity', 1.0);
+      });
+
+    // Simulation Tick Handler
     simulation.on('tick', () => {
       link
         .attr('x1', d => (d.source as KnowledgeNode).x || 0)
@@ -900,11 +1745,23 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
     filteredNodes,
     filteredLinks,
     selectedNodeId,
+    hoveredNodeId,
     neighborNodeIds,
-    searchQuery,
+    searchMatchedNodeIds,
     isFullscreen,
-    linkDistance,
-    chargeStrength
+    physicsParams,
+    isPhysicsFrozen,
+    isClusteringMode,
+    currentPlaybackYear,
+    customTags,
+    pathNodeIdsSet,
+    pathLinkIdsSet,
+    selectedNodeIdsSet,
+    isMultiSelectMode,
+    isPathTracerOpen,
+    pathSourceNodeId,
+    pathTargetNodeId,
+    activePathResult
   ]);
 
   const handleResetZoom = () => {
@@ -974,6 +1831,104 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Clustering Mode Toggle */}
+          <button
+            onClick={() => {
+              setIsClusteringMode(prev => !prev);
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3 py-1.5 border text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+              isClusteringMode
+                ? 'bg-[#C5A059] text-black border-[#C5A059] font-bold shadow-lg shadow-[#C5A059]/20'
+                : 'bg-[#171717] hover:bg-[#222] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
+            }`}
+            title="Toggle Force-Simulation Categorical Clustering"
+          >
+            <Boxes className="w-3.5 h-3.5" />
+            <span>{isClusteringMode ? 'Clustering Active' : 'Cluster by Category'}</span>
+          </button>
+
+          {/* Historical Versioning Sidebar Toggle */}
+          <button
+            onClick={() => {
+              setIsHistorySidebarOpen(true);
+              audioFeedback.playSubtleClick();
+            }}
+            className={`px-3 py-1.5 border text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeSnapshotId
+                ? 'bg-amber-950/80 text-amber-300 border-amber-500/50 font-bold'
+                : 'bg-[#171717] hover:bg-[#222] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
+            }`}
+            title="View Historical Graph Snapshots & Version Audit"
+          >
+            <History className="w-3.5 h-3.5 text-amber-400" />
+            <span>{activeSnapshotId ? 'Previewing Snapshot' : 'Versions'}</span>
+          </button>
+
+          {/* Multi-Select Toggle */}
+          <button
+            onClick={() => {
+              setIsMultiSelectMode(prev => !prev);
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3 py-1.5 border text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+              isMultiSelectMode
+                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 font-bold'
+                : 'bg-[#171717] hover:bg-[#222] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
+            }`}
+            title="Toggle Multi-Select Mode for Batch Operations"
+          >
+            <CheckSquare className="w-3.5 h-3.5" />
+            <span>Multi-Select {selectedNodeIdsSet.size > 0 && `(${selectedNodeIdsSet.size})`}</span>
+          </button>
+
+          {/* Batch Export Button */}
+          <button
+            onClick={() => {
+              setIsExportModalOpen(true);
+              audioFeedback.playSubtleClick();
+            }}
+            className="px-3 py-1.5 bg-[#171717] hover:bg-[#222] border border-[#F5F5F0]/10 text-xs font-mono text-[#F5F5F0]/70 hover:text-[#F5F5F0] rounded-sm flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Batch Export Graph Nodes & Metadata"
+          >
+            <Download className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Export</span>
+          </button>
+
+          {/* Shortest Path Tracer Button */}
+          <button
+            onClick={() => {
+              setIsPathTracerOpen(prev => !prev);
+              audioFeedback.playSubtleClick();
+            }}
+            className={`px-3 py-1.5 border text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+              isPathTracerOpen
+                ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50 font-bold'
+                : 'bg-[#171717] hover:bg-[#222] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
+            }`}
+            title="Trace Shortest Dependency Path Between Two Ecological Nodes"
+          >
+            <Route className="w-3.5 h-3.5" />
+            <span>Path Tracer</span>
+          </button>
+
+          {/* Physics Debugger Overlay Toggle */}
+          <button
+            onClick={() => {
+              setIsPhysicsDebuggerOpen(prev => !prev);
+              audioFeedback.playSubtleClick();
+            }}
+            className={`px-3 py-1.5 border text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+              isPhysicsDebuggerOpen
+                ? 'bg-purple-950/80 text-purple-300 border-purple-500/50 font-bold'
+                : 'bg-[#171717] hover:bg-[#222] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
+            }`}
+            title="Real-Time D3 Force-Simulation Physics Debugger"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Physics</span>
+          </button>
+
           {/* Zoom controls */}
           <div className="flex items-center gap-1 bg-[#171717] p-1 rounded-sm border border-[#F5F5F0]/10">
             <button
@@ -1008,10 +1963,122 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
             className="px-3 py-1.5 bg-[#171717] hover:bg-[#222] border border-[#F5F5F0]/10 text-xs font-mono text-[#F5F5F0]/70 hover:text-[#F5F5F0] rounded-sm flex items-center gap-1.5 transition-all cursor-pointer"
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            <span>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+            <span>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
           </button>
         </div>
       </div>
+
+      {/* Dynamic Network Health Summary Panel */}
+      <div className="px-5">
+        <div className="p-3 bg-[#0F0F0F] border border-[#F5F5F0]/10 rounded-sm grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
+          {/* Metric 1: Node Density */}
+          <div className="space-y-1 border-r border-[#F5F5F0]/5 pr-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#F5F5F0]/50 uppercase">
+              <Activity className="w-3 h-3 text-emerald-400" />
+              <span>Node Density</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base sm:text-lg font-mono font-bold text-emerald-300">
+                {networkHealth.avgConnections}
+              </span>
+              <span className="text-[10px] font-mono text-[#F5F5F0]/40">links/node</span>
+            </div>
+            <div className="text-[9px] font-mono text-[#F5F5F0]/40">
+              {networkHealth.densityPercent}% Network Saturation
+            </div>
+          </div>
+
+          {/* Metric 2: Connection Strength Average */}
+          <div className="space-y-1 border-r border-[#F5F5F0]/5 pr-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#F5F5F0]/50 uppercase">
+              <Gauge className="w-3 h-3 text-[#C5A059]" />
+              <span>Connection Strength</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base sm:text-lg font-mono font-bold text-[#C5A059]">
+                {networkHealth.avgStrengthPercent}%
+              </span>
+              <span className="text-[10px] font-mono text-cyan-400 font-bold">Avg</span>
+            </div>
+            <div className="text-[9px] font-mono text-emerald-400 truncate">
+              {networkHealth.resilienceStatus}
+            </div>
+          </div>
+
+          {/* Metric 3: Active Cluster Count */}
+          <div className="space-y-1 border-r border-[#F5F5F0]/5 pr-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#F5F5F0]/50 uppercase">
+              <Layers className="w-3 h-3 text-cyan-400" />
+              <span>Active Clusters</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base sm:text-lg font-mono font-bold text-cyan-300">
+                {networkHealth.activeClusterCount}
+              </span>
+              <span className="text-[10px] font-mono text-[#F5F5F0]/40">domains</span>
+            </div>
+            <div className="text-[9px] font-mono text-[#F5F5F0]/40">
+              {isClusteringMode ? 'Force-Grouped by Category' : 'Natural Topography'}
+            </div>
+          </div>
+
+          {/* Metric 4: Epistemic Ground Truth */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#F5F5F0]/50 uppercase">
+              <ShieldCheck className="w-3 h-3 text-amber-400" />
+              <span>Epistemic Integrity</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base sm:text-lg font-mono font-bold text-amber-300">
+                {networkHealth.avgConfidence}%
+              </span>
+              <span className="text-[10px] font-mono text-[#F5F5F0]/40">P90</span>
+            </div>
+            <div className="text-[9px] font-mono text-[#F5F5F0]/40">
+              {networkHealth.nodeCount} nodes • {networkHealth.linkCount} couplings
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search Match Banner (High-visibility notification when search terms match nodes) */}
+      {searchQuery && (
+        <div className="mx-5 px-3.5 py-2 bg-[#1C170E] border border-[#C5A059]/40 rounded-sm flex items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-[#F59E0B] shrink-0 animate-pulse" />
+            <span className="text-[#F5F5F0]/70">
+              Global Epistemic Match:
+            </span>
+            <span className="px-2 py-0.5 bg-[#C5A059]/20 text-[#FBBF24] font-bold rounded border border-[#C5A059]/40">
+              "{searchQuery}"
+            </span>
+            <span className="text-emerald-400 font-bold">
+              ({searchMatchedNodeIds.size} node{searchMatchedNodeIds.size === 1 ? '' : 's'} highlighted)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {searchMatchedNodeIds.size > 0 && (
+              <button
+                onClick={() => {
+                  const firstMatchId = Array.from(searchMatchedNodeIds)[0];
+                  setSelectedNodeId(firstMatchId);
+                  audioFeedback.playMicroTick();
+                }}
+                className="px-2 py-1 bg-[#C5A059] text-black font-bold text-[10px] rounded hover:bg-[#D4AF37] transition-colors cursor-pointer"
+              >
+                Focus First Match
+              </button>
+            )}
+            <button
+              onClick={() => setSearchQuery('')}
+              className="text-[#F5F5F0]/40 hover:text-[#F5F5F0] p-1"
+              title="Clear Search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter & Controls Ribbon */}
       <div className="px-5 space-y-3">
@@ -1020,7 +2087,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-mono scrollbar-none">
             <span className="text-[10px] uppercase text-[#F5F5F0]/40 flex items-center gap-1 mr-1 shrink-0">
               <Filter className="w-3 h-3 text-[#C5A059]" />
-              Filter Nodes:
+              Filter:
             </span>
             {['All', 'Zones', 'Flora', 'Fauna', 'Hydrology', 'Soil', 'Mechanisms'].map(filterKey => {
               const isSelected = selectedNodeTypeFilter === filterKey;
@@ -1062,23 +2129,31 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
               <option value="stewardship_governance">Stewardship & Governance</option>
             </select>
 
-            {/* Node Search */}
+            {/* Node Search (Supports local and global query sync) */}
             <div className="relative w-48 shrink-0">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#F5F5F0]/40" />
               <input
                 type="text"
-                placeholder="Find node..."
+                placeholder="Find node / marker..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-8 pr-2.5 py-1 bg-[#141414] border border-[#F5F5F0]/10 rounded-xs text-xs text-[#F5F5F0] placeholder-[#F5F5F0]/30 font-mono outline-none focus:border-[#C5A059]"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#F5F5F0]/40 hover:text-[#F5F5F0]"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Interactive Graph Canvas + Inspector Side Panel */}
-      <div className="px-5 pb-5 grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="px-5 pb-2 grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* D3 Graph Stage (8 cols) */}
         <div
           ref={containerRef}
@@ -1087,8 +2162,13 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
           <svg ref={svgRef} className="w-full h-full block cursor-grab active:cursor-grabbing select-none" />
 
           {/* Canvas Floating Legend */}
-          <div className="absolute bottom-3 left-3 p-2.5 bg-black/80 backdrop-blur-md border border-[#F5F5F0]/10 rounded-xs space-y-1.5 text-[10px] font-mono pointer-events-none hidden sm:block">
-            <span className="text-[#C5A059] uppercase font-bold block text-[9px]">Node Legend</span>
+          <div className="absolute bottom-3 left-3 p-2.5 bg-black/85 backdrop-blur-md border border-[#F5F5F0]/10 rounded-xs space-y-1.5 text-[10px] font-mono pointer-events-none hidden sm:block">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[#C5A059] uppercase font-bold text-[9px]">Node Legend</span>
+              {isClusteringMode && (
+                <span className="text-[8px] bg-[#C5A059]/20 text-[#C5A059] px-1 rounded">Clustered</span>
+              )}
+            </div>
             <div className="flex items-center gap-3 text-[#F5F5F0]/70 flex-wrap">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-[#10B981]" /> Project Zone
@@ -1113,21 +2193,21 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
 
           {/* Physics adjustment popup toolbar */}
           <div className="absolute top-3 right-3 flex items-center gap-2 bg-black/80 backdrop-blur-md p-1.5 rounded border border-[#F5F5F0]/10 text-[10px] font-mono">
-            <Sliders className="w-3 h-3 text-[#C5A059]" />
-            <span className="text-[#F5F5F0]/50">Link Span:</span>
+            <SlidersHorizontal className="w-3 h-3 text-[#C5A059]" />
+            <span className="text-[#F5F5F0]/50">Distance:</span>
             <input
               type="range"
               min="80"
               max="220"
-              value={linkDistance}
-              onChange={e => setLinkDistance(parseInt(e.target.value))}
+              value={physicsParams.linkDistance}
+              onChange={e => setPhysicsParams(prev => ({ ...prev, linkDistance: parseInt(e.target.value, 10) }))}
               className="w-16 accent-[#C5A059] bg-[#222] h-1 rounded cursor-pointer"
             />
           </div>
         </div>
 
         {/* Selected Node Inspector Side Card (4 cols) */}
-        <div className="lg:col-span-4 bg-[#111111] border border-[#C5A059]/40 rounded-sm p-5 space-y-4 text-left flex flex-col justify-between max-h-[580px] overflow-y-auto">
+        <div className="lg:col-span-4 bg-[#111111] border border-[#C5A059]/40 rounded-sm p-5 space-y-4 text-left flex flex-col justify-between max-h-[540px] overflow-y-auto">
           {selectedNode ? (
             <div className="space-y-4">
               {/* Header Badge */}
@@ -1174,7 +2254,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
                     Primary ecosystem originator / baseline node.
                   </p>
                 ) : (
-                  <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                  <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
                     {incomingLinks.map(({ link, node }) => (
                       <div
                         key={link.id}
@@ -1205,7 +2285,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
                     Terminal trophic beneficiary node.
                   </p>
                 ) : (
-                  <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                  <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
                     {outgoingLinks.map(({ link, node }) => (
                       <div
                         key={link.id}
@@ -1239,7 +2319,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
               <Network className="w-8 h-8 text-[#C5A059]/40 mx-auto" />
               <h4 className="text-sm font-serif text-[#F5F5F0]">Select an Ecological Node</h4>
               <p className="text-xs text-[#F5F5F0]/40 font-sans">
-                Click any node in the graph above to inspect its upstream biophysical drivers and downstream community impacts.
+                Click any node in the graph to inspect its upstream biophysical drivers and downstream community feedbacks.
               </p>
             </div>
           )}
@@ -1263,6 +2343,168 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
           )}
         </div>
       </div>
+
+      {/* Mini Playback Control Bar (Ecological Succession Timeline Animation) */}
+      <div className="mx-5 mb-4 p-3 bg-[#111111] border border-[#F5F5F0]/10 rounded-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Playback Transport Controls */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setCurrentPlaybackYear(prev => Math.max(2016, prev - 2));
+              if (onTimelinePeriodChange) onTimelinePeriodChange(Math.max(2016, currentPlaybackYear - 2));
+              audioFeedback.playMicroTick();
+            }}
+            className="p-1.5 bg-[#1A1A1A] hover:bg-[#222] border border-[#F5F5F0]/10 rounded text-[#F5F5F0]/70 hover:text-[#F5F5F0] cursor-pointer"
+            title="Step Backward (Previous Succession Horizon)"
+          >
+            <SkipBack className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => {
+              setIsPlaybackRunning(prev => !prev);
+              audioFeedback.playSubtleClick();
+            }}
+            className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isPlaybackRunning
+                ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
+                : 'bg-[#C5A059] text-black hover:bg-[#D4AF37]'
+            }`}
+          >
+            {isPlaybackRunning ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+            <span>{isPlaybackRunning ? 'Pause Evolution' : 'Animate Succession'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setCurrentPlaybackYear(prev => (prev >= 2050 ? 2016 : prev + 2));
+              if (onTimelinePeriodChange) onTimelinePeriodChange(currentPlaybackYear >= 2050 ? 2016 : currentPlaybackYear + 2);
+              audioFeedback.playMicroTick();
+            }}
+            className="p-1.5 bg-[#1A1A1A] hover:bg-[#222] border border-[#F5F5F0]/10 rounded text-[#F5F5F0]/70 hover:text-[#F5F5F0] cursor-pointer"
+            title="Step Forward (Next Succession Horizon)"
+          >
+            <SkipForward className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Speed Selector */}
+          <div className="flex items-center gap-1 ml-1 bg-[#171717] p-0.5 rounded border border-[#F5F5F0]/10 text-[10px] font-mono">
+            {[1, 2, 4].map(spd => (
+              <button
+                key={spd}
+                onClick={() => {
+                  setPlaybackSpeed(spd);
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-1.5 py-0.5 rounded cursor-pointer ${
+                  playbackSpeed === spd ? 'bg-[#C5A059] text-black font-bold' : 'text-[#F5F5F0]/50 hover:text-[#F5F5F0]'
+                }`}
+              >
+                {spd}x
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Temporal Scrubber & Era Milestones */}
+        <div className="flex-1 w-full flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs font-mono text-[#C5A059] font-bold shrink-0">
+            <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
+            <span>Year {currentPlaybackYear}</span>
+          </div>
+
+          {/* Timeline Milestones Track */}
+          <div className="relative flex-1 flex items-center">
+            <input
+              type="range"
+              min="2016"
+              max="2050"
+              step="1"
+              value={currentPlaybackYear}
+              onChange={e => {
+                const yr = parseInt(e.target.value, 10);
+                setCurrentPlaybackYear(yr);
+                if (onTimelinePeriodChange) onTimelinePeriodChange(yr);
+              }}
+              className="w-full accent-[#C5A059] bg-[#222] h-1.5 rounded cursor-pointer"
+            />
+          </div>
+
+          <span className="text-[10px] font-mono text-[#F5F5F0]/40 shrink-0 hidden sm:inline">
+            {TIMELINE_ERAS.find(e => isNodeInActivePeriod(e.key, currentPlaybackYear))?.milestone || 'Ecological Transition'}
+          </span>
+        </div>
+      </div>
+
+      {/* 1. Historical Versioning Sidebar */}
+      <HistoricalVersioningSidebar
+        isOpen={isHistorySidebarOpen}
+        onClose={() => setIsHistorySidebarOpen(false)}
+        activeSnapshotId={activeSnapshotId}
+        onSelectSnapshot={setActiveSnapshotId}
+        isDiffMode={isDiffMode}
+        onToggleDiffMode={() => setIsDiffMode(prev => !prev)}
+      />
+
+      {/* 2. Batch Export Modal */}
+      <BatchExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        selectedNodes={selectedBatchNodes}
+        allLinks={filteredLinks}
+        customTags={customTags}
+        bioregionId={selectedBioregionId}
+      />
+
+      {/* 3. Node Custom Tagging Context Menu (Right Click) */}
+      <NodeContextMenu
+        isOpen={!!contextMenu?.isOpen}
+        x={contextMenu?.x || 0}
+        y={contextMenu?.y || 0}
+        node={contextMenu?.nodeId ? KNOWLEDGE_GRAPH_NODES.find(n => n.id === contextMenu.nodeId) || null : null}
+        existingTag={contextMenu?.nodeId ? customTags[contextMenu.nodeId] : undefined}
+        onClose={() => setContextMenu(null)}
+        onTagSaved={() => {
+          // Real-time listener automatically propagates updates
+        }}
+      />
+
+      {/* 4. Physics Debugger Overlay */}
+      <PhysicsDebuggerOverlay
+        isOpen={isPhysicsDebuggerOpen}
+        onClose={() => setIsPhysicsDebuggerOpen(false)}
+        params={physicsParams}
+        onChange={setPhysicsParams}
+        onReheat={() => {
+          if (simulationRef.current) {
+            simulationRef.current.alpha(0.8).restart();
+          }
+        }}
+        onFreeze={() => setIsPhysicsFrozen(prev => !prev)}
+        isFrozen={isPhysicsFrozen}
+        nodeCount={filteredNodes.length}
+        linkCount={filteredLinks.length}
+      />
+
+      {/* 5. Animated Path Tracer Panel */}
+      <AnimatedPathTracerPanel
+        isOpen={isPathTracerOpen}
+        onClose={() => setIsPathTracerOpen(false)}
+        allNodes={filteredNodes}
+        sourceNodeId={pathSourceNodeId}
+        targetNodeId={pathTargetNodeId}
+        onSelectSourceNode={setPathSourceNodeId}
+        onSelectTargetNode={setPathTargetNodeId}
+        pathResult={activePathResult}
+        onClearPath={() => {
+          setPathSourceNodeId(null);
+          setPathTargetNodeId(null);
+        }}
+        onApplyPreset={(s, t) => {
+          setPathSourceNodeId(s);
+          setPathTargetNodeId(t);
+        }}
+      />
     </div>
   );
 };
