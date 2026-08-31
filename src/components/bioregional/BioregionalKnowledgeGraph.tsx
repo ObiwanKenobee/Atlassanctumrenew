@@ -50,7 +50,10 @@ import {
   GitCompare,
   Eye,
   EyeOff,
-  RefreshCw
+  RefreshCw,
+  Undo2,
+  Redo2,
+  PieChart
 } from 'lucide-react';
 import { audioFeedback } from '../../lib/audioFeedback';
 import { HistoricalVersioningSidebar } from './HistoricalVersioningSidebar';
@@ -60,6 +63,11 @@ import { PhysicsDebuggerOverlay, PhysicsParams, DEFAULT_PHYSICS_PARAMS } from '.
 import { AnimatedPathTracerPanel } from './AnimatedPathTracerPanel';
 import { DynamicLegendToggle, NODE_TYPE_CONFIGS, LINK_TYPE_CONFIGS } from './DynamicLegendToggle';
 import { CompareSnapshotsModal } from './CompareSnapshotsModal';
+import { ClusteringAnalyticsHUD } from './ClusteringAnalyticsHUD';
+import { NodeQuickLookPopover } from './NodeQuickLookPopover';
+import { KnowledgeExportModal } from './KnowledgeExportModal';
+import { LayoutPresetsMenu, GraphLayoutPreset } from './LayoutPresetsMenu';
+import { useGraphHistory, GraphViewState } from './useGraphHistory';
 import {
   BioregionalCustomTag,
   subscribeToCustomTags,
@@ -721,6 +729,111 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
 
   // 8. Auto-Arrange High-Intensity Simulation State
   const [isAutoArranging, setIsAutoArranging] = useState<boolean>(false);
+
+  // 9. Layout Presets & Topologies State
+  const [layoutPreset, setLayoutPreset] = useState<GraphLayoutPreset>('force-directed');
+  const [isLayoutMenuOpen, setIsLayoutMenuOpen] = useState<boolean>(false);
+
+  // 10. Clustering Analytics HUD State
+  const [isClusteringHUDOpen, setIsClusteringHUDOpen] = useState<boolean>(false);
+
+  // 11. Knowledge Export Suite State
+  const [isKnowledgeExportOpen, setIsKnowledgeExportOpen] = useState<boolean>(false);
+
+  // 12. Quick-Look Sparkline Hover State
+  const [quickLookNode, setQuickLookNode] = useState<KnowledgeNode | null>(null);
+  const [quickLookPos, setQuickLookPos] = useState<{ x: number; y: number } | null>(null);
+
+  // 13. Undo/Redo State History Stack
+  const initialViewState: GraphViewState = useMemo(
+    () => ({
+      selectedNodeTypeFilter,
+      selectedLinkTypeFilter,
+      selectedLayerFilter,
+      visibleNodeTypes: Array.from(visibleNodeTypes),
+      visibleLinkTypes: Array.from(visibleLinkTypes),
+      layoutPreset,
+      searchQuery,
+      activeSnapshotId,
+      description: 'Initial Graph View'
+    }),
+    []
+  );
+
+  const {
+    canUndo,
+    canRedo,
+    pushState,
+    undo: undoGraphState,
+    redo: redoGraphState
+  } = useGraphHistory(initialViewState);
+
+  // Record state changes into undo/redo history stack
+  useEffect(() => {
+    pushState({
+      selectedNodeTypeFilter,
+      selectedLinkTypeFilter,
+      selectedLayerFilter,
+      visibleNodeTypes: Array.from(visibleNodeTypes),
+      visibleLinkTypes: Array.from(visibleLinkTypes),
+      layoutPreset,
+      searchQuery,
+      activeSnapshotId,
+      description: `View: ${layoutPreset} | ${selectedNodeTypeFilter}`
+    });
+  }, [
+    selectedNodeTypeFilter,
+    selectedLinkTypeFilter,
+    selectedLayerFilter,
+    visibleNodeTypes,
+    visibleLinkTypes,
+    layoutPreset,
+    searchQuery,
+    activeSnapshotId,
+    pushState
+  ]);
+
+  // Apply restored state from Undo / Redo
+  const applyRestoredState = (state: GraphViewState | null) => {
+    if (!state) return;
+    setSelectedNodeTypeFilter(state.selectedNodeTypeFilter);
+    setSelectedLinkTypeFilter(state.selectedLinkTypeFilter);
+    setVisibleNodeTypes(new Set(state.visibleNodeTypes as KnowledgeNodeType[]));
+    setVisibleLinkTypes(new Set(state.visibleLinkTypes as KnowledgeLinkType[]));
+    setLayoutPreset(state.layoutPreset);
+    setSearchQuery(state.searchQuery);
+    setActiveSnapshotId(state.activeSnapshotId);
+  };
+
+  const handleUndo = () => {
+    const prev = undoGraphState();
+    if (prev) applyRestoredState(prev);
+  };
+
+  const handleRedo = () => {
+    const next = redoGraphState();
+    if (next) applyRestoredState(next);
+  };
+
+  // Keyboard shortcut listener for Ctrl+Z (Undo) and Ctrl+Y / Shift+Ctrl+Z (Redo)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+        } else {
+          e.preventDefault();
+          handleUndo();
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canUndo, canRedo, undoGraphState, redoGraphState]);
   
   // Playback Animation State
   const [isPlaybackRunning, setIsPlaybackRunning] = useState<boolean>(false);
@@ -1171,8 +1284,8 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
       keystone_mechanism: { x: width * 0.50, y: height * 0.44, label: 'Keystone Biophysics', color: '#C5A059' }
     };
 
-    // Draw Cluster Background Boundaries when in Clustering Mode
-    if (isClusteringMode) {
+    // Draw Cluster Background Boundaries when in Clustering Mode or Radial Mode
+    if (isClusteringMode && layoutPreset === 'force-directed') {
       const clusterBgGroup = g.append('g').attr('class', 'cluster-hulls');
       Object.entries(clusterCenters).forEach(([typeKey, clusterInfo]) => {
         // Soft rounded cluster zone indicator
@@ -1204,29 +1317,156 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
       });
     }
 
+    // Radial concentric rings background guide
+    if (layoutPreset === 'radial') {
+      const radialBgGroup = g.append('g').attr('class', 'radial-rings-guide');
+      const rings = [
+        { r: 70, label: 'Central Zones', color: '#10B981' },
+        { r: 150, label: 'Keystone Mechanisms', color: '#C5A059' },
+        { r: 240, label: 'Flora & Fauna Trophics', color: '#34D399' },
+        { r: 330, label: 'Subterranean Aquifer & Soil', color: '#38BDF8' }
+      ];
+
+      rings.forEach(ring => {
+        radialBgGroup
+          .append('circle')
+          .attr('cx', width / 2)
+          .attr('cy', height / 2)
+          .attr('r', ring.r)
+          .attr('fill', 'none')
+          .attr('stroke', ring.color)
+          .attr('stroke-opacity', 0.12)
+          .attr('stroke-dasharray', '3,3')
+          .attr('stroke-width', 1);
+
+        radialBgGroup
+          .append('text')
+          .attr('x', width / 2)
+          .attr('y', height / 2 - ring.r - 4)
+          .attr('text-anchor', 'middle')
+          .attr('font-size', '8px')
+          .attr('font-family', 'monospace')
+          .attr('fill', ring.color)
+          .attr('opacity', 0.5)
+          .text(`[ ${ring.label.toUpperCase()} ]`);
+      });
+    }
+
+    // Hierarchical tier background guides
+    if (layoutPreset === 'hierarchical') {
+      const hierBgGroup = g.append('g').attr('class', 'hierarchical-tiers-guide');
+      const tiers = [
+        { y: height * 0.16, label: 'Tier 1: Restoration Zones & Macro Canopy', color: '#10B981' },
+        { y: height * 0.32, label: 'Tier 2: Primary Producers (Flora)', color: '#34D399' },
+        { y: height * 0.48, label: 'Tier 3: Secondary Consumers (Fauna & Bio-Acoustics)', color: '#F43F5E' },
+        { y: height * 0.64, label: 'Tier 4: Keystone Biophysical Mechanisms', color: '#C5A059' },
+        { y: height * 0.78, label: 'Tier 5: Catchment Hydrology & Springs', color: '#38BDF8' },
+        { y: height * 0.90, label: 'Tier 6: Mycelial Subsurface & Living Soil', color: '#D97706' }
+      ];
+
+      tiers.forEach(tier => {
+        hierBgGroup
+          .append('line')
+          .attr('x1', width * 0.08)
+          .attr('y1', tier.y)
+          .attr('x2', width * 0.92)
+          .attr('y2', tier.y)
+          .attr('stroke', tier.color)
+          .attr('stroke-opacity', 0.15)
+          .attr('stroke-dasharray', '2,4')
+          .attr('stroke-width', 1);
+
+        hierBgGroup
+          .append('text')
+          .attr('x', width * 0.09)
+          .attr('y', tier.y - 4)
+          .attr('font-size', '8px')
+          .attr('font-family', 'monospace')
+          .attr('fill', tier.color)
+          .attr('opacity', 0.55)
+          .text(tier.label.toUpperCase());
+      });
+    }
+
+    // Target Position Calculation for Layout Presets
+    const getTargetPosition = (d: KnowledgeNode) => {
+      if (layoutPreset === 'radial') {
+        let ringRadius = 240;
+        if (d.type === 'zone') ringRadius = 70;
+        else if (d.type === 'keystone_mechanism') ringRadius = 150;
+        else if (d.type === 'evidence_flora' || d.type === 'evidence_fauna') ringRadius = 240;
+        else if (d.type === 'evidence_hydrology' || d.type === 'evidence_soil') ringRadius = 330;
+
+        const sameTypeNodes = simNodes.filter(n => {
+          if (ringRadius === 240) return n.type === 'evidence_flora' || n.type === 'evidence_fauna';
+          if (ringRadius === 330) return n.type === 'evidence_hydrology' || n.type === 'evidence_soil';
+          return n.type === d.type;
+        });
+
+        const subIndex = sameTypeNodes.findIndex(n => n.id === d.id);
+        const subTotal = sameTypeNodes.length || 1;
+        const angle = (subIndex / subTotal) * 2 * Math.PI - Math.PI / 2;
+
+        return {
+          x: width / 2 + ringRadius * Math.cos(angle),
+          y: height / 2 + ringRadius * Math.sin(angle)
+        };
+      }
+
+      if (layoutPreset === 'hierarchical') {
+        let tierY = height * 0.5;
+        if (d.type === 'zone') tierY = height * 0.16;
+        else if (d.type === 'evidence_flora') tierY = height * 0.32;
+        else if (d.type === 'evidence_fauna') tierY = height * 0.48;
+        else if (d.type === 'keystone_mechanism') tierY = height * 0.64;
+        else if (d.type === 'evidence_hydrology') tierY = height * 0.78;
+        else if (d.type === 'evidence_soil') tierY = height * 0.90;
+
+        const sameTypeNodes = simNodes.filter(n => n.type === d.type);
+        const subIndex = sameTypeNodes.findIndex(n => n.id === d.id);
+        const subTotal = sameTypeNodes.length || 1;
+        const marginX = width * 0.12;
+        const availableW = width - marginX * 2;
+        const tierX = marginX + ((subIndex + 0.5) / subTotal) * availableW;
+
+        return { x: tierX, y: tierY };
+      }
+
+      // Default Force-Directed (with clustering support)
+      if (isClusteringMode && clusterCenters[d.type]) {
+        return { x: clusterCenters[d.type].x, y: clusterCenters[d.type].y };
+      }
+
+      return { x: width / 2, y: height / 2 };
+    };
+
+    const isRadial = layoutPreset === 'radial';
+    const isHierarchical = layoutPreset === 'hierarchical';
+    const positioningStrength = isRadial ? 0.45 : isHierarchical ? 0.52 : isClusteringMode ? physicsParams.clusterPull : 0.06;
+
     // Create D3 Force Simulation with dynamic physicsDebugger parameters & clustering forces
     const simulation = d3
       .forceSimulation<KnowledgeNode>(simNodes)
-      .velocityDecay(physicsParams.velocityDecay)
+      .velocityDecay(isRadial || isHierarchical ? 0.35 : physicsParams.velocityDecay)
       .force(
         'link',
         d3
           .forceLink<KnowledgeNode, KnowledgeLink>(simLinks)
           .id(d => d.id)
-          .distance(isClusteringMode ? physicsParams.linkDistance * 0.85 : physicsParams.linkDistance)
-          .strength(isClusteringMode ? 0.35 : physicsParams.linkStrength)
+          .distance(isRadial || isHierarchical ? 85 : isClusteringMode ? physicsParams.linkDistance * 0.85 : physicsParams.linkDistance)
+          .strength(isRadial || isHierarchical ? 0.12 : isClusteringMode ? 0.35 : physicsParams.linkStrength)
       )
-      .force('charge', d3.forceManyBody().strength(isClusteringMode ? physicsParams.chargeStrength * 0.75 : physicsParams.chargeStrength))
-      .force('center', d3.forceCenter(width / 2, height / 2).strength(physicsParams.centerStrength))
+      .force('charge', d3.forceManyBody().strength(isRadial || isHierarchical ? -150 : isClusteringMode ? physicsParams.chargeStrength * 0.75 : physicsParams.chargeStrength))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(isRadial || isHierarchical ? 0.08 : physicsParams.centerStrength))
       .force(
         'x',
-        d3.forceX<KnowledgeNode>(d => (isClusteringMode ? clusterCenters[d.type]?.x || width / 2 : width / 2)).strength(isClusteringMode ? physicsParams.clusterPull : 0.06)
+        d3.forceX<KnowledgeNode>(d => getTargetPosition(d).x).strength(positioningStrength)
       )
       .force(
         'y',
-        d3.forceY<KnowledgeNode>(d => (isClusteringMode ? clusterCenters[d.type]?.y || height / 2 : height / 2)).strength(isClusteringMode ? physicsParams.clusterPull : 0.06)
+        d3.forceY<KnowledgeNode>(d => getTargetPosition(d).y).strength(positioningStrength)
       )
-      .force('collision', d3.forceCollide().radius(d => (d as KnowledgeNode).val + physicsParams.collisionRadius));
+      .force('collision', d3.forceCollide().radius(d => (d as KnowledgeNode).val + (isRadial || isHierarchical ? 12 : physicsParams.collisionRadius)));
 
     simulationRef.current = simulation;
     if (isPhysicsFrozen) {
@@ -1625,6 +1865,16 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
         setHoveredNodeId(d.id);
         audioFeedback.playMicroTick();
 
+        // Calculate container-relative position for Quick-Look sparkline popover
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) {
+          setQuickLookPos({
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top
+          });
+        }
+        setQuickLookNode(d);
+
         // 1. Radial expansion of hovered node core circle
         d3.select(this)
           .select('circle.main-node-circle')
@@ -1678,6 +1928,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
       })
       .on('mouseleave', function (event, d) {
         setHoveredNodeId(null);
+        setQuickLookNode(null);
 
         // Revert hovered node circle radius
         d3.select(this)
@@ -1761,7 +2012,8 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
     isPathTracerOpen,
     pathSourceNodeId,
     pathTargetNodeId,
-    activePathResult
+    activePathResult,
+    layoutPreset
   ]);
 
   const handleResetZoom = () => {
@@ -1831,21 +2083,120 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Clustering Mode Toggle */}
+          {/* Undo / Redo Controls */}
+          <div className="flex items-center gap-0.5 bg-[#171717] p-1 rounded-sm border border-[#F5F5F0]/10">
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className={`p-1.5 rounded transition-colors ${
+                canUndo ? 'text-[#F5F5F0]/80 hover:text-[#F5F5F0] hover:bg-[#222] cursor-pointer' : 'text-[#F5F5F0]/20 cursor-not-allowed'
+              }`}
+              title="Undo State Change (Ctrl+Z / Cmd+Z)"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={!canRedo}
+              className={`p-1.5 rounded transition-colors ${
+                canRedo ? 'text-[#F5F5F0]/80 hover:text-[#F5F5F0] hover:bg-[#222] cursor-pointer' : 'text-[#F5F5F0]/20 cursor-not-allowed'
+              }`}
+              title="Redo State Change (Ctrl+Y / Cmd+Shift+Z)"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Auto-Arrange Button */}
+          <button
+            onClick={handleAutoArrange}
+            disabled={isAutoArranging}
+            className={`px-3 py-1.5 border text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+              isAutoArranging
+                ? 'bg-amber-950/80 text-amber-300 border-amber-500/50 font-bold'
+                : 'bg-[#171717] hover:bg-[#222] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
+            }`}
+            title="Auto-Arrange Nodes with High-Intensity Force Simulation"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isAutoArranging ? 'animate-spin text-amber-400' : 'text-[#C5A059]'}`} />
+            <span>{isAutoArranging ? 'Untangling...' : 'Auto-Arrange'}</span>
+          </button>
+
+          {/* Layout Presets Dropdown Menu */}
+          <LayoutPresetsMenu
+            currentPreset={layoutPreset}
+            onSelectPreset={preset => {
+              setLayoutPreset(preset);
+              if (simulationRef.current) {
+                simulationRef.current.alpha(0.85).restart();
+              }
+            }}
+            isOpen={isLayoutMenuOpen}
+            onToggle={() => setIsLayoutMenuOpen(prev => !prev)}
+          />
+
+          {/* Clustering Analytics HUD Toggle */}
           <button
             onClick={() => {
-              setIsClusteringMode(prev => !prev);
+              setIsClusteringHUDOpen(prev => !prev);
               audioFeedback.playMicroTick();
             }}
             className={`px-3 py-1.5 border text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
-              isClusteringMode
-                ? 'bg-[#C5A059] text-black border-[#C5A059] font-bold shadow-lg shadow-[#C5A059]/20'
+              isClusteringHUDOpen
+                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 font-bold shadow-lg shadow-emerald-950/30'
                 : 'bg-[#171717] hover:bg-[#222] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
             }`}
-            title="Toggle Force-Simulation Categorical Clustering"
+            title="Cluster Modularity & Density Analytics HUD"
           >
-            <Boxes className="w-3.5 h-3.5" />
-            <span>{isClusteringMode ? 'Clustering Active' : 'Cluster by Category'}</span>
+            <PieChart className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Analytics HUD</span>
+          </button>
+
+          {/* Dynamic Legend Toggle Button */}
+          <button
+            onClick={() => {
+              setIsLegendOpen(prev => !prev);
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3 py-1.5 border text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+              isLegendOpen
+                ? 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50 font-bold'
+                : 'bg-[#171717] hover:bg-[#222] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
+            }`}
+            title="Toggle Dynamic Legend and Node/Link Visibility Filters"
+          >
+            {isLegendOpen ? <Eye className="w-3.5 h-3.5 text-cyan-400" /> : <EyeOff className="w-3.5 h-3.5" />}
+            <span>Legend & Filter</span>
+          </button>
+
+          {/* Compare Snapshots Modal Button */}
+          <button
+            onClick={() => {
+              setIsCompareModalOpen(true);
+              audioFeedback.playSubtleClick();
+            }}
+            className={`px-3 py-1.5 border text-xs font-mono rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+              isCompareDiffOverlayActive
+                ? 'bg-amber-950/80 text-amber-300 border-amber-500/50 font-bold shadow-lg shadow-amber-950/40'
+                : 'bg-[#171717] hover:bg-[#222] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0]'
+            }`}
+            title="Compare Two Historical Graph Snapshots & Visual Diff"
+          >
+            <GitCompare className="w-3.5 h-3.5 text-amber-400" />
+            <span>{isCompareDiffOverlayActive ? 'Diff Overlay' : 'Compare'}</span>
+          </button>
+
+          {/* Knowledge Export Suite Button */}
+          <button
+            onClick={() => {
+              setIsKnowledgeExportOpen(true);
+              audioFeedback.playSubtleClick();
+            }}
+            className="px-3 py-1.5 bg-[#171717] hover:bg-[#222] border border-[#F5F5F0]/10 text-xs font-mono text-[#F5F5F0]/70 hover:text-[#F5F5F0] rounded-sm flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Export Graph as JSON, GeoJSON or Vector SVG"
+          >
+            <Download className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Export</span>
           </button>
 
           {/* Historical Versioning Sidebar Toggle */}
@@ -1862,7 +2213,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
             title="View Historical Graph Snapshots & Version Audit"
           >
             <History className="w-3.5 h-3.5 text-amber-400" />
-            <span>{activeSnapshotId ? 'Previewing Snapshot' : 'Versions'}</span>
+            <span>{activeSnapshotId ? 'Snapshot' : 'Versions'}</span>
           </button>
 
           {/* Multi-Select Toggle */}
@@ -1880,19 +2231,6 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
           >
             <CheckSquare className="w-3.5 h-3.5" />
             <span>Multi-Select {selectedNodeIdsSet.size > 0 && `(${selectedNodeIdsSet.size})`}</span>
-          </button>
-
-          {/* Batch Export Button */}
-          <button
-            onClick={() => {
-              setIsExportModalOpen(true);
-              audioFeedback.playSubtleClick();
-            }}
-            className="px-3 py-1.5 bg-[#171717] hover:bg-[#222] border border-[#F5F5F0]/10 text-xs font-mono text-[#F5F5F0]/70 hover:text-[#F5F5F0] rounded-sm flex items-center gap-1.5 transition-all cursor-pointer"
-            title="Batch Export Graph Nodes & Metadata"
-          >
-            <Download className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Export</span>
           </button>
 
           {/* Shortest Path Tracer Button */}
@@ -2192,7 +2530,7 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
           </div>
 
           {/* Physics adjustment popup toolbar */}
-          <div className="absolute top-3 right-3 flex items-center gap-2 bg-black/80 backdrop-blur-md p-1.5 rounded border border-[#F5F5F0]/10 text-[10px] font-mono">
+          <div className="absolute top-3 right-3 flex items-center gap-2 bg-black/80 backdrop-blur-md p-1.5 rounded border border-[#F5F5F0]/10 text-[10px] font-mono z-10">
             <SlidersHorizontal className="w-3 h-3 text-[#C5A059]" />
             <span className="text-[#F5F5F0]/50">Distance:</span>
             <input
@@ -2204,6 +2542,39 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
               className="w-16 accent-[#C5A059] bg-[#222] h-1 rounded cursor-pointer"
             />
           </div>
+
+          {/* Dynamic Legend & Visibility Filters Drawer */}
+          <DynamicLegendToggle
+            visibleNodeTypes={visibleNodeTypes}
+            visibleLinkTypes={visibleLinkTypes}
+            onToggleNodeType={handleToggleNodeType}
+            onToggleLinkType={handleToggleLinkType}
+            onSetAllNodeTypes={handleSetAllNodeTypes}
+            onSetAllLinkTypes={handleSetAllLinkTypes}
+            allNodes={filteredNodes}
+            allLinks={filteredLinks}
+            isOpen={isLegendOpen}
+            onToggleOpen={() => setIsLegendOpen(prev => !prev)}
+          />
+
+          {/* Quick-Look Hover Sparklines Popover */}
+          <NodeQuickLookPopover
+            node={quickLookNode}
+            position={quickLookPos}
+          />
+
+          {/* Clustering Analytics Modularity HUD Overlay */}
+          <ClusteringAnalyticsHUD
+            nodes={filteredNodes}
+            links={filteredLinks}
+            isOpen={isClusteringHUDOpen}
+            onToggle={() => setIsClusteringHUDOpen(prev => !prev)}
+            isClusteringMode={isClusteringMode}
+            onToggleClusteringMode={() => {
+              setIsClusteringMode(prev => !prev);
+              audioFeedback.playMicroTick();
+            }}
+          />
         </div>
 
         {/* Selected Node Inspector Side Card (4 cols) */}
@@ -2504,6 +2875,40 @@ export const BioregionalKnowledgeGraph: React.FC<BioregionalKnowledgeGraphProps>
           setPathSourceNodeId(s);
           setPathTargetNodeId(t);
         }}
+      />
+
+      {/* 6. Compare Snapshots Diff Modal */}
+      <CompareSnapshotsModal
+        isOpen={isCompareModalOpen}
+        onClose={() => setIsCompareModalOpen(false)}
+        allNodes={KNOWLEDGE_GRAPH_NODES}
+        allLinks={KNOWLEDGE_GRAPH_LINKS}
+        initialSnapshotAId={diffOverlaySnapshotAId}
+        initialSnapshotBId={diffOverlaySnapshotBId}
+        onApplyDiffOverlay={(snapA, snapB) => {
+          setDiffOverlaySnapshotAId(snapA);
+          setDiffOverlaySnapshotBId(snapB);
+          setIsCompareDiffOverlayActive(true);
+        }}
+        isDiffOverlayActive={isCompareDiffOverlayActive}
+        onClearDiffOverlay={() => setIsCompareDiffOverlayActive(false)}
+      />
+
+      {/* 7. Knowledge Export Suite Modal */}
+      <KnowledgeExportModal
+        isOpen={isKnowledgeExportOpen}
+        onClose={() => setIsKnowledgeExportOpen(false)}
+        nodes={filteredNodes}
+        links={filteredLinks}
+        activeFilters={{
+          nodeTypeFilter: selectedNodeTypeFilter,
+          linkTypeFilter: selectedLinkTypeFilter,
+          layerFilter: selectedLayerFilter,
+          searchQuery: searchQuery,
+          snapshotVersion: activeSnapshotId || undefined,
+          layoutPreset: layoutPreset
+        }}
+        svgElementRef={svgRef}
       />
     </div>
   );

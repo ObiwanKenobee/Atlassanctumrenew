@@ -1,7 +1,8 @@
 import React from 'react';
-import { TreeDeciduous, ArrowUpRight, Scale, Sparkles } from 'lucide-react';
+import { TreeDeciduous, ArrowUpRight, Scale, Sparkles, ShieldCheck, Lock, Award, Activity } from 'lucide-react';
 import { PageView } from '../types';
 import { EnvironmentStatusFooter } from './EnvironmentStatusFooter';
+import { useTrustLayer } from '../context/TrustLayerContext';
 
 interface FooterProps {
   onSelectTab: (tab: PageView) => void;
@@ -16,6 +17,8 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenCommandCenter,
   onOpenCommandments
 }) => {
+  const { openTrustModal } = useTrustLayer();
+
   return (
     <footer className="w-full bg-[#080808] border-t border-[#F5F5F0]/10 text-[#F5F5F0]">
       {/* 5-Column OS Matrix Bar */}
@@ -266,8 +269,75 @@ export const Footer: React.FC<FooterProps> = ({
           </div>
         </div>
 
+        {/* Trust Layer Dedicated Sovereignty Bar */}
+        <div className="pt-6 border-t border-[#F5F5F0]/10 flex flex-wrap items-center justify-between gap-4 text-xs font-mono">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
+            <span className="font-bold text-[#F5F5F0]">Atlas Sanctum Trust Layer:</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 sm:gap-5 text-[11px] text-[#F5F5F0]/70">
+            <button 
+              onClick={() => openTrustModal('privacy')} 
+              className="hover:text-[#C5A059] transition-colors cursor-pointer"
+            >
+              Privacy Center
+            </button>
+            <span className="text-[#F5F5F0]/20">•</span>
+            <button 
+              onClick={() => openTrustModal('consent')} 
+              className="hover:text-[#C5A059] transition-colors cursor-pointer"
+            >
+              Consent Manager
+            </button>
+            <span className="text-[#F5F5F0]/20">•</span>
+            <button 
+              onClick={() => openTrustModal('ai-transparency')} 
+              className="hover:text-cyan-400 transition-colors cursor-pointer"
+            >
+              AI Transparency
+            </button>
+            <span className="text-[#F5F5F0]/20">•</span>
+            <button 
+              onClick={() => openTrustModal('accessibility')} 
+              className="hover:text-emerald-400 transition-colors cursor-pointer"
+            >
+              Accessibility Center
+            </button>
+            <span className="text-[#F5F5F0]/20">•</span>
+            <button 
+              onClick={() => openTrustModal('data-rights')} 
+              className="hover:text-[#C5A059] transition-colors cursor-pointer"
+            >
+              Data Rights & Export
+            </button>
+            <span className="text-[#F5F5F0]/20">•</span>
+            <button 
+              onClick={() => openTrustModal('security')} 
+              className="hover:text-[#8FB8DE] transition-colors cursor-pointer"
+            >
+              Security Specs
+            </button>
+            <span className="text-[#F5F5F0]/20">•</span>
+            <button 
+              onClick={() => openTrustModal('impact-transparency')} 
+              className="hover:text-emerald-400 transition-colors cursor-pointer"
+            >
+              Impact Ledger
+            </button>
+            <span className="text-[#F5F5F0]/20">•</span>
+            <button 
+              onClick={() => openTrustModal('incident-status')} 
+              className="hover:text-emerald-400 transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              Status: Operational
+            </button>
+          </div>
+        </div>
+
         {/* Bottom Loop & Copyright */}
-        <div className="pt-8 border-t border-[#F5F5F0]/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#F5F5F0]/40 font-mono">
+        <div className="pt-6 border-t border-[#F5F5F0]/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#F5F5F0]/40 font-mono">
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-[#F5F5F0]/60">
             <span>See</span> → <span>Understand</span> → <span>Decide</span> → <span>Coordinate</span> → <span>Build</span> → <span>Measure</span> → <span>Regenerate</span>
           </div>

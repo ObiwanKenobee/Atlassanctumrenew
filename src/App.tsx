@@ -4,6 +4,8 @@ import { AuthProvider } from './context/AuthContext';
 import { MissionAlertProvider } from './context/MissionAlertContext';
 import { UncertaintyOverlayProvider } from './context/UncertaintyOverlayContext';
 import { OfflineSyncProvider } from './context/OfflineSyncContext';
+import { TrustLayerProvider } from './context/TrustLayerContext';
+import { Web3WalletProvider } from './context/Web3WalletContext';
 import { Navigation } from './components/Navigation';
 import { Footer } from './components/Footer';
 import { GlobalLoadingIndicator } from './components/GlobalLoadingIndicator';
@@ -21,6 +23,8 @@ import { MoralCompassCursor } from './components/MoralCompassCursor';
 import { MissionAlertDrawer } from './components/MissionAlertDrawer';
 import { GlobalEpistemicSearch } from './components/GlobalEpistemicSearch';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { TrustLayerModal } from './components/trust/TrustLayerModal';
+import { TrustLayerBanner } from './components/trust/TrustLayerBanner';
 import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
@@ -162,11 +166,13 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <OfflineSyncProvider>
-        <MissionAlertProvider>
-          <UncertaintyOverlayProvider>
-            <ThemeAndAccessSyncListener>
-            <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
+      <Web3WalletProvider>
+        <OfflineSyncProvider>
+          <MissionAlertProvider>
+            <UncertaintyOverlayProvider>
+              <TrustLayerProvider>
+                <ThemeAndAccessSyncListener>
+                <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
             {/* Moral Compass Dynamic Cursor Trail */}
             <MoralCompassCursor 
               moralIntensity={94.8} 
@@ -558,11 +564,19 @@ export default function App() {
             <FloatingNewsletterWidget
               onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
             />
+
+            {/* Mini Sovereign Cookie & Trust Layer Banner (Docked on Left) */}
+            <TrustLayerBanner />
+
+            {/* Central Master 12-Pillar Trust Layer Modal */}
+            <TrustLayerModal />
           </div>
         </ThemeAndAccessSyncListener>
+        </TrustLayerProvider>
         </UncertaintyOverlayProvider>
       </MissionAlertProvider>
       </OfflineSyncProvider>
+      </Web3WalletProvider>
     </AuthProvider>
   );
 }

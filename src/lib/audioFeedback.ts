@@ -44,6 +44,10 @@ class AudioFeedbackEngine {
     }
   }
 
+  public setSoundEnabled(enabled: boolean) {
+    this.setMuted(!enabled);
+  }
+
   public getIsMuted(): boolean {
     return this.isMuted;
   }

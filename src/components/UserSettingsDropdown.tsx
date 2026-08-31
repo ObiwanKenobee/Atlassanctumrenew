@@ -12,14 +12,18 @@ import {
   Check, 
   Sparkles,
   Sliders,
-  ChevronDown
+  ChevronDown,
+  KeyRound,
+  Wallet
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useWeb3Wallet } from '../context/Web3WalletContext';
 import { db } from '../lib/db';
 import { StewardshipTierProgression } from './StewardshipTierProgression';
 
 export const UserSettingsDropdown: React.FC = () => {
   const { currentUser, userProfile, signInWithGoogle, signOut, updatePlatformSettings } = useAuth();
+  const { address, isConnected, walletType, connectMetaMaskWallet, connectSovereignKeypair, disconnectWallet, error: walletError, clearError } = useWeb3Wallet();
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -270,6 +274,58 @@ export const UserSettingsDropdown: React.FC = () => {
                     ? 'Sabbath Active: Notifications muted, telemetry throttled, and visual stimuli simplified to foster contemplative rest.'
                     : 'Enable to reduce notification frequency, throttle telemetry streams, and encourage healthy periods of rest.'}
                 </p>
+              </div>
+
+              {/* Web3 & Sovereign Cryptographic Key Panel */}
+              <div className="pt-2 border-t border-[#F5F5F0]/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-[#C5A059] font-bold flex items-center gap-1.5">
+                    <KeyRound className="w-3 h-3" /> Sovereign Cryptographic Key
+                  </span>
+                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                    isConnected ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-zinc-800 text-zinc-400'
+                  }`}>
+                    {isConnected ? (walletType === 'metamask' ? 'MetaMask' : 'Atlas DID') : 'Unlinked'}
+                  </span>
+                </div>
+
+                {isConnected ? (
+                  <div className="p-2 bg-[#121212] rounded border border-[#F5F5F0]/10 text-xs font-mono space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-[#F5F5F0]/50">Key / Address:</span>
+                      <button 
+                        onClick={disconnectWallet}
+                        className="text-rose-400 hover:text-rose-300 underline cursor-pointer"
+                      >
+                        Unlink
+                      </button>
+                    </div>
+                    <p className="text-[#C5A059] font-bold text-[11px] truncate">{address}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                    <button
+                      onClick={connectMetaMaskWallet}
+                      className="px-2 py-1.5 bg-[#141414] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059] rounded text-[10px] font-mono text-[#F5F5F0] flex items-center justify-center gap-1 transition-all cursor-pointer"
+                    >
+                      <Wallet className="w-3 h-3 text-[#C5A059]" />
+                      <span>MetaMask</span>
+                    </button>
+                    <button
+                      onClick={connectSovereignKeypair}
+                      className="px-2 py-1.5 bg-[#1B3022]/40 hover:bg-[#1B3022] border border-[#2D5A3C] text-emerald-300 rounded text-[10px] font-mono flex items-center justify-center gap-1 transition-all cursor-pointer"
+                    >
+                      <KeyRound className="w-3 h-3 text-emerald-400" />
+                      <span>Sovereign Key</span>
+                    </button>
+                  </div>
+                )}
+
+                {walletError && (
+                  <p className="text-[10px] font-mono text-amber-400/90 leading-tight">
+                    Notice: {walletError}
+                  </p>
+                )}
               </div>
             </div>
 
