@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useTrustLayer } from '../../../context/TrustLayerContext';
 import { audioFeedback } from '../../../lib/audioFeedback';
+import { KeyboardAccessibilityOverlay } from '../KeyboardAccessibilityOverlay';
 
 export const AccessibilityCenterSection: React.FC = () => {
   const { accessibility, updateAccessibility, plainLanguage, togglePlainLanguage } = useTrustLayer();
@@ -270,6 +271,9 @@ export const AccessibilityCenterSection: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Floating / Interactive Keyboard Accessibility Overlay Trigger */}
+      <KeyboardAccessibilityOverlay />
     </div>
   );
 };

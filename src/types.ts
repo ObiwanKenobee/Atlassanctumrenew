@@ -5,6 +5,7 @@
 
 export type PageView =
   | 'home'
+  | 'sentinel'
   | 'agent-mission-control'
   | 'ai-engineering'
   | 'system-model-studio'

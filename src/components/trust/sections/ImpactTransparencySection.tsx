@@ -16,6 +16,7 @@ import {
 import { REGENERATIVE_IMPACT_METRICS } from '../../../data/trustData';
 import { MetricCalculationType } from '../../../types/trust';
 import { audioFeedback } from '../../../lib/audioFeedback';
+import { VerificationStatusBadge } from '../VerificationStatusBadge';
 
 export const ImpactTransparencySection: React.FC = () => {
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<'all' | MetricCalculationType>('all');
@@ -142,9 +143,19 @@ export const ImpactTransparencySection: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-mono uppercase text-[#C5A059] font-bold">{metric.category}</span>
-                <span className={`px-2 py-0.5 text-[9px] font-mono uppercase rounded border ${getTypeBadgeStyle(metric.type)}`}>
-                  {metric.type}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <VerificationStatusBadge 
+                    status={metric.type === 'actual' ? 'Audited' : metric.type === 'estimated' ? 'Verified' : 'Unverified'}
+                    claimId={metric.id}
+                    claimTitle={metric.title}
+                    verifier={metric.verificationSource}
+                    merkleLeaf={metric.verificationHash}
+                    confidenceScore={metric.confidenceScore}
+                  />
+                  <span className={`px-2 py-0.5 text-[9px] font-mono uppercase rounded border ${getTypeBadgeStyle(metric.type)}`}>
+                    {metric.type}
+                  </span>
+                </div>
               </div>
 
               <div className="flex items-baseline gap-2">

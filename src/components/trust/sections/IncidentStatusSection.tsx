@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { SYSTEM_STATUS_SERVICES, INCIDENT_LOGS } from '../../../data/trustData';
 import { audioFeedback } from '../../../lib/audioFeedback';
+import { IncidentStatusFeed } from '../IncidentStatusFeed';
 
 export const IncidentStatusSection: React.FC = () => {
   const [expandedIncident, setExpandedIncident] = useState<string | null>(null);
@@ -49,6 +50,9 @@ export const IncidentStatusSection: React.FC = () => {
           <p className="text-[11px] text-[#F5F5F0]/60">90-Day Rolling Uptime: 99.982%</p>
         </div>
       </div>
+
+      {/* Live Polling Incident & Service Health Feed */}
+      <IncidentStatusFeed />
 
       {/* Services Grid */}
       <div className="space-y-3">

@@ -31,6 +31,7 @@ import { registerServiceWorker } from './lib/serviceWorkerRegistration';
 
 // Lazy-Loaded Views for instant code-splitting and progressive delivery
 const AtlasHomeView = React.lazy(() => import('./components/views/AtlasHomeView').then(m => ({ default: m.AtlasHomeView })));
+const SentinelView = React.lazy(() => import('./components/views/SentinelView').then(m => ({ default: m.SentinelView })));
 const AgentMissionControlView = React.lazy(() => import('./components/views/AgentMissionControlView').then(m => ({ default: m.AgentMissionControlView })));
 const AIEngineeringView = React.lazy(() => import('./components/views/AIEngineeringView').then(m => ({ default: m.AIEngineeringView })));
 const SystemModelStudioView = React.lazy(() => import('./components/views/SystemModelStudioView').then(m => ({ default: m.SystemModelStudioView })));
@@ -217,6 +218,10 @@ export default function App() {
                       onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
                       onInspectProvenance={handleInspectProvenance}
                     />
+                  )}
+
+                  {currentTab === 'sentinel' && (
+                    <SentinelView />
                   )}
 
                   {currentTab === 'agent-mission-control' && (

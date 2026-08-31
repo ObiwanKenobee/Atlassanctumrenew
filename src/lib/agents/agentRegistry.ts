@@ -2,6 +2,127 @@ import { AgentDefinition, AgentToolDefinition } from '../../types';
 
 export const AGENT_TOOLS: AgentToolDefinition[] = [
   {
+    name: 'grafana_query_telemetry',
+    description: 'Queries live infrastructure metrics, GPU thermals, VRAM pressure, and frame encoding latency from Grafana / Prometheus.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'PromQL / Metric query string, e.g. cluster=render-farm-us-central1' },
+        timeRangeSeconds: { type: 'number', description: 'Time range in seconds (default: 300)' }
+      },
+      required: ['query']
+    },
+    requiredRole: ['observer_agent', 'mission_orchestrator'],
+    riskLevel: 'low',
+    actionClass: 'READ'
+  },
+  {
+    name: 'grafana_search_logs',
+    description: 'Searches Grafana Loki log aggregation streams for stack traces, memory leaks, I/O timeouts, or encoder packet corruption.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'LogQL query, e.g. {service="imf-encoder"} |= "error"' },
+        limit: { type: 'number', description: 'Maximum log lines to return' }
+      },
+      required: ['query']
+    },
+    requiredRole: ['investigator_agent', 'mission_orchestrator'],
+    riskLevel: 'low',
+    actionClass: 'READ'
+  },
+  {
+    name: 'grafana_find_incidents',
+    description: 'Searches past Grafana Incident post-mortems and known failure signatures for historical mitigation analogies.',
+    parameters: {
+      type: 'object',
+      properties: {
+        pattern: { type: 'string', description: 'Failure pattern or symptom keywords' }
+      },
+      required: ['pattern']
+    },
+    requiredRole: ['investigator_agent', 'strategic_planner'],
+    riskLevel: 'low',
+    actionClass: 'READ'
+  },
+  {
+    name: 'calculate_blast_radius',
+    description: 'Computes quantifiable blast radius, affected media pipelines, theatrical lock slip risk, and financial downtime cost.',
+    parameters: {
+      type: 'object',
+      properties: {
+        anomalySeverity: { type: 'number', description: 'Severity score 0-100' },
+        affectedComponents: { type: 'array', items: { type: 'string' } }
+      },
+      required: ['anomalySeverity']
+    },
+    requiredRole: ['risk_agent', 'systems_analyst'],
+    riskLevel: 'low',
+    actionClass: 'ANALYZE'
+  },
+  {
+    name: 'plan_mitigation',
+    description: 'Synthesizes deterministic, multi-step failover and zero-frame-loss traffic rerouting intervention options.',
+    parameters: {
+      type: 'object',
+      properties: {
+        rootCause: { type: 'string' },
+        urgency: { type: 'string', enum: ['P1_CRITICAL', 'P2_HIGH', 'P3_MODERATE'] }
+      },
+      required: ['rootCause', 'urgency']
+    },
+    requiredRole: ['director_agent', 'strategic_planner'],
+    riskLevel: 'moderate',
+    actionClass: 'RECOMMEND'
+  },
+  {
+    name: 'execute_action',
+    description: 'Dispatches an authorized real-time failover, node drain, or virtual production re-clocking workflow.',
+    parameters: {
+      type: 'object',
+      properties: {
+        actionType: { type: 'string' },
+        parameters: { type: 'object' },
+        authorizedBy: { type: 'string' }
+      },
+      required: ['actionType', 'authorizedBy']
+    },
+    requiredRole: ['director_agent', 'intervention_agent'],
+    riskLevel: 'high',
+    actionClass: 'EXECUTE'
+  },
+  {
+    name: 'verify_state',
+    description: 'Polls post-mitigation telemetry via Grafana to verify error rates dropped to 0.00% and nodes stabilized.',
+    parameters: {
+      type: 'object',
+      properties: {
+        expectedMetrics: { type: 'object' },
+        sampleWindowSeconds: { type: 'number' }
+      },
+      required: ['expectedMetrics']
+    },
+    requiredRole: ['verifier_agent', 'moral_verifier'],
+    riskLevel: 'low',
+    actionClass: 'ANALYZE'
+  },
+  {
+    name: 'anchor_incident_lesson',
+    description: 'Permanently records the incident vector, evidence dossier, resolution proof, and anti-fragility lesson into memory.',
+    parameters: {
+      type: 'object',
+      properties: {
+        incidentId: { type: 'string' },
+        lessonSummary: { type: 'string' },
+        merkleProofHash: { type: 'string' }
+      },
+      required: ['incidentId', 'lessonSummary']
+    },
+    requiredRole: ['verifier_agent', 'evidence_synthesizer'],
+    riskLevel: 'low',
+    actionClass: 'EXECUTE'
+  },
+  {
     name: 'discover_system_boundaries',
     description: 'Discovers boundary entities, stocks, flows, delays, and feedback loops for a real-world complex system.',
     parameters: {
@@ -283,6 +404,129 @@ export const AGENT_TOOLS: AgentToolDefinition[] = [
 ];
 
 export const FLEET_AGENTS: AgentDefinition[] = [
+  {
+    id: 'observer-agent',
+    name: 'Observer Agent',
+    role: 'observer_agent',
+    version: 'v4.0-blockbuster',
+    description: 'Continuous Media & Cloud Infrastructure Sentinel. Polls Grafana telemetry, GPU thermal metrics, VRAM allocations, and video frame drop rates in real-time.',
+    avatarIcon: 'Activity',
+    model: 'gemini-3.7-flash',
+    systemPrompt: 'You are the Observer Agent. You continuously ingest high-density Prometheus & Grafana telemetry across distributed render nodes, virtual production stages, and encoding pipelines to detect thermal or queue anomalies instantly.',
+    tools: [
+      'grafana_query_telemetry',
+      'search_atlas_knowledge',
+      'store_memory',
+      'retrieve_memory'
+    ],
+    permissions: [
+      { action: 'query_telemetry', scope: 'infrastructure_metrics', actionClass: 'READ', requiresHumanApproval: false }
+    ],
+    status: 'idle',
+    completedTasksCount: 142,
+    epistemicConfidence: 99,
+    allowedDataSources: ['Grafana Cloud Prometheus', 'NVIDIA NVML Telemetry', 'Kubernetes Metrics Server', 'IMF Pipeline Bus'],
+    deploymentEnvironment: 'Cloud Run / Vertex ADK'
+  },
+  {
+    id: 'investigator-agent',
+    name: 'Investigator Agent',
+    role: 'investigator_agent',
+    version: 'v4.0-blockbuster',
+    description: 'Root Cause & Log Correlator. Searches Grafana Loki log aggregation streams, traces thread pool starvation, and cross-references historical post-mortem databases.',
+    avatarIcon: 'Search',
+    model: 'gemini-3.7-flash',
+    systemPrompt: 'You are the Investigator Agent. You trace multi-service dependencies, isolate CUDA memory leaks and NVMe IOPS starvation in Loki logs, and match active failure patterns against 15 years of production post-mortems.',
+    tools: [
+      'grafana_search_logs',
+      'grafana_find_incidents',
+      'retrieve_memory',
+      'store_memory'
+    ],
+    permissions: [
+      { action: 'search_logs', scope: 'loki_log_streams', actionClass: 'READ', requiresHumanApproval: false },
+      { action: 'query_incident_archive', scope: 'failure_ledger', actionClass: 'READ', requiresHumanApproval: false }
+    ],
+    status: 'idle',
+    completedTasksCount: 128,
+    epistemicConfidence: 98,
+    allowedDataSources: ['Grafana Loki Streams', 'Cloud Trace Spans', 'Historical Failure Post-Mortems'],
+    deploymentEnvironment: 'Cloud Run / Vertex ADK'
+  },
+  {
+    id: 'risk-agent',
+    name: 'Risk Agent',
+    role: 'risk_agent',
+    version: 'v4.0-blockbuster',
+    description: 'Blast Radius & Schedule Hazard Evaluator. Calculates deadline slippage risk, financial exposure, downstream pipeline cascades, and reversibility bounds.',
+    avatarIcon: 'ShieldAlert',
+    model: 'gemini-3.7-flash',
+    systemPrompt: 'You are the Risk Agent. You compute quantifiable blast radius, evaluate theatrical lock deadline breach probabilities, test safety invariants, and ensure no unverified action damages production masters.',
+    tools: [
+      'calculate_blast_radius',
+      'analyze_data',
+      'store_memory',
+      'retrieve_memory'
+    ],
+    permissions: [
+      { action: 'calculate_risk', scope: 'production_schedule', actionClass: 'ANALYZE', requiresHumanApproval: false }
+    ],
+    status: 'idle',
+    completedTasksCount: 95,
+    epistemicConfidence: 97,
+    allowedDataSources: ['Production Milestone Schedule', 'Theatrical Lock Timetables', 'Financial Cost Matrices'],
+    deploymentEnvironment: 'Cloud Run / Vertex ADK'
+  },
+  {
+    id: 'director-agent',
+    name: 'Director Agent',
+    role: 'director_agent',
+    version: 'v4.0-blockbuster',
+    description: 'Strategic Mitigation & Intervention Orchestrator. Synthesizes non-destructive failover plans, checks policy guardrails, and stages cryptographic human approval gates.',
+    avatarIcon: 'Zap',
+    model: 'gemini-3.7-flash',
+    systemPrompt: 'You are the Director Agent. You formulate minimal-blast-radius interventions, ensure strict policy and human approval gating, and dispatch zero-frame-loss hot failover workflows.',
+    tools: [
+      'plan_mitigation',
+      'execute_action',
+      'request_approval',
+      'store_memory'
+    ],
+    permissions: [
+      { action: 'plan_intervention', scope: 'render_pipeline', actionClass: 'RECOMMEND', requiresHumanApproval: false },
+      { action: 'execute_failover', scope: 'cloud_cluster_actuation', actionClass: 'EXECUTE', requiresHumanApproval: true }
+    ],
+    status: 'idle',
+    completedTasksCount: 84,
+    epistemicConfidence: 96,
+    allowedDataSources: ['GKE Node Pools', 'Candidate Intervention Catalog', 'Dual-Key Approval Gateway'],
+    deploymentEnvironment: 'Cloud Run / Vertex ADK'
+  },
+  {
+    id: 'verifier-agent',
+    name: 'Verifier Agent',
+    role: 'verifier_agent',
+    version: 'v4.0-blockbuster',
+    description: 'Closed-Loop Verification & Learning Engine. Confirms post-mitigation telemetry recovery (0.00% frame drops) and permanently anchors anti-fragile incident memories.',
+    avatarIcon: 'CheckCircle2',
+    model: 'gemini-3.7-flash',
+    systemPrompt: 'You are the Verifier Agent. You prove state recovery using independent post-actuation Grafana telemetry samples, verify checksum integrity of encoded masters, and commit lesson vectors to memory.',
+    tools: [
+      'verify_state',
+      'anchor_incident_lesson',
+      'store_memory',
+      'publish_result'
+    ],
+    permissions: [
+      { action: 'verify_state', scope: 'telemetry_verification', actionClass: 'ANALYZE', requiresHumanApproval: false },
+      { action: 'anchor_lesson', scope: 'failure_memory_bank', actionClass: 'EXECUTE', requiresHumanApproval: false }
+    ],
+    status: 'idle',
+    completedTasksCount: 112,
+    epistemicConfidence: 99,
+    allowedDataSources: ['Post-Mitigation Telemetry', 'IMF MXF Checksum Verifier', 'Permanent Memory Bank'],
+    deploymentEnvironment: 'Cloud Run / Vertex ADK'
+  },
   {
     id: 'atlas-lead-agent',
     name: 'Atlas Mission Lead Agent',

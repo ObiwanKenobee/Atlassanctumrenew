@@ -5,8 +5,16 @@
 
 export type AgentRole =
   | 'mission_orchestrator'
+  | 'observer_agent'
+  | 'investigator_agent'
+  | 'risk_agent'
+  | 'director_agent'
+  | 'verifier_agent'
   | 'bioregional_researcher'
   | 'systems_analyst'
+  | 'systems_diagnostic_agent'
+  | 'scenario_simulation_agent'
+  | 'intervention_agent'
   | 'strategic_planner'
   | 'moral_verifier'
   | 'evidence_synthesizer';

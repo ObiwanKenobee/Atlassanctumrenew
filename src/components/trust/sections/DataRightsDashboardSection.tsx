@@ -20,6 +20,7 @@ import { useTrustLayer } from '../../../context/TrustLayerContext';
 import { useAuth } from '../../../context/AuthContext';
 import { DataRightsActionType } from '../../../types/trust';
 import { audioFeedback } from '../../../lib/audioFeedback';
+import { PrivacyAuditLog } from '../PrivacyAuditLog';
 
 export const DataRightsDashboardSection: React.FC = () => {
   const { 
@@ -371,6 +372,9 @@ export const DataRightsDashboardSection: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Timestamped Privacy & Data Rights Audit Log */}
+      <PrivacyAuditLog />
     </div>
   );
 };

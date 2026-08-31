@@ -79,7 +79,19 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
   ],
 
   primaryNavigation: [
-    // 1. Home / Overview
+    // 1. ATLAS SENTINEL (TikTok TechJam 2026 Submission Spotlight)
+    {
+      id: 'sentinel',
+      label: 'Atlas Sentinel',
+      labelKey: 'nav.sentinel',
+      type: 'link',
+      icon: ShieldCheck,
+      targetTab: 'sentinel',
+      badge: { text: 'TechJam 2026', variant: 'gold', pulse: true },
+      analytics: { category: 'Navigation', action: 'navigate_sentinel' }
+    },
+
+    // 1b. Home / Overview
     {
       id: 'home',
       label: 'Atlas',
@@ -90,15 +102,15 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
       analytics: { category: 'Navigation', action: 'navigate_home' }
     },
 
-    // 1b. Autonomous Agent Mission Control (Hackathon Showcase)
+    // 1b. Autonomous Agent Mission Control (Google Cloud Summer Blockbuster Hackathon Showcase)
     {
       id: 'agent-mission-control',
-      label: 'Agent Fleet',
+      label: 'Mission Control',
       labelKey: 'nav.agent_mission_control',
       type: 'link',
-      icon: Bot,
+      icon: Radio,
       targetTab: 'agent-mission-control',
-      badge: { text: 'Agentic AI', variant: 'gold', pulse: true },
+      badge: { text: 'Summer Blockbuster', variant: 'gold', pulse: true },
       analytics: { category: 'Navigation', action: 'navigate_agent_mission_control' }
     },
 
