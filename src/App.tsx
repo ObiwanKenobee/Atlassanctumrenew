@@ -72,7 +72,7 @@ const ResourcesView = React.lazy(() => import('./components/views/ResourcesView'
 const GovernanceHubView = React.lazy(() => import('./components/views/GovernanceHubView').then(m => ({ default: m.GovernanceHubView })));
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<PageView>('steward');
+  const [currentTab, setCurrentTab] = useState<PageView>('home');
   const [commandCenterOpen, setCommandCenterOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);

@@ -49,12 +49,28 @@ export async function getOrCreateSovereignKeypair(): Promise<{
     // Ignore storage parse errors
   }
 
-  // Generate a random 32-byte key identifier using Web Crypto API
+  // Generate a random 32-byte key identifier using Web Crypto API or Math.random fallback
   const randomBytes = new Uint8Array(20);
-  window.crypto.getRandomValues(randomBytes);
+  const cryptoObj = typeof window !== 'undefined' && (window.crypto || (window as any).msCrypto);
+  if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+    cryptoObj.getRandomValues(randomBytes);
+  } else {
+    for (let i = 0; i < randomBytes.length; i++) {
+      randomBytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
   const hexAddress = '0x' + Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
   const did = `did:atlas:sovereign:${hexAddress.slice(2, 10)}`;
-  const publicKeyHex = '0x' + Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  const pubRandomBytes = new Uint8Array(32);
+  if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+    cryptoObj.getRandomValues(pubRandomBytes);
+  } else {
+    for (let i = 0; i < pubRandomBytes.length; i++) {
+      pubRandomBytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  const publicKeyHex = '0x' + Array.from(pubRandomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
 
   const keypair = {
     did,

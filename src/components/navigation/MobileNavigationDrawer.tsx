@@ -15,7 +15,14 @@ import {
   Sparkles, 
   Activity,
   TreeDeciduous,
-  X
+  X,
+  Trophy,
+  Droplets,
+  Shield,
+  Radio,
+  Cpu,
+  GitBranch,
+  Globe2
 } from 'lucide-react';
 import { isNavigationItemActive, trackNavigationEvent, getNavLabel } from '../../lib/navigationHelpers';
 import { UncertaintyOverlayToggle } from '../../context/UncertaintyOverlayContext';
@@ -179,6 +186,146 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
       ) : (
         /* Hierarchical Category Menus */
         <div className="space-y-4">
+          {/* Atlas Innovations & Hackathons 2026 Spotlight Accordion */}
+          <div className="border border-amber-500/40 rounded-sm bg-gradient-to-b from-[#141005] to-[#0E0E0E] overflow-hidden">
+            <button
+              onClick={() => toggleSection('atlas-innovations-spotlight')}
+              className="w-full text-left p-3 min-h-[44px] flex items-center justify-between transition-colors bg-gradient-to-r from-amber-500/10 via-[#1B3022] to-emerald-500/10"
+            >
+              <div className="flex items-center gap-2.5">
+                <Trophy className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span className="text-xs font-serif font-bold tracking-wider text-amber-300">Atlas Innovations & Hackathons</span>
+                <span className="text-[8px] font-mono px-1.5 py-0.2 rounded bg-amber-400 text-black font-black uppercase">
+                  2026
+                </span>
+              </div>
+              {expandedSections['atlas-innovations-spotlight'] ? (
+                <ChevronDown className="w-4 h-4 text-amber-400" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-amber-400" />
+              )}
+            </button>
+
+            {expandedSections['atlas-innovations-spotlight'] && (
+              <div className="p-2 space-y-1 bg-[#0A0A0A] border-t border-amber-500/20">
+                <button
+                  onClick={() => {
+                    onSelectTab('steward');
+                    onClose();
+                  }}
+                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
+                    currentTab === 'steward' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Droplets className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-serif font-bold">Atlas Steward</span>
+                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
+                        AWS 2026
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Good Neighbor Agents & Water Reliability</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onSelectTab('sentinel');
+                    onClose();
+                  }}
+                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
+                    currentTab === 'sentinel' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-serif font-bold">Atlas Sentinel</span>
+                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-500/40 font-mono font-bold">
+                        TechJam 2026
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Automated Epistemic Content Defense</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onSelectTab('agent-mission-control');
+                    onClose();
+                  }}
+                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
+                    currentTab === 'agent-mission-control' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Radio className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-serif font-bold">Agent Mission Control</span>
+                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-purple-950/80 text-purple-300 border border-purple-500/40 font-mono font-bold">
+                        GCP Swarm
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Autonomous Swarm Orchestration</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onSelectTab('ai-engineering');
+                    onClose();
+                  }}
+                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
+                    currentTab === 'ai-engineering' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Cpu className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-serif font-bold">AI Engineering Studio</span>
+                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-blue-950/80 text-blue-300 border border-blue-500/40 font-mono font-bold">
+                        Gemini 3.7
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Multimodal Workbench & Live Voice</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onSelectTab('system-model-studio');
+                    onClose();
+                  }}
+                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
+                    currentTab === 'system-model-studio' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <GitBranch className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-serif font-bold">Systems Dynamics Studio</span>
+                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 font-mono font-bold">
+                        Causal SD
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Differential Stock-Flow Simulations</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
           {items.map((primary: PrimaryNavigationItem) => {
             const PrimaryIcon = primary.icon;
             const isPrimaryActive = isNavigationItemActive(primary, currentTab);

@@ -3,6 +3,11 @@ import React from 'react';
 // View component loaders map for on-demand prefetching & lazy loading
 export const VIEW_LOADERS = {
   'home': () => import('../components/views/AtlasHomeView').then(m => ({ default: m.AtlasHomeView })),
+  'steward': () => import('../components/steward/AtlasStewardView').then(m => ({ default: m.AtlasStewardView })),
+  'sentinel': () => import('../components/views/SentinelView').then(m => ({ default: m.SentinelView })),
+  'agent-mission-control': () => import('../components/views/AgentMissionControlView').then(m => ({ default: m.AgentMissionControlView })),
+  'ai-engineering': () => import('../components/views/AIEngineeringView').then(m => ({ default: m.AIEngineeringView })),
+  'system-model-studio': () => import('../components/views/SystemModelStudioView').then(m => ({ default: m.SystemModelStudioView })),
   'opportunity-intelligence': () => import('../components/views/OpportunityIntelligenceView').then(m => ({ default: m.OpportunityIntelligenceView })),
   'decision-room': () => import('../components/views/DecisionRoomView').then(m => ({ default: m.DecisionRoomView })),
   'opportunity-graph': () => import('../components/views/OpportunityGraphView').then(m => ({ default: m.OpportunityGraphView })),
