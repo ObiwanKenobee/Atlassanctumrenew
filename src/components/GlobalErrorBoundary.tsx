@@ -49,15 +49,43 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
 
   private handleReload = () => {
     try {
-      // Clear transient session caches if needed
+      // Clear transient session errors and navigation state
       sessionStorage.removeItem('atlas_transient_error');
+      sessionStorage.removeItem('atlas_last_active_tab');
+      localStorage.removeItem('atlas_last_active_tab');
     } catch {
       // Ignore storage errors
     }
-    window.location.reload();
+    // Navigate cleanly to root
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
+  };
+
+  private handleReturnHome = () => {
+    try {
+      sessionStorage.removeItem('atlas_transient_error');
+      sessionStorage.removeItem('atlas_last_active_tab');
+      localStorage.removeItem('atlas_last_active_tab');
+      window.dispatchEvent(new CustomEvent('atlas-reset-to-home'));
+    } catch {
+      // Ignore
+    }
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      copied: false,
+      resyncMessage: null
+    });
   };
 
   private handleReset = () => {
+    try {
+      window.dispatchEvent(new CustomEvent('atlas-reset-to-home'));
+    } catch {
+      // Ignore
+    }
     this.setState({
       hasError: false,
       error: null,
@@ -177,42 +205,52 @@ User Agent: ${navigator.userAgent}`;
 
             {/* Action Buttons */}
             <div className="relative z-10 pt-2 flex flex-wrap items-center gap-3">
-              {/* 1. Reload Application */}
+              {/* 1. Return to Home Page */}
+              <button
+                id="error-return-home-btn"
+                onClick={this.handleReturnHome}
+                className="flex-1 min-w-[140px] px-4 py-3 bg-[#C5A059] hover:bg-[#D4B26F] text-black font-semibold rounded-sm text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>Return to Home Page</span>
+              </button>
+
+              {/* 2. Reload Application */}
               <button
                 id="error-reload-app-btn"
                 onClick={this.handleReload}
-                className="flex-1 min-w-[140px] px-4 py-3 bg-[#C5A059] hover:bg-[#D4B26F] text-black font-semibold rounded-sm text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+                className="px-4 py-3 bg-[#1A1A1A] hover:bg-[#252525] border border-[#F5F5F0]/20 text-[#F5F5F0] font-semibold rounded-sm text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Reload Application</span>
+                <span>Reload App</span>
               </button>
 
-              {/* 2. Reset UI State */}
+              {/* 3. Reset UI State */}
               <button
                 id="error-reset-state-btn"
                 onClick={this.handleReset}
-                className="px-4 py-3 bg-[#1A1A1A] hover:bg-[#252525] border border-[#F5F5F0]/20 text-[#F5F5F0] font-semibold rounded-sm text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
+                className="px-4 py-3 bg-[#1A1A1A] hover:bg-[#252525] border border-[#F5F5F0]/20 text-[#F5F5F0] font-semibold rounded-sm text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-[#C5A059]" />
                 <span>Recover UI State</span>
               </button>
 
-              {/* 3. Dev Server Re-Sync */}
+              {/* 4. Dev Server Re-Sync */}
               <button
                 id="error-resync-dev-btn"
                 onClick={this.handleResyncDevServer}
                 disabled={this.state.isResyncing}
-                className="px-4 py-3 bg-[#1B3022] hover:bg-[#254530] border border-emerald-500/40 text-emerald-300 font-semibold rounded-sm text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50 font-mono"
+                className="px-4 py-3 bg-[#1B3022] hover:bg-[#254530] border border-emerald-500/40 text-emerald-300 font-semibold rounded-sm text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all disabled:opacity-50 font-mono cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${this.state.isResyncing ? 'animate-spin' : ''}`} />
                 <span>Restart Dev Sync</span>
               </button>
 
-              {/* 4. Copy Diagnostics */}
+              {/* 5. Copy Diagnostics */}
               <button
                 id="error-copy-stack-btn"
                 onClick={this.handleCopyDiagnostic}
-                className="p-3 bg-[#121212] hover:bg-[#1A1A1A] border border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0] rounded-sm text-xs transition-all"
+                className="p-3 bg-[#121212] hover:bg-[#1A1A1A] border border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-[#F5F5F0] rounded-sm text-xs transition-all cursor-pointer"
                 title="Copy Diagnostic Details"
                 aria-label="Copy Diagnostic Details"
               >

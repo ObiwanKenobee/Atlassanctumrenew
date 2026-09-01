@@ -6,6 +6,13 @@ import './index.css';
 
 // Guard against third-party extension (e.g. MetaMask / Web3 provider) unhandled rejections in sandboxed iframes
 if (typeof window !== 'undefined') {
+  // Clear any legacy route caches on fresh load to guarantee landing on home view
+  try {
+    sessionStorage.removeItem('atlas_transient_error');
+  } catch {
+    // Ignore storage issues
+  }
+
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event?.reason;
     const msg = typeof reason === 'string' ? reason : reason?.message || '';

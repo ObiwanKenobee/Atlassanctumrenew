@@ -322,6 +322,75 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
                     <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Differential Stock-Flow Simulations</p>
                   </div>
                 </button>
+
+                <button
+                  onClick={() => {
+                    onSelectTab('decision-room');
+                    onClose();
+                  }}
+                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
+                    currentTab === 'decision-room' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-serif font-bold">Decision Room</span>
+                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40 font-mono font-bold">
+                        War Room
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Multi-Stakeholder Policy Simulations</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onSelectTab('governance');
+                    onClose();
+                  }}
+                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
+                    currentTab === 'governance' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Scale className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-serif font-bold">Governance SDK</span>
+                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-blue-950/80 text-[#8FB8DE] border border-[#8FB8DE]/40 font-mono font-bold">
+                        Constitutional
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Mathematical Ethics & Quadratic Consensus</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onSelectTab('reality-engine');
+                    onClose();
+                  }}
+                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
+                    currentTab === 'reality-engine' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
+                  }`}
+                >
+                  <div className="w-7 h-7 rounded bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <Globe2 className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-serif font-bold">Reality Engine</span>
+                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
+                        IoT Mesh
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Ground-Truth Sensory Placards</p>
+                  </div>
+                </button>
               </div>
             )}
           </div>

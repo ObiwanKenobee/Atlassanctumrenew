@@ -116,6 +116,18 @@ export default function App() {
     const handleOpenCommandments = () => setCommandmentsModalOpen(true);
     const handleOpenSearch = () => setGlobalSearchOpen(true);
     const handleOpenShortcuts = () => setShortcutsModalOpen(true);
+    const handleResetToHome = () => {
+      setCurrentTab('home');
+      setCommandCenterOpen(false);
+      setGlobalSearchOpen(false);
+      setShortcutsModalOpen(false);
+      setMoralSimulatorOpen(false);
+      setCommandmentsModalOpen(false);
+      setGeminiChatOpen(false);
+      setLiveVoiceOpen(false);
+      setProvenanceModalData(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
     const handleVoiceCommandSearch = (e: any) => {
       const q = e.detail?.query;
       if (q) {
@@ -131,6 +143,7 @@ export default function App() {
     window.addEventListener('open-commandments', handleOpenCommandments);
     window.addEventListener('open-global-search', handleOpenSearch);
     window.addEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
+    window.addEventListener('atlas-reset-to-home', handleResetToHome);
     window.addEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
 
     // Proactively prefetch priority modules on idle
@@ -143,6 +156,7 @@ export default function App() {
       window.removeEventListener('open-commandments', handleOpenCommandments);
       window.removeEventListener('open-global-search', handleOpenSearch);
       window.removeEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
+      window.removeEventListener('atlas-reset-to-home', handleResetToHome);
       window.removeEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
     };
   }, []);

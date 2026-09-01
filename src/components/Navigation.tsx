@@ -246,8 +246,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* Main Navigation Bar with Responsive Relative Units & Fluid Container */}
       <div 
-        className="w-full max-w-7xl mx-auto min-h-[3.5rem] sm:min-h-[4rem] md:min-h-[4.5rem] flex items-center justify-between gap-[clamp(0.35rem,1vw,1rem)] flex-nowrap"
-        style={{ paddingLeft: 'clamp(0.5rem, 2.5vw, 2rem)', paddingRight: 'clamp(0.5rem, 2.5vw, 2rem)' }}
+        className="w-full max-w-[1720px] mx-auto min-h-[3.75rem] sm:min-h-[4.25rem] px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-3 sm:gap-4 lg:gap-6 flex-nowrap"
       >
         {/* Brand Logo & Name */}
         <div 
@@ -258,28 +257,28 @@ export const Navigation: React.FC<NavigationProps> = ({
             setInnovationsDropdownOpen(false);
             setMobileMenuOpen(false);
           }}
-          className="flex items-center gap-2 sm:gap-2.5 md:gap-3 cursor-pointer group shrink min-w-0"
+          className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0"
         >
-          <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full border-2 border-[#C5A059] flex items-center justify-center bg-[#0D0D0D] transition-transform group-hover:scale-105 shrink-0">
-            <div className="w-2 sm:w-2.5 h-2 sm:h-2.5 bg-[#C5A059] rounded-full shadow-[0_0_8px_#C5A059]"></div>
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 border-[#C5A059] flex items-center justify-center bg-[#0D0D0D] transition-transform group-hover:scale-105 shrink-0 shadow-[0_0_12px_rgba(197,160,89,0.2)]">
+            <div className="w-2.5 h-2.5 bg-[#C5A059] rounded-full shadow-[0_0_8px_#C5A059]"></div>
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              <span className="font-bold tracking-[0.08em] sm:tracking-[0.12em] md:tracking-[0.16em] text-xs sm:text-sm md:text-base uppercase text-[#F5F5F0] group-hover:text-[#C5A059] transition-colors truncate font-serif">
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold tracking-[0.1em] sm:tracking-[0.14em] text-sm sm:text-base uppercase text-[#F5F5F0] group-hover:text-[#C5A059] transition-colors truncate font-serif">
                 ATLAS SANCTUM
               </span>
-              <span className="hidden sm:inline-block text-[8px] sm:text-[9px] uppercase font-mono px-1.5 py-0.2 bg-[#1B3022] text-[#C5A059] rounded-full border border-[#C5A059]/40 tracking-wider shrink-0 font-bold">
+              <span className="hidden sm:inline-block text-[9px] uppercase font-mono px-1.5 py-0.5 bg-[#1B3022] text-[#C5A059] rounded-full border border-[#C5A059]/40 tracking-wider shrink-0 font-bold">
                 {NAVIGATION_CONFIG.version}
               </span>
             </div>
-            <p className="hidden lg:block text-[8px] md:text-[9px] uppercase tracking-[0.2em] text-[#F5F5F0]/40 font-medium truncate">
+            <p className="hidden md:block text-[9px] uppercase tracking-[0.2em] text-[#F5F5F0]/40 font-medium truncate">
               Regenerative Intelligence Platform
             </p>
           </div>
         </div>
 
-        {/* Configuration-Driven Desktop Primary Navigation */}
-        <nav className="hidden xl:flex items-center gap-[clamp(0.15rem,0.4vw,0.5rem)] shrink min-w-0">
+        {/* Configuration-Driven Desktop Primary Navigation with Generous Spacing */}
+        <nav className="hidden xl:flex items-center gap-1 2xl:gap-2 shrink-0">
           {filteredNavigation.map((item) => {
             const ItemIcon = item.icon;
             const isActive = isPrimaryActive(item.id);
@@ -304,15 +303,15 @@ export const Navigation: React.FC<NavigationProps> = ({
                   onClick={() => handlePrimaryItemClick(item)}
                   aria-expanded={isMenuOpen}
                   aria-haspopup={hasSubmenu ? 'true' : undefined}
-                  className={`px-1.5 xl:px-2 2xl:px-2.5 py-1.5 sm:py-2 rounded-sm text-[10px] xl:text-[11px] uppercase tracking-[0.1em] xl:tracking-[0.13em] font-mono flex items-center gap-1 xl:gap-1.5 transition-all whitespace-nowrap cursor-pointer ${getPrimaryButtonClasses(item.id, isMenuOpen)}`}
+                  className={`px-2.5 2xl:px-3 py-2 rounded-md text-[11px] 2xl:text-xs uppercase tracking-[0.1em] font-mono flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${getPrimaryButtonClasses(item.id, isMenuOpen)}`}
                 >
                   {ItemIcon && (
                     <ItemIcon className={`w-3.5 h-3.5 ${isActive || isMenuOpen ? 'text-[#C5A059]' : 'opacity-70'}`} />
                   )}
-                  <span className="truncate max-w-[125px] 2xl:max-w-none">{getNavLabel(item.labelKey, item.label)}</span>
+                  <span className="truncate max-w-[135px] 2xl:max-w-none">{getNavLabel(item.labelKey, item.label)}</span>
                   
                   {item.badge && (
-                    <span className={`hidden 2xl:inline-block text-[8px] font-mono uppercase px-1 py-0.2 rounded border ${getBadgeClass(item.badge.variant)} ${item.badge.pulse ? 'animate-pulse' : ''}`}>
+                    <span className={`text-[8px] font-mono uppercase px-1.5 py-0.2 rounded border ${getBadgeClass(item.badge.variant)} ${item.badge.pulse ? 'animate-pulse' : ''}`}>
                       {item.badge.text}
                     </span>
                   )}
@@ -343,8 +342,8 @@ export const Navigation: React.FC<NavigationProps> = ({
           })}
         </nav>
 
-        {/* Action Controls & Quick Triggers with Dynamic Relative Padding */}
-        <div className="flex items-center gap-[clamp(0.25rem,0.6vw,0.625rem)] shrink-0">
+        {/* Action Controls & Quick Triggers */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           {/* Centrally Accessible Atlas Innovations & Hackathons Dropdown Trigger */}
           <div className="relative">
             <button
@@ -355,11 +354,11 @@ export const Navigation: React.FC<NavigationProps> = ({
               }}
               aria-label="Atlas Innovations & Hackathon Showcases"
               title="Atlas Innovations & Hackathons 2026"
-              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 min-h-[34px] sm:min-h-[36px] md:min-h-[38px] rounded-full bg-gradient-to-r from-amber-500/20 via-[#1B3022] to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-400/40 hover:border-amber-400 text-[#C5A059] hover:text-amber-200 transition-all font-mono font-bold text-[10px] cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] sm:min-h-[38px] rounded-full bg-gradient-to-r from-amber-500/20 via-[#1B3022] to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-400/40 hover:border-amber-400 text-[#C5A059] hover:text-amber-200 transition-all font-mono font-bold text-[10px] sm:text-xs cursor-pointer shadow-sm"
             >
-              <Trophy className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              <span className="hidden sm:inline font-serif font-bold tracking-wider">Innovations</span>
-              <span className="hidden md:inline-block text-[8px] font-mono px-1 py-0.2 rounded bg-amber-400 text-black font-black uppercase">
+              <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 animate-pulse" />
+              <span className="hidden xs:inline font-serif font-bold tracking-wider">Innovations</span>
+              <span className="text-[8px] sm:text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-400 text-black font-black uppercase">
                 2026
               </span>
               <ChevronDown className={`w-3 h-3 text-amber-400 transition-transform duration-200 ${innovationsDropdownOpen ? 'rotate-180' : ''}`} />
@@ -368,20 +367,25 @@ export const Navigation: React.FC<NavigationProps> = ({
             {/* Innovations Dropdown Menu */}
             {innovationsDropdownOpen && (
               <div 
-                className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-xl bg-[#0D0D0D]/98 backdrop-blur-xl border border-[#C5A059]/40 shadow-2xl z-50 p-2 space-y-1 animate-fadeIn ring-1 ring-white/10"
+                className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[90vw] rounded-xl bg-[#0D0D0D]/98 backdrop-blur-xl border border-[#C5A059]/40 shadow-2xl z-50 p-2 space-y-1 animate-fadeIn ring-1 ring-white/10"
                 onMouseLeave={() => setInnovationsDropdownOpen(false)}
               >
                 <div className="px-3 py-2 border-b border-[#F5F5F0]/10 flex items-center justify-between">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-[#C5A059] font-bold flex items-center gap-1.5">
                     <Sparkles className="w-3 h-3 text-amber-400" />
-                    Atlas Innovations Hub
+                    Atlas Innovations & Hackathons Hub
                   </span>
                   <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/40 font-bold">
-                    Hackathons
+                    2026 Series
                   </span>
                 </div>
 
-                <div className="max-h-[65vh] overflow-y-auto space-y-1 pr-1">
+                <div className="max-h-[68vh] overflow-y-auto space-y-1.5 pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#C5A059]/30">
+                  {/* Category 1: Hackathon Spotlight Winners */}
+                  <div className="px-2 pt-1 text-[9px] font-mono uppercase text-amber-400/80 font-bold tracking-wider">
+                    🏆 Hackathon Spotlights & Winners
+                  </div>
+
                   <button
                     onClick={() => {
                       onSelectTab('steward');
@@ -400,7 +404,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-serif font-bold text-white">Atlas Steward</span>
                         <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
-                          AWS 2026
+                          AWS 2026 Winner
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Good Neighbor Agents & Water Reliability</p>
@@ -457,6 +461,11 @@ export const Navigation: React.FC<NavigationProps> = ({
                     </div>
                   </button>
 
+                  {/* Category 2: AI Engineering & Systems Studios */}
+                  <div className="px-2 pt-2 text-[9px] font-mono uppercase text-blue-400/80 font-bold tracking-wider border-t border-[#F5F5F0]/10">
+                    🔬 Next-Gen Studios & Causal Engines
+                  </div>
+
                   <button
                     onClick={() => {
                       onSelectTab('ai-engineering');
@@ -506,6 +515,36 @@ export const Navigation: React.FC<NavigationProps> = ({
                       <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Differential Stock-Flow Simulations</p>
                     </div>
                   </button>
+
+                  <button
+                    onClick={() => {
+                      onSelectTab('decision-room');
+                      setInnovationsDropdownOpen(false);
+                    }}
+                    className={`w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all ${
+                      currentTab === 'decision-room'
+                        ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]'
+                        : 'hover:bg-[#141414] border border-transparent text-[#F5F5F0]'
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-md bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                      <Activity className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-serif font-bold text-white">Decision Room</span>
+                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40 font-mono font-bold">
+                          War Room
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Multi-Stakeholder Policy Simulations</p>
+                    </div>
+                  </button>
+
+                  {/* Category 3: Planetary Reality & Constitutional Governance */}
+                  <div className="px-2 pt-2 text-[9px] font-mono uppercase text-emerald-400/80 font-bold tracking-wider border-t border-[#F5F5F0]/10">
+                    🌍 Ground-Truth Placards & Governance
+                  </div>
 
                   <button
                     onClick={() => {
@@ -570,9 +609,9 @@ export const Navigation: React.FC<NavigationProps> = ({
             }}
             aria-label="Open Mission Alerts"
             title="Real-time Mission Alerts & Proofs"
-            className="relative p-1.5 sm:p-2 min-h-[34px] sm:min-h-[36px] md:min-h-[38px] min-w-[34px] sm:min-w-[36px] md:min-w-[38px] flex items-center justify-center rounded-full border border-[#C5A059]/40 hover:border-[#C5A059] bg-[#0D0D0D] text-[#C5A059] hover:bg-[#1B3022] transition-all cursor-pointer"
+            className="relative p-2 min-h-[36px] sm:min-h-[38px] min-w-[36px] sm:min-w-[38px] flex items-center justify-center rounded-full border border-[#C5A059]/40 hover:border-[#C5A059] bg-[#0D0D0D] text-[#C5A059] hover:bg-[#1B3022] transition-all cursor-pointer"
           >
-            <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-[9px] font-bold text-white rounded-full flex items-center justify-center font-mono shadow-[0_0_8px_#F43F5E] animate-pulse">
                 {unreadCount}
@@ -580,22 +619,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             )}
           </button>
 
-          {/* Live Voice AI Trigger (Responsive) */}
-          <button
-            id="open-live-voice-btn"
-            onClick={() => {
-              audioFeedback.playSubtleClick();
-              const event = new CustomEvent('open-live-voice');
-              window.dispatchEvent(event);
-            }}
-            aria-label="Open Live Voice AI"
-            className="hidden sm:flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 min-h-[34px] sm:min-h-[36px] md:min-h-[38px] border border-[#1B3022] hover:border-emerald-400 bg-[#1B3022]/40 rounded-full text-[10px] uppercase tracking-wider text-emerald-400 hover:bg-emerald-950/50 transition-all font-mono font-bold cursor-pointer"
-          >
-            <Activity className="w-3.5 h-3.5 animate-pulse" />
-            <span className="hidden 2xl:inline">Live Voice</span>
-          </button>
-
-          {/* AI Chatbot Trigger (Responsive) */}
+          {/* AI Chat & Intelligence Assistant Trigger */}
           <button
             id="open-gemini-chat-btn"
             onClick={() => {
@@ -603,33 +627,15 @@ export const Navigation: React.FC<NavigationProps> = ({
               const event = new CustomEvent('open-gemini-chat');
               window.dispatchEvent(event);
             }}
-            aria-label="Open Gemini Chatbot"
-            className="hidden sm:flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 min-h-[34px] sm:min-h-[36px] md:min-h-[38px] border border-[#C5A059]/40 hover:border-[#C5A059] bg-[#0D0D0D] rounded-full text-[10px] uppercase tracking-wider text-[#C5A059] hover:bg-[#1B3022] transition-all font-mono font-bold cursor-pointer"
+            aria-label="Open Gemini AI Assistant"
+            title="Open Gemini AI Assistant"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] sm:min-h-[38px] border border-[#C5A059]/40 hover:border-[#C5A059] bg-[#0D0D0D] rounded-full text-xs uppercase tracking-wider text-[#C5A059] hover:bg-[#1B3022] transition-all font-mono font-bold cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden 2xl:inline">AI Chat</span>
+            <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span className="hidden md:inline">AI Sanctum</span>
           </button>
 
-          {/* Epistemic Search Trigger Button (/) - responsive visibility with md: prefix */}
-          <button
-            id="open-epistemic-search-btn"
-            onClick={() => {
-              audioFeedback.playSubtleClick();
-              const event = new CustomEvent('open-global-search');
-              window.dispatchEvent(event);
-            }}
-            aria-label="Open Epistemic Search (/)"
-            title="Search all views, ledgers, and documentation (/)"
-            className="hidden md:flex items-center gap-1.5 px-2 md:px-2.5 py-1 min-h-[34px] sm:min-h-[36px] md:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/70 hover:text-[#F5F5F0] cursor-pointer"
-          >
-            <Search className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span className="text-[10px] text-[#F5F5F0]/60 hidden lg:inline">Search</span>
-            <kbd className="px-1.5 py-0.2 text-[9px] bg-[#0A0A0A] border border-[#F5F5F0]/20 rounded text-[#C5A059] font-mono">
-              /
-            </kbd>
-          </button>
-
-          {/* Command Center Trigger Button (⌘K) - responsive visibility with md: and lg: prefix */}
+          {/* Global Search & Command Center (⌘K / /) */}
           <button
             id="open-command-center-btn"
             onClick={() => {
@@ -637,45 +643,22 @@ export const Navigation: React.FC<NavigationProps> = ({
               onOpenCommandCenter();
             }}
             aria-label="Open Command Center (⌘K)"
-            title="Search and jump to any module (⌘K)"
-            className="hidden md:flex items-center gap-1 px-2 md:px-2.5 py-1 min-h-[34px] sm:min-h-[36px] md:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/70 hover:text-[#F5F5F0] cursor-pointer"
+            title="Search all views, ledgers, and modules (⌘K)"
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 min-h-[36px] sm:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/70 hover:text-[#F5F5F0] cursor-pointer"
           >
-            <kbd className="px-1.5 py-0.2 text-[9px] bg-[#0A0A0A] border border-[#F5F5F0]/20 rounded text-[#C5A059] font-mono">
+            <Search className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span className="hidden lg:inline">Search</span>
+            <kbd className="px-1.5 py-0.5 text-[9px] bg-[#0A0A0A] border border-[#F5F5F0]/20 rounded text-[#C5A059] font-mono">
               ⌘K
             </kbd>
           </button>
 
-          {/* Live Voice Commands Trigger Button */}
-          <button
-            id="open-live-voice-mic-btn"
-            onClick={() => {
-              audioFeedback.playSubtleClick();
-              window.dispatchEvent(new CustomEvent('open-live-voice'));
-            }}
-            aria-label="Open Live Voice Commands"
-            title="Speak voice commands"
-            className="hidden lg:flex items-center gap-1.5 px-2 md:px-2.5 py-1 min-h-[34px] sm:min-h-[36px] md:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/80 hover:text-[#C5A059] cursor-pointer"
-          >
-            <Mic className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span className="text-[10px] hidden xl:inline font-mono">Voice</span>
-          </button>
-
-          {/* Persistent Global Forced Offline Mode Toggle */}
-          <div className="hidden sm:block">
-            <OfflineModeToggle />
-          </div>
-
           {/* Moral Alignment Score Real-time HUD Indicator */}
-          <div className="hidden xs:block">
+          <div className="hidden 2xl:block">
             <MoralAlignmentHUD
               onOpenMoralSimulator={onOpenMoralSimulator}
               onOpenEvidenceLedger={() => onSelectTab('evidence-ledger')}
             />
-          </div>
-
-          {/* Uncertainty Overlay Global Toggle */}
-          <div className="hidden 2xl:block">
-            <UncertaintyOverlayToggle />
           </div>
 
           {/* Theme Toggle Button (Switches between 'dark', 'light', and 'high-contrast' modes) */}
@@ -684,7 +667,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             onClick={handleToggleTheme}
             aria-label={`Current theme: ${currentTheme}. Click to switch theme`}
             title={`Switch Theme: currently ${currentTheme === 'high-contrast' ? 'High-Contrast' : currentTheme.toUpperCase()} (Click for ${currentTheme === 'dark' ? 'Light' : currentTheme === 'light' ? 'High-Contrast' : 'Dark'} mode)`}
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 min-h-[34px] sm:min-h-[36px] md:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/80 hover:text-[#F5F5F0] cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] sm:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/80 hover:text-[#F5F5F0] cursor-pointer"
           >
             {currentTheme === 'dark' && (
               <>
