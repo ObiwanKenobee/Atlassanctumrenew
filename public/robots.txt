@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /internal/
+
+# Sitemaps
+Sitemap: https://atlassanctum.org/sitemap.xml
+Sitemap: https://atlassanctum.org/sitemap-research.xml
+Sitemap: https://atlassanctum.org/sitemap-missions.xml

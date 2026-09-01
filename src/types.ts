@@ -4,6 +4,7 @@
  */
 
 export type PageView =
+  | 'steward'
   | 'home'
   | 'sentinel'
   | 'agent-mission-control'

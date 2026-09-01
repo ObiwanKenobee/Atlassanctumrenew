@@ -1,6 +1,6 @@
 {
   "name": "Atlas Sanctum",
-  "description": "Regenerative Intelligence Platform & Civilization Operating System for Human Flourishing with Gemini Multimodal AI Studio",
+  "description": "Atlas Sanctum builds ethical systems that connect intelligence, evidence, capital, communities, and physical infrastructure to create measurable human and ecological flourishing.",
   "requestFramePermissions": ["microphone", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

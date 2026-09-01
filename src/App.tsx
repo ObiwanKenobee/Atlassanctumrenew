@@ -30,6 +30,7 @@ import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
 
 // Lazy-Loaded Views for instant code-splitting and progressive delivery
+const AtlasStewardView = React.lazy(() => import('./components/steward/AtlasStewardView').then(m => ({ default: m.AtlasStewardView })));
 const AtlasHomeView = React.lazy(() => import('./components/views/AtlasHomeView').then(m => ({ default: m.AtlasHomeView })));
 const SentinelView = React.lazy(() => import('./components/views/SentinelView').then(m => ({ default: m.SentinelView })));
 const AgentMissionControlView = React.lazy(() => import('./components/views/AgentMissionControlView').then(m => ({ default: m.AgentMissionControlView })));
@@ -71,7 +72,7 @@ const ResourcesView = React.lazy(() => import('./components/views/ResourcesView'
 const GovernanceHubView = React.lazy(() => import('./components/views/GovernanceHubView').then(m => ({ default: m.GovernanceHubView })));
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<PageView>('home');
+  const [currentTab, setCurrentTab] = useState<PageView>('steward');
   const [commandCenterOpen, setCommandCenterOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
@@ -211,6 +212,10 @@ export default function App() {
                     />
                   }
                 >
+                  {currentTab === 'steward' && (
+                    <AtlasStewardView onSelectTab={handleSelectTab} />
+                  )}
+
                   {currentTab === 'home' && (
                     <AtlasHomeView
                       onSelectTab={handleSelectTab}
