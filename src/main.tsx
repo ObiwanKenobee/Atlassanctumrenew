@@ -15,15 +15,32 @@ if (typeof window !== 'undefined') {
 
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event?.reason;
-    const msg = typeof reason === 'string' ? reason : reason?.message || '';
+    const msg = typeof reason === 'string' ? reason : reason?.message || String(reason || '');
     if (
       msg.includes('MetaMask') ||
       msg.includes('ethereum') ||
       msg.includes('User rejected') ||
-      msg.includes('Failed to connect')
+      msg.includes('Failed to connect') ||
+      msg.includes('auth/cancelled-popup-request') ||
+      msg.includes('auth/popup-blocked') ||
+      msg.includes('auth/popup-closed-by-user') ||
+      msg.includes('INTERNAL ASSERTION FAILED')
     ) {
-      console.warn('[Atlas Web3 Notice] Captured provider event:', msg);
-      // Prevent crash / console dump for browser extension injection rejections
+      console.warn('[Atlas System Notice] Suppressed non-critical provider rejection:', msg);
+      // Prevent crash / unhandled rejection for popup cancellations or extension rejections
+      event.preventDefault();
+    }
+  });
+
+  window.addEventListener('error', (event) => {
+    const msg = event?.message || '';
+    if (
+      msg.includes('INTERNAL ASSERTION FAILED') ||
+      msg.includes('auth/cancelled-popup-request') ||
+      msg.includes('auth/popup-blocked') ||
+      msg.includes('auth/popup-closed-by-user')
+    ) {
+      console.warn('[Atlas System Notice] Suppressed non-critical auth window error:', msg);
       event.preventDefault();
     }
   });

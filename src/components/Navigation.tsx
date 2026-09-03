@@ -11,6 +11,7 @@ import {
   Moon, 
   Sun, 
   Contrast, 
+  Monitor,
   Mic,
   Trophy,
   Droplets,
@@ -36,6 +37,7 @@ import { useMissionAlerts } from '../context/MissionAlertContext';
 import { useAuth } from '../context/AuthContext';
 import { UncertaintyOverlayToggle } from '../context/UncertaintyOverlayContext';
 import { OfflineModeToggle } from './navigation/OfflineModeToggle';
+import { SystemVitalityMonitor } from './navigation/SystemVitalityMonitor';
 import { MoralAlignmentHUD } from './MoralAlignmentHUD';
 import { audioFeedback } from '../lib/audioFeedback';
 import { prefetchView } from '../lib/viewPrefetch';
@@ -62,9 +64,10 @@ export const Navigation: React.FC<NavigationProps> = ({
   const { unreadCount, setIsDrawerOpen } = useMissionAlerts();
   const { userProfile, currentUser, updatePlatformSettings } = useAuth();
 
-  // Theme mode state ('dark' | 'light' | 'high-contrast') persisted to localStorage
-  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'high-contrast'>(() => {
-    return (localStorage.getItem('atlas_theme_mode') as any) || 'dark';
+  // Theme preference state ('dark' | 'light' | 'system') persisted to localStorage
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'system'>(() => {
+    const saved = localStorage.getItem('atlas_theme_mode');
+    return (saved === 'dark' || saved === 'light' || saved === 'system') ? saved : 'dark';
   });
 
   useEffect(() => {
@@ -90,9 +93,9 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   const handleToggleTheme = () => {
     audioFeedback.playSubtleClick();
-    let nextTheme: 'dark' | 'light' | 'high-contrast';
+    let nextTheme: 'dark' | 'light' | 'system';
     if (currentTheme === 'dark') nextTheme = 'light';
-    else if (currentTheme === 'light') nextTheme = 'high-contrast';
+    else if (currentTheme === 'light') nextTheme = 'system';
     else nextTheme = 'dark';
 
     setCurrentTheme(nextTheme);
@@ -100,7 +103,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     window.dispatchEvent(new CustomEvent('atlas-theme-changed', { detail: { theme: nextTheme } }));
 
     if (userProfile && updatePlatformSettings) {
-      updatePlatformSettings({ themePreference: nextTheme === 'high-contrast' ? 'high_contrast' : nextTheme });
+      updatePlatformSettings({ themePreference: nextTheme });
     }
   };
 
@@ -661,12 +664,15 @@ export const Navigation: React.FC<NavigationProps> = ({
             />
           </div>
 
-          {/* Theme Toggle Button (Switches between 'dark', 'light', and 'high-contrast' modes) */}
+          {/* Infrastructure Health Status: SystemVitalityMonitor */}
+          <SystemVitalityMonitor />
+
+          {/* Theme Toggle Button (Cycles through 'Dark', 'Light', and 'System' preferences) */}
           <button
             id="theme-toggle-btn"
             onClick={handleToggleTheme}
-            aria-label={`Current theme: ${currentTheme}. Click to switch theme`}
-            title={`Switch Theme: currently ${currentTheme === 'high-contrast' ? 'High-Contrast' : currentTheme.toUpperCase()} (Click for ${currentTheme === 'dark' ? 'Light' : currentTheme === 'light' ? 'High-Contrast' : 'Dark'} mode)`}
+            aria-label={`Theme preference: ${currentTheme}. Click to cycle theme`}
+            title={`Switch Theme: currently ${currentTheme.toUpperCase()} (Click to switch to ${currentTheme === 'dark' ? 'LIGHT' : currentTheme === 'light' ? 'SYSTEM' : 'DARK'})`}
             className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] sm:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/80 hover:text-[#F5F5F0] cursor-pointer"
           >
             {currentTheme === 'dark' && (
@@ -681,10 +687,10 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <span className="text-[10px] hidden md:inline font-mono">Light</span>
               </>
             )}
-            {currentTheme === 'high-contrast' && (
+            {currentTheme === 'system' && (
               <>
-                <Contrast className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="text-[10px] hidden md:inline font-mono">Contrast</span>
+                <Monitor className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-[10px] hidden md:inline font-mono">System</span>
               </>
             )}
           </button>

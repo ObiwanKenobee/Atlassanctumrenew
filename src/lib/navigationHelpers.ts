@@ -22,6 +22,8 @@ export const NAVIGATION_LOCALES: Record<string, Record<string, string>> = {
     'nav.developers.desc': 'Atlas Governance SDK, APIs, and open models',
     'nav.about': 'About & Philosophy',
     'nav.about.desc': 'Axiomatic foundations, research papers, and charters',
+    'nav.economics_pricing': 'Economics & Pricing',
+    'nav.economics_pricing.desc': 'The Atlas Economic Stack, coordination pricing, and network dividend',
     'nav.commandments': '10 Commandments',
     'nav.simulator': 'Moral Simulator',
     'nav.command_center': 'Command Center (⌘K)',

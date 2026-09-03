@@ -14,7 +14,9 @@ import {
   Sliders,
   ChevronDown,
   KeyRound,
-  Wallet
+  Wallet,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWeb3Wallet } from '../context/Web3WalletContext';
@@ -22,7 +24,16 @@ import { db } from '../lib/db';
 import { StewardshipTierProgression } from './StewardshipTierProgression';
 
 export const UserSettingsDropdown: React.FC = () => {
-  const { currentUser, userProfile, signInWithGoogle, signOut, updatePlatformSettings } = useAuth();
+  const { 
+    currentUser, 
+    userProfile, 
+    isSigningIn, 
+    signInWithGoogle, 
+    signOut, 
+    updatePlatformSettings,
+    error: authError,
+    clearAuthError
+  } = useAuth();
   const { address, isConnected, walletType, connectMetaMaskWallet, connectSovereignKeypair, disconnectWallet, error: walletError, clearError } = useWeb3Wallet();
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -113,14 +124,42 @@ export const UserSettingsDropdown: React.FC = () => {
           <ChevronDown className="w-3 h-3 text-[#F5F5F0]/60" />
         </button>
       ) : (
-        <button
-          id="user-sign-in-btn"
-          onClick={() => signInWithGoogle()}
-          className="flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] sm:min-h-[40px] bg-[#1B3022] hover:bg-[#254530] text-[#F5F5F0] border border-[#C5A059]/40 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-all"
-        >
-          <LogIn className="w-3.5 h-3.5 text-[#C5A059]" />
-          <span>Sign In</span>
-        </button>
+        <div className="relative">
+          <button
+            id="user-sign-in-btn"
+            onClick={() => signInWithGoogle()}
+            disabled={isSigningIn}
+            className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[38px] sm:min-h-[40px] bg-[#1B3022] hover:bg-[#254530] text-[#F5F5F0] border border-[#C5A059]/40 rounded-full text-xs font-mono font-bold uppercase tracking-wider transition-all cursor-pointer ${
+              isSigningIn ? 'opacity-70 cursor-wait' : ''
+            }`}
+          >
+            {isSigningIn ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 text-[#C5A059] animate-spin" />
+                <span>Connecting...</span>
+              </>
+            ) : (
+              <>
+                <LogIn className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span>Sign In</span>
+              </>
+            )}
+          </button>
+          {authError && (
+            <div className="absolute right-0 top-full mt-2 w-72 p-2.5 bg-[#141414] border border-amber-500/50 rounded-sm shadow-xl z-50 text-[11px] font-mono text-amber-300 flex items-start gap-2 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p>{authError}</p>
+                <button
+                  onClick={clearAuthError}
+                  className="mt-1.5 text-[10px] underline text-amber-400 hover:text-amber-200 cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Dropdown Modal */}

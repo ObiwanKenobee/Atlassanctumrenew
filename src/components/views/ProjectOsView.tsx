@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layers,
   ArrowRight,
@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { ProjectOsItem, ProjectLifecycleStage } from '../../types';
 import { PROJECT_OS_ITEMS } from '../../data/prompt2CivilizationData';
+import { useActiveMission } from '../../context/ActiveMissionContext';
 
 interface ProjectOsViewProps {
   onSelectTab: (tab: any) => void;
@@ -40,12 +41,26 @@ const LIFECYCLE_STAGES: { stage: ProjectLifecycleStage; label: string; desc: str
   { stage: 'Scale', label: '09. Scale', desc: 'Open-source blueprint distribution without monopoly' }
 ];
 
-export const ProjectOsView: React.FC<ProjectOsViewProps> = ({ onSelectTab }) => {
-  const [projects, setProjects] = useState<ProjectOsItem[]>(PROJECT_OS_ITEMS);
+export const ProjectOsView: React.FC<ProjectOsViewProps> = ({ onSelectTab, onOpenEvidenceForProject }) => {
+  const { activeMission, advanceMissionStage } = useActiveMission();
+  const [projects, setProjects] = useState<ProjectOsItem[]>(() => {
+    return PROJECT_OS_ITEMS;
+  });
   const [selectedProjectId, setSelectedProjectId] = useState<string>(PROJECT_OS_ITEMS[0].id);
   const [selectedStageFilter, setSelectedStageFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showNewProjectModal, setShowNewProjectModal] = useState<boolean>(false);
+
+  // Auto-fill modal with active mission if present
+  useEffect(() => {
+    if (activeMission && !projects.some(p => p.name === activeMission.title)) {
+      setNewProjectName(activeMission.title);
+      setNewProjectLocation(activeMission.bioregion);
+      setNewProjectProblem(activeMission.primaryProblem);
+      setNewProjectTheory(activeMission.highestLeverageIntervention);
+      setNewProjectBudget(String(activeMission.estimatedBudgetUsd));
+    }
+  }, [activeMission]);
 
   // New Project Form State
   const [newProjectName, setNewProjectName] = useState('');
@@ -495,11 +510,23 @@ export const ProjectOsView: React.FC<ProjectOsViewProps> = ({ onSelectTab }) => 
 
           {/* Section: Lessons Learned & Failure Audits */}
           <div className="p-6 bg-[#0D0D0D] border border-[#F5F5F0]/10 rounded-sm space-y-3">
-            <div className="flex items-center gap-2 pb-2 border-b border-[#F5F5F0]/10">
-              <BookOpen className="w-4 h-4 text-[#C5A059]" />
-              <h3 className="text-xs font-bold uppercase tracking-widest text-[#F5F5F0]">
-                Candid Field Lessons & What We Got Wrong
-              </h3>
+            <div className="flex items-center justify-between pb-2 border-b border-[#F5F5F0]/10">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[#C5A059]" />
+                <h3 className="text-xs font-bold uppercase tracking-widest text-[#F5F5F0]">
+                  Candid Field Lessons & What We Got Wrong
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  advanceMissionStage('VERIFIED_AUDIT');
+                  onSelectTab('evidence-ledger');
+                }}
+                className="px-3 py-1.5 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#C5A059] font-mono text-[10px] font-bold uppercase rounded-xs flex items-center gap-1 cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Verify on Evidence Ledger</span>
+              </button>
             </div>
             <div className="space-y-2 text-xs">
               {selectedProject.lessonsLearned.map((lesson, idx) => (

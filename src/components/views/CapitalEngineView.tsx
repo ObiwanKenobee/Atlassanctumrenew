@@ -23,6 +23,7 @@ import { CapitalAllocationTranche, CapitalForm } from '../../types';
 import { CAPITAL_TRANCHES } from '../../data/prompt2CivilizationData';
 import { BlendedFinanceStructuringEngine } from '../capital/BlendedFinanceStructuringEngine';
 import { MilestoneEscrowTrancheController } from '../capital/MilestoneEscrowTrancheController';
+import { useActiveMission } from '../../context/ActiveMissionContext';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 interface CapitalEngineViewProps {
@@ -40,6 +41,7 @@ const SEVEN_CAPITAL_FORMS: { form: CapitalForm; label: string; desc: string; ico
 ];
 
 export const CapitalEngineView: React.FC<CapitalEngineViewProps> = ({ onSelectTab }) => {
+  const { activeMission, advanceMissionStage } = useActiveMission();
   const [tranches, setTranches] = useState<CapitalAllocationTranche[]>(CAPITAL_TRANCHES);
   const [selectedFormFilter, setSelectedFormFilter] = useState<string>('all');
   const [selectedTrancheId, setSelectedTrancheId] = useState<string>(CAPITAL_TRANCHES[0].id);
@@ -67,9 +69,21 @@ export const CapitalEngineView: React.FC<CapitalEngineViewProps> = ({ onSelectTa
         </div>
 
         <div className="flex items-center gap-3">
+          {activeMission && (
+            <button
+              onClick={() => {
+                advanceMissionStage('FIELD_DEPLOYED');
+                onSelectTab('project-os');
+              }}
+              className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-widest rounded-sm flex items-center gap-1.5 transition-all shadow cursor-pointer"
+            >
+              <Cpu className="w-4 h-4" />
+              <span>Deploy to Project OS</span>
+            </button>
+          )}
           <button
             onClick={() => onSelectTab('opportunity-graph')}
-            className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#b08e4c] text-black font-bold text-xs uppercase tracking-widest rounded-sm flex items-center gap-1.5 transition-all shadow"
+            className="px-4 py-2.5 bg-[#141414] hover:bg-[#1e1e1e] border border-[#F5F5F0]/20 text-[#F5F5F0] font-bold text-xs uppercase tracking-widest rounded-sm flex items-center gap-1.5 transition-all"
           >
             <Layers className="w-4 h-4" />
             <span>Map Capital Graph</span>

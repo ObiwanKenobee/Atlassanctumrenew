@@ -151,6 +151,11 @@ export const Footer: React.FC<FooterProps> = ({
                 </button>
               </li>
               <li>
+                <button onClick={() => onSelectTab('economics-pricing')} className="hover:text-[#C5A059] transition-colors flex items-center gap-1.5 text-left text-[#C5A059] font-bold">
+                  Economics & Pricing Architecture <ArrowUpRight className="w-3 h-3 text-[#C5A059]" />
+                </button>
+              </li>
+              <li>
                 <button onClick={() => onSelectTab('flourishing-index')} className="hover:text-[#C5A059] transition-colors flex items-center gap-1.5 text-left">
                   The Flourishing Index (6 Dimensions) <ArrowUpRight className="w-3 h-3 text-[#F5F5F0]/30" />
                 </button>

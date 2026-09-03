@@ -6,7 +6,9 @@ import { UncertaintyOverlayProvider } from './context/UncertaintyOverlayContext'
 import { OfflineSyncProvider } from './context/OfflineSyncContext';
 import { TrustLayerProvider } from './context/TrustLayerContext';
 import { Web3WalletProvider } from './context/Web3WalletContext';
+import { ActiveMissionProvider } from './context/ActiveMissionContext';
 import { Navigation } from './components/Navigation';
+import { ActiveMissionStatusBar } from './components/ActiveMissionStatusBar';
 import { Footer } from './components/Footer';
 import { GlobalLoadingIndicator } from './components/GlobalLoadingIndicator';
 import { ViewLoadingSkeleton } from './components/ViewLoadingSkeleton';
@@ -25,6 +27,8 @@ import { GlobalEpistemicSearch } from './components/GlobalEpistemicSearch';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { TrustLayerModal } from './components/trust/TrustLayerModal';
 import { TrustLayerBanner } from './components/trust/TrustLayerBanner';
+import { VerificationToastProvider } from './context/VerificationToastContext';
+import { VerificationNotificationContainer } from './components/verification/VerificationNotificationContainer';
 import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
@@ -46,6 +50,7 @@ const FlourishingIndexView = React.lazy(() => import('./components/views/Flouris
 const CapitalEngineView = React.lazy(() => import('./components/views/CapitalEngineView').then(m => ({ default: m.CapitalEngineView })));
 const RealityEngineView = React.lazy(() => import('./components/views/RealityEngineView').then(m => ({ default: m.RealityEngineView })));
 const BioregionalTwinView = React.lazy(() => import('./components/views/BioregionalTwinView').then(m => ({ default: m.BioregionalTwinView })));
+const BioregionalLedgerView = React.lazy(() => import('./components/views/BioregionalLedgerView').then(m => ({ default: m.BioregionalLedgerView })));
 const LivingRealityView = React.lazy(() => import('./components/views/LivingRealityView').then(m => ({ default: m.LivingRealityView })));
 const MoralArbiterView = React.lazy(() => import('./components/views/MoralArbiterView').then(m => ({ default: m.MoralArbiterView })));
 const OpportunityMatchmakerView = React.lazy(() => import('./components/views/OpportunityMatchmakerView').then(m => ({ default: m.OpportunityMatchmakerView })));
@@ -70,6 +75,7 @@ const EventsView = React.lazy(() => import('./components/views/EventsView').then
 const StoriesView = React.lazy(() => import('./components/views/StoriesView').then(m => ({ default: m.StoriesView })));
 const ResourcesView = React.lazy(() => import('./components/views/ResourcesView').then(m => ({ default: m.ResourcesView })));
 const GovernanceHubView = React.lazy(() => import('./components/views/GovernanceHubView').then(m => ({ default: m.GovernanceHubView })));
+const EconomicsPricingView = React.lazy(() => import('./components/views/EconomicsPricingView').then(m => ({ default: m.EconomicsPricingView })));
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<PageView>('home');
@@ -136,6 +142,11 @@ export default function App() {
         setCommandCenterOpen(true);
       }
     };
+    const handleInspectCustomProvenance = (e: any) => {
+      if (e.detail) {
+        setProvenanceModalData(e.detail);
+      }
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('open-gemini-chat', handleOpenChat);
@@ -145,6 +156,7 @@ export default function App() {
     window.addEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
     window.addEventListener('atlas-reset-to-home', handleResetToHome);
     window.addEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
+    window.addEventListener('inspect-data-provenance' as any, handleInspectCustomProvenance);
 
     // Proactively prefetch priority modules on idle
     prefetchPriorityViews();
@@ -158,6 +170,7 @@ export default function App() {
       window.removeEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
       window.removeEventListener('atlas-reset-to-home', handleResetToHome);
       window.removeEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
+      window.removeEventListener('inspect-data-provenance' as any, handleInspectCustomProvenance);
     };
   }, []);
 
@@ -187,8 +200,10 @@ export default function App() {
           <MissionAlertProvider>
             <UncertaintyOverlayProvider>
               <TrustLayerProvider>
-                <ThemeAndAccessSyncListener>
-                <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
+                <ActiveMissionProvider>
+                  <VerificationToastProvider>
+                    <ThemeAndAccessSyncListener>
+                    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
             {/* Moral Compass Dynamic Cursor Trail */}
             <MoralCompassCursor 
               moralIntensity={94.8} 
@@ -208,6 +223,11 @@ export default function App() {
               onOpenCommandCenter={() => setCommandCenterOpen(true)}
               onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
               onOpenCommandments={() => setCommandmentsModalOpen(true)}
+            />
+
+            {/* Real-Time Unified Cross-Module Mission Pipeline Status Bar */}
+            <ActiveMissionStatusBar
+              onSelectTab={handleSelectTab}
             />
 
             {/* Main View Router */}
@@ -290,6 +310,13 @@ export default function App() {
                     />
                   )}
 
+                  {currentTab === 'bioregional-ledger' && (
+                    <BioregionalLedgerView
+                      onSelectTab={handleSelectTab}
+                      onInspectProvenance={handleInspectProvenance}
+                    />
+                  )}
+
                   {currentTab === 'living-reality' && (
                     <LivingRealityView
                       onSelectTab={handleSelectTab}
@@ -338,6 +365,7 @@ export default function App() {
 
                   {currentTab === 'evidence-ledger' && (
                     <EvidenceLedgerView
+                      onSelectTab={handleSelectTab}
                       onInspectProvenance={handleInspectProvenance}
                       onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
                       onOpenCommandCenter={() => setCommandCenterOpen(true)}
@@ -422,6 +450,14 @@ export default function App() {
                   {currentTab === 'about' && (
                     <AboutGovernanceView
                       onSelectTab={handleSelectTab}
+                      onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
+                    />
+                  )}
+
+                  {currentTab === 'economics-pricing' && (
+                    <EconomicsPricingView
+                      onSelectTab={handleSelectTab}
+                      onOpenCommandCenter={() => setCommandCenterOpen(true)}
                       onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
                     />
                   )}
@@ -594,8 +630,13 @@ export default function App() {
 
             {/* Central Master 12-Pillar Trust Layer Modal */}
             <TrustLayerModal />
+
+            {/* Blockchain-backed Epistemic Ledger Verification Notification Toasts */}
+            <VerificationNotificationContainer />
           </div>
         </ThemeAndAccessSyncListener>
+        </VerificationToastProvider>
+        </ActiveMissionProvider>
         </TrustLayerProvider>
         </UncertaintyOverlayProvider>
       </MissionAlertProvider>

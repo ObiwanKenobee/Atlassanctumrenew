@@ -247,6 +247,14 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
               targetTab: 'bioregional-twin'
             },
             {
+              id: 'bioregional-ledger',
+              label: 'Bioregional Ledger',
+              description: 'Real-time ecological health metrics, resource flows & data provenance',
+              icon: TreeDeciduous,
+              targetTab: 'bioregional-ledger',
+              badge: { text: 'Live Flows', variant: 'emerald', pulse: true }
+            },
+            {
               id: 'system-model-studio',
               label: 'Systems Dynamics Studio',
               description: 'Stock-flow differential simulations, causal polarity & Meadows leverage points',
@@ -658,6 +666,14 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
               description: 'Network graph of regenerative capital flows and synergy nodes',
               icon: Network,
               targetTab: 'opportunity-graph'
+            },
+            {
+              id: 'economics-pricing-item',
+              label: 'Economics & Pricing Stack',
+              description: 'Foundational commons, downstream value-capture & coordination economics',
+              icon: Coins,
+              targetTab: 'economics-pricing',
+              badge: { text: 'New Model', variant: 'gold' }
             }
           ]
         },
@@ -789,6 +805,18 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
           isExternal: true
         }
       ]
+    },
+
+    // 7b. Economics & Pricing Stack
+    {
+      id: 'economics-pricing-nav',
+      label: 'Economics & Pricing',
+      labelKey: 'nav.economics_pricing',
+      type: 'link',
+      icon: Coins,
+      targetTab: 'economics-pricing',
+      badge: { text: 'New Model', variant: 'gold' },
+      analytics: { category: 'Navigation', action: 'navigate_economics_pricing' }
     },
 
     // 8. About & Sanctum Governance Charter

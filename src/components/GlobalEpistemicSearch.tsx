@@ -186,6 +186,16 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
         category: 'moral',
         targetTab: 'governance',
         tags: ['governance', 'priority floors', 'voting', 'transparency', 'merkle', 'axioms', 'covenant']
+      },
+      // Economics & Pricing Stack
+      {
+        id: 'view-economics-pricing',
+        title: 'Economics & Pricing (The Atlas Economic Stack)',
+        subtitle: 'Non-Extractive Coordination & Downstream Value-Capture',
+        description: 'The Atlas Economy: Open Commons ($0), Atlas Studio, Atlas Intelligence, and Institutional Enterprise. Coordination pricing, network dividends, and compounding value.',
+        category: 'view',
+        targetTab: 'economics-pricing',
+        tags: ['economics', 'pricing', 'tiers', 'cost', 'subscription', 'coordination', 'dividend', 'commons', 'studio', 'enterprise', 'intelligence']
       }
     ];
 

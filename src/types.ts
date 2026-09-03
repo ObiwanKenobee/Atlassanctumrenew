@@ -20,6 +20,7 @@ export type PageView =
   | 'ethics-review'
   | 'reality-engine'
   | 'bioregional-twin'
+  | 'bioregional-ledger'
   | 'moral-arbiter'
   | 'opportunity-matchmaker'
   | 'observatory'
@@ -45,7 +46,8 @@ export type PageView =
   | 'stories'
   | 'resources'
   | 'governance'
-  | 'about';
+  | 'about'
+  | 'economics-pricing';
 
 // AI Engineering & Epistemic Insights Types
 export interface AIEpistemicAuditResult {
@@ -1168,6 +1170,178 @@ export interface AgentDefinition {
 
 // Re-export all Systems Dynamics & Modelling types
 export * from './types/systemsDynamics';
+
+// ==========================================
+// MASTER BUILD PROMPT — CIVILIZATIONAL TYPES
+// ==========================================
+
+export interface CovenantRecord {
+  id: string;
+  projectId: string;
+  projectName: string;
+  location: string;
+  covenantDate: string;
+  status: 'ACTIVE' | 'AUDITED' | 'RENEWED' | 'PROPOSED';
+  purpose: {
+    goodPursued: string;
+    northStarAlignment: string;
+  };
+  people: {
+    affectedPopulations: string[];
+    dignitySafeguards: string;
+    agencyGained: string;
+  };
+  creation: {
+    ecosystemsAffected: string[];
+    ecologicalInterventions: string;
+    bioregionalCommitment: string;
+  };
+  justice: {
+    primaryBeneficiaries: string[];
+    riskBearers: string[];
+    burdenDistributionCheck: string;
+  };
+  wisdom: {
+    supportingEvidence: string[];
+    epistemicConfidenceScore: number;
+    unresolvedAssumptions: string[];
+  };
+  governance: {
+    accountableParties: string[];
+    reviewCadence: string;
+    communityVetoMechanism: boolean;
+  };
+  capital: {
+    fundingSources: string[];
+    capitalDestination: string[];
+    nonExtractiveTerms: string;
+    totalCommittedUsd: number;
+  };
+  impact: {
+    verifiedChanges: string[];
+    milestoneProofs: string[];
+  };
+  memory: {
+    keyLessonsLearned: string[];
+    failureMitigations: string[];
+  };
+  regeneration: {
+    futureCapacityToFlourish: string;
+    intergenerationalHorizonYears: number;
+  };
+  cryptographicSignature: string;
+}
+
+export type SevenCapitalCategory =
+  | 'human'
+  | 'social'
+  | 'intellectual'
+  | 'natural'
+  | 'financial'
+  | 'institutional'
+  | 'technological';
+
+export interface SevenCapitalsData {
+  capital: SevenCapitalCategory;
+  name: string;
+  score: number; // 0 - 100
+  trend: 'increasing' | 'stable' | 'depleting';
+  unit: string;
+  currentStock: string;
+  transformationFlow: string;
+  regenerativeYield: string;
+}
+
+export interface CivilizationalDiagnosisChain {
+  id: string;
+  primaryProblem: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MODERATE';
+  bioregion: string;
+  causalChain: {
+    step: number;
+    node: string;
+    systemicDomain: 'ECOLOGICAL' | 'ECONOMIC' | 'INFRASTRUCTURE' | 'HEALTH' | 'SOCIAL' | 'GOVERNANCE';
+    impactDescription: string;
+    evidenceProof: string;
+  }[];
+  reinforcingLoops: string[];
+  highestLeverageIntervention: string;
+  expectedRegenerativeCascade: string;
+}
+
+export interface SpecializedCivilizationAgent {
+  id: string;
+  agentRole:
+    | 'OBSERVER'
+    | 'DIAGNOSTICIAN'
+    | 'RESEARCHER'
+    | 'STRATEGIST'
+    | 'ETHICIST'
+    | 'CAPITAL_ARCHITECT'
+    | 'IMPLEMENTATION_AGENT'
+    | 'IMPACT_ANALYST'
+    | 'MEMORY_KEEPER'
+    | 'STEWARD';
+  title: string;
+  specialization: string;
+  coreDirective: string;
+  activeWorkstream: string;
+  epistemicConfidence: number;
+  covenantConstraint: string;
+  status: 'active' | 'evaluating' | 'idle' | 'standby';
+}
+
+export interface CivilizationalMemoryItem {
+  id: string;
+  title: string;
+  bioregion: string;
+  eraOrYear: string;
+  origin: string;
+  problem: string;
+  decision: string;
+  intervention: string;
+  outcome: string;
+  failure: string;
+  lesson: string;
+  nextGenerationAction: string;
+  verifiedBy: string;
+}
+
+export interface ActiveMissionPipeline {
+  id: string;
+  sourceDiagnosisId?: string;
+  title: string;
+  bioregion: string;
+  primaryProblem: string;
+  highestLeverageIntervention: string;
+  estimatedBudgetUsd: number;
+  stage: 'DIAGNOSED' | 'STRATEGY_FORMULATED' | 'CAPITAL_STRUCTURED' | 'FIELD_DEPLOYED' | 'VERIFIED_AUDIT';
+  targetDomain: 'ECOLOGICAL' | 'INFRASTRUCTURE' | 'ECONOMIC' | 'HEALTH' | 'SOCIAL' | 'GOVERNANCE';
+  assignedAgents: string[];
+  keyTelemetryProof: string;
+  covenantSafeguard: string;
+  activeScenarioPrompt?: string;
+  createdAt: string;
+}
+
+export interface LiberationIndexScore {
+  overallScore: number; // 0 - 100
+  agencyGained: {
+    incomeOpportunity: number;
+    knowledgeAccess: number;
+    healthcareAutonomy: number;
+    decisionMakingPower: number;
+    productiveCapacity: number;
+    dependencyReduction: number;
+  };
+  harmMitigation: {
+    surveillanceResistance: number;
+    antiManipulationSafeguard: number;
+    lockInPrevention: number;
+    decentralizedPowerDistribution: number;
+  };
+  philosophicalVerdict: string;
+}
 
 
 

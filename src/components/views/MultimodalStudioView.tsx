@@ -17,14 +17,15 @@ import {
   ShieldCheck,
   FileAudio,
   Sliders,
-  Layers
+  Layers,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export const MultimodalStudioView: React.FC<{ onOpenMoralSimulator: () => void }> = ({ onOpenMoralSimulator }) => {
-  const { currentUser, signInWithGoogle } = useAuth();
+  const { currentUser, isSigningIn, signInWithGoogle } = useAuth();
   const [activeTab, setActiveTab] = useState<'image' | 'video' | 'music' | 'transcribe' | 'grounded'>('image');
 
   // --- 1. Image Generation & Editing State ---
@@ -281,11 +282,23 @@ export const MultimodalStudioView: React.FC<{ onOpenMoralSimulator: () => void }
             </div>
           ) : (
             <button
-              onClick={signInWithGoogle}
-              className="px-4 py-2 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#C5A059] rounded-sm text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-colors cursor-pointer"
+              onClick={() => signInWithGoogle()}
+              disabled={isSigningIn}
+              className={`px-4 py-2 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#C5A059] rounded-sm text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-colors cursor-pointer ${
+                isSigningIn ? 'opacity-70 cursor-wait' : ''
+              }`}
             >
-              <ShieldCheck className="w-4 h-4" />
-              Sign In with Google
+              {isSigningIn ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#C5A059]" />
+                  <span>Connecting...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Sign In with Google</span>
+                </>
+              )}
             </button>
           )}
         </div>

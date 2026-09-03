@@ -30,9 +30,14 @@ import { FirestoreSyncStatusIndicator } from '../FirestoreSyncStatusIndicator';
 import { LedgerConflictResolutionModal, LedgerSyncConflict } from '../ledger/LedgerConflictResolutionModal';
 import { CounterfactualAttributionSimulator } from '../verification/CounterfactualAttributionSimulator';
 import { MultiPartyAttestationModal } from '../verification/MultiPartyAttestationModal';
+import { FieldDataIngestionModal } from '../verification/FieldDataIngestionModal';
+import { PhysicalAssetQrScannerModal } from '../verification/PhysicalAssetQrScannerModal';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { UploadCloud, QrCode, ArrowRight, CheckCircle, Shield } from 'lucide-react';
+import { useActiveMission } from '../../context/ActiveMissionContext';
 
 interface EvidenceLedgerViewProps {
+  onSelectTab?: (tab: any) => void;
   onInspectProvenance?: (prov: any) => void;
   onOpenMoralSimulator?: () => void;
   onOpenCommandCenter?: () => void;
@@ -67,10 +72,12 @@ const ENRICHED_LEDGER_ENTRIES: EvidenceLedgerEntry[] = EVIDENCE_LEDGER_ENTRIES.m
 });
 
 export const EvidenceLedgerView: React.FC<EvidenceLedgerViewProps> = ({
+  onSelectTab,
   onInspectProvenance,
   onOpenMoralSimulator,
   onOpenCommandCenter
 }) => {
+  const { activeMission, advanceMissionStage, loadDiagnosisIntoPipeline } = useActiveMission();
   const [entries, setEntries] = useState<EvidenceLedgerEntry[]>(ENRICHED_LEDGER_ENTRIES);
   const [selectedEntry, setSelectedEntry] = useState<EvidenceLedgerEntry>(ENRICHED_LEDGER_ENTRIES[0]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +100,8 @@ export const EvidenceLedgerView: React.FC<EvidenceLedgerViewProps> = ({
 
   // Multi-Party Attestation Modal State
   const [isAttestationModalOpen, setIsAttestationModalOpen] = useState<boolean>(false);
+  const [isIngestionModalOpen, setIsIngestionModalOpen] = useState<boolean>(false);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState<boolean>(false);
 
   // Priority ranking helper
   const priorityWeight = (p?: EvidenceLedgerEntry['regenerativePotentialPriority']) => {
@@ -298,22 +307,44 @@ export const EvidenceLedgerView: React.FC<EvidenceLedgerViewProps> = ({
               A transparent, verifiable record answering: <em className="text-[#F5F5F0]">What do we know, how do we know it, and what changed in the real world afterward?</em>
             </p>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => {
+                audioFeedback.playSubtleClick();
+                setIsIngestionModalOpen(true);
+              }}
+              className="px-3.5 py-2 bg-[#C5A059] hover:bg-[#D4AF37] text-black font-bold font-mono text-xs uppercase tracking-wider rounded-sm flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>Ingest Field CSV</span>
+            </button>
+
+            <button
+              onClick={() => {
+                audioFeedback.playSubtleClick();
+                setIsQrScannerOpen(true);
+              }}
+              className="px-3 py-2 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 rounded-sm text-xs font-mono text-[#C5A059] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>Scan QR Placard</span>
+            </button>
+
             <button
               onClick={handleTriggerSimulateConflict}
               className="px-3 py-2 bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/40 rounded-sm text-xs font-mono text-amber-300 font-bold flex items-center gap-1.5 transition-colors"
               title="Simulate an IndexedDB vs Firestore sync version conflict"
             >
               <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              <span>Simulate Version Conflict</span>
+              <span>Simulate Conflict</span>
             </button>
 
             <button
               onClick={onOpenMoralSimulator}
-              className="px-3.5 py-2 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 rounded-sm text-xs font-mono text-[#C5A059] font-bold flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-[#141414] hover:bg-[#1f1f1f] border border-[#F5F5F0]/20 rounded-sm text-xs font-mono text-[#F5F5F0] font-bold flex items-center gap-1.5"
             >
-              <Scale className="w-3.5 h-3.5" />
-              <span>Audit Methodology Ethics</span>
+              <Scale className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Ethics Audit</span>
             </button>
           </div>
         </div>
@@ -660,6 +691,70 @@ export const EvidenceLedgerView: React.FC<EvidenceLedgerViewProps> = ({
                 </div>
               </div>
 
+              {/* Dynamic Suggestions & Next Action Dispatcher */}
+              <div className="p-3.5 bg-gradient-to-br from-[#121814] to-[#0A0D0B] border border-[#C5A059]/40 rounded-sm space-y-2.5 shadow-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-[#C5A059] font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-amber-400" />
+                    Strategic Mission Suggestions
+                  </span>
+                  <span className="text-[8px] font-mono px-1.5 py-0.2 bg-[#1B3022] text-emerald-300 rounded border border-emerald-500/30">
+                    {selectedEntry.confidenceScore >= 90 ? 'High Epistemic Confidence' : 'Pending Multi-Party Seal'}
+                  </span>
+                </div>
+
+                <div className="text-xs text-[#F5F5F0]/80 font-sans leading-relaxed">
+                  {selectedEntry.confidenceScore >= 90 ? (
+                    <span>
+                      <strong className="text-white font-semibold">Evidence Grounded:</strong> In-situ telemetry and Merkle seal confirm causal attribution. 
+                      Recommended next step: <em className="text-[#C5A059]">Advance directly to Capital Structuring & Outcomes Tokenization</em>.
+                    </span>
+                  ) : (
+                    <span>
+                      <strong className="text-amber-300 font-semibold">Verification Needed:</strong> Epistemic confidence score is under 90%. 
+                      Recommended next step: <em className="text-[#C5A059]">Initiate Multi-Party Co-Signing or scan physical QR placarding</em>.
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      audioFeedback.playSyncComplete();
+                      loadDiagnosisIntoPipeline({
+                        id: selectedEntry.id,
+                        primaryProblem: selectedEntry.claim,
+                        bioregion: selectedEntry.source.includes('(') ? selectedEntry.source.split('(')[1].replace(')', '') : 'Nairobi Bioregion',
+                        highestLeverageIntervention: selectedEntry.intervention,
+                        evidenceProof: `Merkle Proof: ${selectedEntry.hash} (Certainty: ${selectedEntry.confidenceScore}%)`,
+                        systemicDomain: 'INFRASTRUCTURE'
+                      });
+                      if (selectedEntry.confidenceScore >= 90) {
+                        advanceMissionStage('VERIFIED_AUDIT');
+                      }
+                      if (onSelectTab) {
+                        onSelectTab('capital-engine');
+                      }
+                    }}
+                    className="py-2 px-2.5 bg-[#C5A059] hover:bg-[#D4AF37] text-black font-mono font-bold text-[10px] uppercase tracking-wider rounded-xs flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5" />
+                    <span>Advance to Capital Engine</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      audioFeedback.playSubtleClick();
+                      setIsAttestationModalOpen(true);
+                    }}
+                    className="py-2 px-2.5 bg-[#141414] hover:bg-[#1f1f1f] text-[#C5A059] border border-[#C5A059]/40 font-mono font-bold text-[10px] uppercase tracking-wider rounded-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Co-Sign Multi-Party Audit</span>
+                  </button>
+                </div>
+              </div>
+
               {verificationFeedback && (
                 <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/40 rounded-xs text-xs font-mono text-emerald-400 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -692,6 +787,46 @@ export const EvidenceLedgerView: React.FC<EvidenceLedgerViewProps> = ({
       <CounterfactualAttributionSimulator
         projectName={selectedEntry.intervention}
         onMintVerifiedCredential={() => setIsAttestationModalOpen(true)}
+      />
+
+      {/* Field Telemetry Ingestion Modal */}
+      <FieldDataIngestionModal
+        isOpen={isIngestionModalOpen}
+        onClose={() => setIsIngestionModalOpen(false)}
+        onIngestSuccess={(newEntry) => {
+          setEntries((prev) => [newEntry, ...prev]);
+          setSelectedEntry(newEntry);
+        }}
+      />
+
+      {/* Physical Asset QR Code Scanner Modal */}
+      <PhysicalAssetQrScannerModal
+        isOpen={isQrScannerOpen}
+        onClose={() => setIsQrScannerOpen(false)}
+        onAssetVerified={(asset) => {
+          const newEntry: EvidenceLedgerEntry = {
+            id: `EV-${asset.assetId}`,
+            claim: `Physical Placard [${asset.assetId}] scanned and verified with GPS lock (${asset.gpsCoords.lat}, ${asset.gpsCoords.lng}).`,
+            intervention: asset.name,
+            measurement: `In-situ telemetry confirmed at coordinates (${asset.gpsCoords.lat}, ${asset.gpsCoords.lng})`,
+            outcome: `In-situ telemetry confirmed for ${asset.name}.`,
+            confidenceScore: 99,
+            epistemicStatus: 'Verified',
+            source: `Ground-Truth Placard QR & GPS Sensor (${asset.bioregion})`,
+            verifier: asset.lastAttestedBy,
+            timestamp: new Date().toISOString(),
+            methodology: 'On-Site Cryptographic Placard Scan with High-Precision GPS Lock',
+            attributionType: 'Attribution',
+            hash: asset.merkleSeal,
+            moralAlignmentScore: 99,
+            regenerativePotentialPriority: 'Critical',
+            regenerativeScore: 98,
+            version: 1,
+            hasConflict: false
+          };
+          setEntries((prev) => [newEntry, ...prev]);
+          setSelectedEntry(newEntry);
+        }}
       />
 
       {/* Multi-Party Attestation & Verification Cryptographic Co-signing Modal */}

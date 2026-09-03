@@ -21,12 +21,22 @@ import {
   ChevronRight,
   Shield,
   Leaf,
-  Search
+  Search,
+  Activity,
+  History,
+  Unlock
 } from 'lucide-react';
 import { PageView, ScaleLevel } from '../../types';
 import { GLOBAL_PROJECTS, MORAL_PRINCIPLES, INTELLIGENCE_LAYERS } from '../../data/mockCivilizationData';
 import { RealityCheck } from '../RealityCheck';
 import { PartnerCarousel } from '../PartnerCarousel';
+import { AtlasCentralVisual } from '../civilization/AtlasCentralVisual';
+import { CivilizationalDiagnosisEngine } from '../civilization/CivilizationalDiagnosisEngine';
+import { CovenantRecordViewer } from '../civilization/CovenantRecordViewer';
+import { SevenCapitalsPathway } from '../civilization/SevenCapitalsPathway';
+import { SpecializedAgentSwarm } from '../civilization/SpecializedAgentSwarm';
+import { CivilizationalMemoryGraph } from '../civilization/CivilizationalMemoryGraph';
+import { LiberationIndexWidget } from '../civilization/LiberationIndexWidget';
 
 interface AtlasHomeViewProps {
   onSelectTab: (tab: PageView) => void;
@@ -323,6 +333,17 @@ export const AtlasHomeView: React.FC<AtlasHomeViewProps> = ({
               />
             </div>
           </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* THE CENTRAL VISUAL IDENTITY & THE 10 COVENANTS (SECTION 40 & 3) */}
+        {/* ========================================================================= */}
+        <div className="mt-12">
+          <AtlasCentralVisual
+            onSelectTab={onSelectTab}
+            onOpenCommandCenter={onOpenCommandCenter}
+            onOpenMoralSimulator={onOpenMoralSimulator}
+          />
         </div>
 
         {/* ========================================================================= */}
@@ -680,11 +701,19 @@ export const AtlasHomeView: React.FC<AtlasHomeViewProps> = ({
             </div>
             <button
               onClick={() => onSelectTab('moral-intelligence')}
-              className="px-5 py-2.5 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#C5A059] rounded-sm text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-colors"
+              className="px-5 py-2.5 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#C5A059] rounded-sm text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-colors cursor-pointer"
             >
               Explore Moral Intelligence →
             </button>
           </div>
+        </div>
+
+        {/* INJECTED: CIVILIZATIONAL DIAGNOSIS ENGINE (SECTION 6) */}
+        <div className="mt-16">
+          <CivilizationalDiagnosisEngine
+            onSelectTab={onSelectTab}
+            onOpenMoralSimulator={onOpenMoralSimulator}
+          />
         </div>
       </section>
 
@@ -706,7 +735,7 @@ export const AtlasHomeView: React.FC<AtlasHomeViewProps> = ({
             <button
               key={idx}
               onClick={() => setActiveLoopStep(idx)}
-              className={`p-3.5 rounded-sm border text-left transition-all ${
+              className={`p-3.5 rounded-sm border text-left transition-all cursor-pointer ${
                 activeLoopStep === idx
                   ? 'bg-[#1B3022] border-[#C5A059] text-[#F5F5F0] shadow-lg scale-105'
                   : 'bg-[#0D0D0D] border-[#F5F5F0]/10 text-[#F5F5F0]/60 hover:border-[#C5A059]/40'
@@ -730,10 +759,20 @@ export const AtlasHomeView: React.FC<AtlasHomeViewProps> = ({
           </div>
           <button
             onClick={() => onSelectTab(activeLoopStep === 0 ? 'observatory' : activeLoopStep === 1 ? 'studio' : activeLoopStep === 2 ? 'moral-intelligence' : activeLoopStep === 3 ? 'marketplace' : activeLoopStep === 4 ? 'lifehouse' : activeLoopStep === 5 ? 'impact-dashboard' : activeLoopStep === 6 ? 'research' : 'observatory')}
-            className="px-5 py-2.5 bg-[#F5F5F0] hover:bg-white text-black font-bold text-xs uppercase tracking-widest rounded-sm shrink-0 flex items-center gap-1.5 transition-colors shadow"
+            className="px-5 py-2.5 bg-[#F5F5F0] hover:bg-white text-black font-bold text-xs uppercase tracking-widest rounded-sm shrink-0 flex items-center gap-1.5 transition-colors shadow cursor-pointer"
           >
             Launch Stage Tool <ArrowRight className="w-3.5 h-3.5" />
           </button>
+        </div>
+
+        {/* INJECTED: THE 10 SPECIALIZED AI AGENTS (SECTION 28) */}
+        <div className="mt-16">
+          <SpecializedAgentSwarm onSelectTab={onSelectTab} />
+        </div>
+
+        {/* INJECTED: THE COVENANT RECORD VIEWER (SECTION 10) */}
+        <div className="mt-12">
+          <CovenantRecordViewer onSelectTab={onSelectTab} onOpenMoralSimulator={onOpenMoralSimulator} />
         </div>
       </section>
 
@@ -965,6 +1004,21 @@ export const AtlasHomeView: React.FC<AtlasHomeViewProps> = ({
               Build with Atlas SDK <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
+        </div>
+
+        {/* INJECTED: THE SEVEN CAPITALS ENGINE (SECTION 15) */}
+        <div className="mt-16">
+          <SevenCapitalsPathway onSelectTab={onSelectTab} />
+        </div>
+
+        {/* INJECTED: THE LIBERATION INDEX (SECTION 12) */}
+        <div className="mt-12">
+          <LiberationIndexWidget onSelectTab={onSelectTab} />
+        </div>
+
+        {/* INJECTED: INSTITUTIONAL MEMORY GRAPH (SECTION 24) */}
+        <div className="mt-12">
+          <CivilizationalMemoryGraph onSelectTab={onSelectTab} />
         </div>
       </section>
 
