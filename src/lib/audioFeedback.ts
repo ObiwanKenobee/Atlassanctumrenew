@@ -143,6 +143,13 @@ class AudioFeedbackEngine {
   }
 
   /**
+   * Warning pulse tone for critical confirmations or offline alerts
+   */
+  public playWarningPulse() {
+    this.playTelemetryWarning();
+  }
+
+  /**
    * Uplifting impact milestone trigger tone
    */
   public playImpactTrigger() {

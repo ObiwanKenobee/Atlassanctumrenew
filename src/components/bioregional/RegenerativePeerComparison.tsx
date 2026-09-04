@@ -16,7 +16,10 @@ import {
   Lock,
   ChevronRight,
   Activity,
-  Sliders
+  Sliders,
+  Calendar,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { BioregionalLedgerData } from '../../data/bioregionalLedgerData';
 import { audioFeedback } from '../../lib/audioFeedback';
@@ -37,6 +40,172 @@ export interface RegionalArchetype {
   };
   topPractices: string[];
 }
+
+export const MONTH_LABELS = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
+
+// Helper to generate 12-month historical progression relative to archetype median
+export const generate12MonthTrend = (currentVal: number, medianVal: number, lowerIsBetter = false) => {
+  return MONTH_LABELS.map((month, i) => {
+    const progress = i / 11; // 0 to 1
+    let reg: number;
+    if (lowerIsBetter) {
+      const startFactor = 1.36;
+      const noise = Math.sin(i * 1.4) * 0.04;
+      reg = +(currentVal * (startFactor - (startFactor - 1) * progress + noise)).toFixed(1);
+    } else {
+      const startFactor = 0.76;
+      const noise = Math.sin(i * 1.4) * 0.03;
+      reg = +(currentVal * (startFactor + (1 - startFactor) * progress + noise)).toFixed(1);
+    }
+    const archNoise = Math.cos(i * 0.8) * 0.02;
+    const arch = +(medianVal * (1 + archNoise)).toFixed(1);
+    const deltaPct = +(((reg - arch) / (arch || 1)) * 100).toFixed(1);
+
+    return {
+      month,
+      region: reg,
+      archetype: arch,
+      deltaPct
+    };
+  });
+};
+
+interface SparklineChartProps {
+  data: { month: string; region: number; archetype: number; deltaPct: number }[];
+  unit: string;
+  color?: string;
+  height?: number;
+  showLabels?: boolean;
+  lowerIsBetter?: boolean;
+}
+
+const SparklineChart: React.FC<SparklineChartProps> = ({
+  data,
+  unit,
+  color = '#10B981',
+  height = 42,
+  showLabels = true,
+  lowerIsBetter = false
+}) => {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  const allVals = data.flatMap((d) => [d.region, d.archetype]);
+  const minVal = Math.min(...allVals) * 0.94;
+  const maxVal = Math.max(...allVals) * 1.06;
+  const range = maxVal - minVal || 1;
+
+  const width = 260;
+  const padX = 6;
+  const padY = 6;
+
+  const getX = (i: number) => padX + (i / (data.length - 1)) * (width - padX * 2);
+  const getY = (val: number) => height - padY - ((val - minVal) / range) * (height - padY * 2);
+
+  const regionPoints = data.map((d, i) => `${getX(i).toFixed(1)},${getY(d.region).toFixed(1)}`).join(' ');
+  const archetypePoints = data.map((d, i) => `${getX(i).toFixed(1)},${getY(d.archetype).toFixed(1)}`).join(' ');
+  const areaPoints = `${getX(0).toFixed(1)},${height} ${regionPoints} ${getX(data.length - 1).toFixed(1)},${height}`;
+
+  const currentHover = hoverIdx !== null ? data[hoverIdx] : data[data.length - 1];
+  const isPositive = lowerIsBetter ? currentHover.deltaPct <= 0 : currentHover.deltaPct >= 0;
+  const gradId = `spark-grad-${color.replace(/[^a-zA-Z0-9]/g, '')}-${unit.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+  return (
+    <div className="w-full space-y-1 font-mono text-[9px]">
+      <div className="relative w-full overflow-hidden bg-black/40 rounded p-1 border border-white/5">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full h-auto overflow-visible select-none"
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+              <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {/* Archetype Median Guideline (Dashed Amber/Gold) */}
+          <polyline
+            fill="none"
+            stroke="#C5A059"
+            strokeWidth="1.2"
+            strokeDasharray="3 3"
+            strokeOpacity="0.75"
+            points={archetypePoints}
+          />
+
+          {/* Region Fill Area */}
+          <polygon fill={`url(#${gradId})`} points={areaPoints} />
+
+          {/* Region Actual Polyline */}
+          <polyline
+            fill="none"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={regionPoints}
+          />
+
+          {/* Vertical Hover Cursor */}
+          {hoverIdx !== null && (
+            <line
+              x1={getX(hoverIdx)}
+              y1={0}
+              x2={getX(hoverIdx)}
+              y2={height}
+              stroke="#FFFFFF"
+              strokeOpacity="0.5"
+              strokeDasharray="2 2"
+            />
+          )}
+
+          {/* Interactive Month Points */}
+          {data.map((d, i) => {
+            const cx = getX(i);
+            const cy = getY(d.region);
+            const isHovered = hoverIdx === i;
+            return (
+              <g
+                key={i}
+                onMouseEnter={() => setHoverIdx(i)}
+                onMouseLeave={() => setHoverIdx(null)}
+                className="cursor-pointer"
+              >
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={isHovered ? 4 : 2}
+                  fill={isHovered ? '#FFFFFF' : color}
+                  stroke="#090D0A"
+                  strokeWidth="1"
+                />
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Readout */}
+      {showLabels && (
+        <div className="flex items-center justify-between text-[8px] text-neutral-400 px-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-neutral-500 uppercase">{currentHover.month} '26:</span>
+            <span className="font-bold text-white">
+              {currentHover.region} {unit}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[#C5A059]">Archetype: {currentHover.archetype}</span>
+            <span className={`font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+              ({currentHover.deltaPct >= 0 ? `+${currentHover.deltaPct}%` : `${currentHover.deltaPct}%`})
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const ARCHETYPE_DATABASE: Record<string, RegionalArchetype> = {
   savanna_silvopasture: {
@@ -143,6 +312,7 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
 
   const [selectedArchetypeKey, setSelectedArchetypeKey] = useState<string>(defaultArchetypeKey);
   const [benchmarkMode, setBenchmarkMode] = useState<'archetype' | 'global'>('archetype');
+  const [showBenchmarkingTrend, setShowBenchmarkingTrend] = useState<boolean>(true);
 
   const activeArchetype = ARCHETYPE_DATABASE[selectedArchetypeKey] || ARCHETYPE_DATABASE.savanna_silvopasture;
 
@@ -184,7 +354,7 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
     return 14;
   };
 
-  // Metric Comparison Cards List
+  // Metric Comparison Cards List with 12-Month Historical Benchmarking Trajectory
   const metricCards = useMemo(() => {
     const b = activeArchetype.benchmarks;
     return [
@@ -192,67 +362,79 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
         id: 'water',
         name: 'Water Retention Efficiency',
         icon: <Droplets className="w-4 h-4 text-cyan-400" />,
+        color: '#06B6D4',
         unit: b.waterRetentionM3PerHa.unit,
         currentValue: currentMetrics.waterRetentionM3PerHa,
         benchmarks: b.waterRetentionM3PerHa,
         lowerIsBetter: false,
         deltaVsMedian: +(((currentMetrics.waterRetentionM3PerHa - b.waterRetentionM3PerHa.median) / b.waterRetentionM3PerHa.median) * 100).toFixed(0),
-        percentile: computePercentile(currentMetrics.waterRetentionM3PerHa, b.waterRetentionM3PerHa)
+        percentile: computePercentile(currentMetrics.waterRetentionM3PerHa, b.waterRetentionM3PerHa),
+        trend12Mo: generate12MonthTrend(currentMetrics.waterRetentionM3PerHa, b.waterRetentionM3PerHa.median, false)
       },
       {
         id: 'carbon',
         name: 'Soil Carbon Sequestration Density',
         icon: <TreePine className="w-4 h-4 text-emerald-400" />,
+        color: '#10B981',
         unit: b.soilCarbonRateTCO2ePerHa.unit,
         currentValue: currentMetrics.soilCarbonRateTCO2ePerHa,
         benchmarks: b.soilCarbonRateTCO2ePerHa,
         lowerIsBetter: false,
         deltaVsMedian: +(((currentMetrics.soilCarbonRateTCO2ePerHa - b.soilCarbonRateTCO2ePerHa.median) / b.soilCarbonRateTCO2ePerHa.median) * 100).toFixed(0),
-        percentile: computePercentile(currentMetrics.soilCarbonRateTCO2ePerHa, b.soilCarbonRateTCO2ePerHa)
+        percentile: computePercentile(currentMetrics.soilCarbonRateTCO2ePerHa, b.soilCarbonRateTCO2ePerHa),
+        trend12Mo: generate12MonthTrend(currentMetrics.soilCarbonRateTCO2ePerHa, b.soilCarbonRateTCO2ePerHa.median, false)
       },
       {
         id: 'circularity',
         name: 'Closed-Loop Circularity Quotient',
         icon: <Activity className="w-4 h-4 text-purple-400" />,
+        color: '#A855F7',
         unit: b.circularityPct.unit,
         currentValue: currentMetrics.circularityPct,
         benchmarks: b.circularityPct,
         lowerIsBetter: false,
         deltaVsMedian: +(((currentMetrics.circularityPct - b.circularityPct.median) / b.circularityPct.median) * 100).toFixed(0),
-        percentile: computePercentile(currentMetrics.circularityPct, b.circularityPct)
+        percentile: computePercentile(currentMetrics.circularityPct, b.circularityPct),
+        trend12Mo: generate12MonthTrend(currentMetrics.circularityPct, b.circularityPct.median, false)
       },
       {
         id: 'leakage',
         name: 'Unmetered Resource Dissipation',
         icon: <Layers className="w-4 h-4 text-amber-400" />,
+        color: '#F59E0B',
         unit: b.unmeteredLeakagePct.unit,
         currentValue: currentMetrics.unmeteredLeakagePct,
         benchmarks: b.unmeteredLeakagePct,
         lowerIsBetter: true,
         deltaVsMedian: +(((currentMetrics.unmeteredLeakagePct - b.unmeteredLeakagePct.median) / b.unmeteredLeakagePct.median) * 100).toFixed(0),
-        percentile: computePercentile(currentMetrics.unmeteredLeakagePct, b.unmeteredLeakagePct, true)
+        percentile: computePercentile(currentMetrics.unmeteredLeakagePct, b.unmeteredLeakagePct, true),
+        trend12Mo: generate12MonthTrend(currentMetrics.unmeteredLeakagePct, b.unmeteredLeakagePct.median, true)
       },
       {
         id: 'req',
         name: 'Regenerative Efficacy Quotient (REQ)',
         icon: <Award className="w-4 h-4 text-[#C5A059]" />,
+        color: '#C5A059',
         unit: b.reqIndex.unit,
         currentValue: currentMetrics.reqIndex,
         benchmarks: b.reqIndex,
         lowerIsBetter: false,
         deltaVsMedian: +(((currentMetrics.reqIndex - b.reqIndex.median) / b.reqIndex.median) * 100).toFixed(0),
-        percentile: computePercentile(currentMetrics.reqIndex, b.reqIndex)
+        percentile: computePercentile(currentMetrics.reqIndex, b.reqIndex),
+        trend12Mo: generate12MonthTrend(currentMetrics.reqIndex, b.reqIndex.median, false)
       },
       {
         id: 'councils',
         name: 'Steward Governance Density',
         icon: <Users className="w-4 h-4 text-rose-400" />,
+        color: '#F43F5E',
         unit: b.stewardAssembliesPer10kHa.unit,
         currentValue: currentMetrics.stewardAssembliesPer10kHa,
         benchmarks: b.stewardAssembliesPer10kHa,
         lowerIsBetter: false,
         deltaVsMedian: +(((currentMetrics.stewardAssembliesPer10kHa - b.stewardAssembliesPer10kHa.median) / b.stewardAssembliesPer10kHa.median) * 100).toFixed(0),
-        percentile: computePercentile(currentMetrics.stewardAssembliesPer10kHa, b.stewardAssembliesPer10kHa)
+        percentile: computePercentile(currentMetrics.stewardAssembliesPer10kHa, b.stewardAssembliesPer10kHa),
+        trend12Mo: generate12MonthTrend(currentMetrics.stewardAssembliesPer10kHa, b.stewardAssembliesPer10kHa.median, false)
       }
     ];
   }, [activeArchetype, currentMetrics]);
@@ -280,34 +462,53 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
           </div>
         </div>
 
-        {/* Peer Benchmark Toggle Mode */}
-        <div className="flex items-center gap-1.5 self-start md:self-auto bg-[#121914] p-1 rounded-lg border border-[#F5F5F0]/10">
+        {/* Right Header Controls: Benchmarking Trend Toggle + Peer Benchmark Toggle Mode */}
+        <div className="flex items-center gap-2.5 flex-wrap self-start md:self-auto">
+          {/* Benchmarking Trend Toggle */}
           <button
             onClick={() => {
-              setBenchmarkMode('archetype');
+              setShowBenchmarkingTrend(!showBenchmarkingTrend);
               audioFeedback.playMicroTick();
             }}
-            className={`px-3 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
-              benchmarkMode === 'archetype'
-                ? 'bg-[#C5A059] text-black shadow font-extrabold'
-                : 'text-neutral-400 hover:text-white'
+            className={`px-3 py-1.5 rounded-lg border font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              showBenchmarkingTrend
+                ? 'bg-[#C5A059] text-black border-[#C5A059] font-extrabold shadow'
+                : 'bg-[#121914] text-[#C5A059] border-[#C5A059]/40 hover:border-[#C5A059]'
             }`}
           >
-            Archetype Cohort ({activeArchetype.peerCount} Peers)
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Benchmarking Trend: {showBenchmarkingTrend ? 'ON' : 'OFF'}</span>
           </button>
-          <button
-            onClick={() => {
-              setBenchmarkMode('global');
-              audioFeedback.playMicroTick();
-            }}
-            className={`px-3 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
-              benchmarkMode === 'global'
-                ? 'bg-[#C5A059] text-black shadow font-extrabold'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            Global Network (216 Bioregions)
-          </button>
+
+          {/* Peer Benchmark Toggle Mode */}
+          <div className="flex items-center gap-1 bg-[#121914] p-1 rounded-lg border border-[#F5F5F0]/10">
+            <button
+              onClick={() => {
+                setBenchmarkMode('archetype');
+                audioFeedback.playMicroTick();
+              }}
+              className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                benchmarkMode === 'archetype'
+                  ? 'bg-[#C5A059] text-black shadow font-extrabold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              Cohort ({activeArchetype.peerCount} Peers)
+            </button>
+            <button
+              onClick={() => {
+                setBenchmarkMode('global');
+                audioFeedback.playMicroTick();
+              }}
+              className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                benchmarkMode === 'global'
+                  ? 'bg-[#C5A059] text-black shadow font-extrabold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              Global Network
+            </button>
+          </div>
         </div>
       </div>
 
@@ -357,6 +558,65 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
           })}
         </div>
       </div>
+
+      {/* 12-Month Benchmarking Trend Overview Panel (Toggled via Benchmarking Trend) */}
+      {showBenchmarkingTrend && (
+        <div className="p-4 rounded-xl bg-[#0B120E] border-2 border-[#C5A059]/60 shadow-2xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#C5A059]/20 pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/40">
+                <TrendingUp className="w-4 h-4" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-serif font-bold text-white text-xs sm:text-sm">
+                    12-Month Performance Trend vs. Archetype Cohort
+                  </h4>
+                  <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-emerald-950 text-emerald-300 border border-emerald-500/40">
+                    Active Rolling 12-Mo Sparklines
+                  </span>
+                </div>
+                <p className="text-[10px] text-neutral-400 font-sans mt-0.5">
+                  Visualizing multi-seasonal regional trajectory relative to the {activeArchetype.name} cohort median across hydrological, pedological, and circular flows.
+                </p>
+              </div>
+            </div>
+
+            {/* Sparkline Legend */}
+            <div className="flex items-center gap-3 text-[9px] text-neutral-400 shrink-0 bg-black/40 px-2.5 py-1.5 rounded-lg border border-white/5">
+              <span className="flex items-center gap-1.5 text-white">
+                <span className="w-3 h-0.5 bg-emerald-400 rounded-full" />
+                Your Bioregion
+              </span>
+              <span className="flex items-center gap-1.5 text-[#C5A059]">
+                <span className="w-3 h-0.5 border-t border-dashed border-[#C5A059]" />
+                Cohort Median
+              </span>
+            </div>
+          </div>
+
+          {/* Quick 12-Mo Trend Highlights Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
+            <div className="p-2.5 rounded-lg bg-[#111A13] border border-emerald-500/20">
+              <span className="text-neutral-400 text-[9px] block">Annual Cohort Divergence:</span>
+              <span className="text-sm font-bold text-emerald-300">+14.8% above archetype median</span>
+              <span className="text-[8px] text-neutral-400 block mt-0.5">Continuous upward momentum across 5/6 indicators</span>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-[#111A13] border border-cyan-500/20">
+              <span className="text-neutral-400 text-[9px] block">Water Retention Gain:</span>
+              <span className="text-sm font-bold text-cyan-300">+31.5% YoY yield improvement</span>
+              <span className="text-[8px] text-neutral-400 block mt-0.5">From {metricCards[0].trend12Mo[0].region} to {metricCards[0].currentValue} {metricCards[0].unit}</span>
+            </div>
+
+            <div className="p-2.5 rounded-lg bg-[#111A13] border border-purple-500/20">
+              <span className="text-neutral-400 text-[9px] block">Metabolic Dissipation Reduction:</span>
+              <span className="text-sm font-bold text-purple-300">-68.9% unmetered loss</span>
+              <span className="text-[8px] text-neutral-400 block mt-0.5">Tightened from 29% down to 9% unmetered dissipation</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Benchmark Distribution Matrix */}
       <div className="space-y-3">
@@ -451,6 +711,37 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
                     {card.percentile >= 90 ? '★ Top Decile Archetype Performer' : card.percentile >= 75 ? 'Upper Quartile Efficiency (Q3)' : 'Cohort Median Equilibrium'}
                   </div>
                 </div>
+
+                {/* 12-Month Benchmarking Sparkline Chart (Rendered when toggle is ON) */}
+                {showBenchmarkingTrend && (
+                  <div className="pt-2.5 border-t border-white/10 space-y-1.5 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between text-[8px] text-neutral-400">
+                      <span className="flex items-center gap-1 text-[#C5A059] font-bold uppercase">
+                        <TrendingUp className="w-3 h-3" />
+                        12-Mo Sparkline vs Archetype:
+                      </span>
+                      {(() => {
+                        const first = card.trend12Mo[0];
+                        const last = card.trend12Mo[card.trend12Mo.length - 1];
+                        const diff = +(((last.region - first.region) / (first.region || 1)) * 100).toFixed(1);
+                        const isFavorable = card.lowerIsBetter ? diff <= 0 : diff >= 0;
+                        return (
+                          <span className={`font-bold ${isFavorable ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {diff >= 0 ? `+${diff}%` : `${diff}%`} (12 Mo)
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    <SparklineChart
+                      data={card.trend12Mo}
+                      unit={card.unit}
+                      color={card.color}
+                      height={40}
+                      lowerIsBetter={card.lowerIsBetter}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { PageView, ActiveMissionPipeline } from '../types';
 import { useActiveMission } from '../context/ActiveMissionContext';
+import { useConfirmation } from '../context/ConfirmationDialogContext';
 import { InstitutionalDossierModal } from './modals/InstitutionalDossierModal';
 import { audioFeedback } from '../lib/audioFeedback';
 
@@ -43,10 +44,32 @@ const STAGES: {
 
 export const ActiveMissionStatusBar: React.FC<ActiveMissionStatusBarProps> = ({ onSelectTab }) => {
   const { activeMission, clearActiveMission, advanceMissionStage } = useActiveMission();
+  const { confirm } = useConfirmation();
   const [expanded, setExpanded] = useState<boolean>(false);
   const [dossierOpen, setDossierOpen] = useState<boolean>(false);
 
   if (!activeMission) return null;
+
+  const handleClearMission = async () => {
+    const confirmed = await confirm({
+      title: 'Reset Mission Parameters',
+      message: `Are you sure you want to reset active parameters for "${activeMission.title}"? Active causal models, capital tranches, and scheduled agent task swarms will be dismissed.`,
+      confirmText: 'Reset Parameters',
+      cancelText: 'Keep Active',
+      variant: 'danger',
+      requiresTypedConfirmation: 'RESET',
+      consequenceSummary: [
+        'Active mission pipeline will be cleared from session',
+        'Assigned agent swarms will be recalled to base state',
+        'Unverified intervention drafts will be lost'
+      ]
+    });
+
+    if (confirmed) {
+      clearActiveMission();
+      audioFeedback.playSuccessChime();
+    }
+  };
 
   const currentStageIndex = STAGES.findIndex(s => s.key === activeMission.stage);
 
@@ -119,8 +142,8 @@ export const ActiveMissionStatusBar: React.FC<ActiveMissionStatusBarProps> = ({ 
               </button>
 
               <button
-                onClick={clearActiveMission}
-                title="Clear Active Mission Pipeline"
+                onClick={handleClearMission}
+                title="Reset Active Mission Parameters"
                 className="text-[#F5F5F0]/30 hover:text-red-400 p-1 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />

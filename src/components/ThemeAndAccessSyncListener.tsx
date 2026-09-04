@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-export type ThemePreference = 'dark' | 'light' | 'system';
+export type ThemePreference = 'dark' | 'light' | 'system' | 'context_aware';
 
 export const ThemeAndAccessSyncListener: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { userProfile } = useAuth();
   const currentPreferenceRef = useRef<ThemePreference>('dark');
+  const wakeLockRef = useRef<any>(null);
 
   const getSystemTheme = (): 'dark' | 'light' => {
     if (typeof window !== 'undefined' && window.matchMedia) {
@@ -14,15 +15,47 @@ export const ThemeAndAccessSyncListener: React.FC<{ children: React.ReactNode }>
     return 'dark';
   };
 
+  const getCircadianTheme = (): 'dark' | 'light' => {
+    const hour = new Date().getHours();
+    // 06:30 - 18:30 is light, otherwise dark
+    return (hour >= 6 && hour < 19) ? 'light' : 'dark';
+  };
+
+  const manageWakeLock = async (enable: boolean) => {
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+    try {
+      if (enable && !wakeLockRef.current) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        wakeLockRef.current.addEventListener('release', () => {
+          wakeLockRef.current = null;
+        });
+      } else if (!enable && wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    } catch (err) {
+      console.info('[ThemeAndAccessSyncListener] Screen Wake Lock not available:', err);
+    }
+  };
+
   const applyThemeToDOM = (preference: ThemePreference, highContrastFlag = false, reducedMotionFlag = false) => {
     const root = document.documentElement;
     currentPreferenceRef.current = preference;
 
-    // Resolve actual theme if 'system'
-    const resolvedTheme: 'dark' | 'light' = preference === 'system' ? getSystemTheme() : preference;
+    // Resolve actual theme
+    let resolvedTheme: 'dark' | 'light' = 'dark';
+    if (preference === 'system') {
+      resolvedTheme = getSystemTheme();
+    } else if (preference === 'context_aware') {
+      resolvedTheme = getCircadianTheme();
+      manageWakeLock(true);
+    } else {
+      resolvedTheme = preference;
+      manageWakeLock(false);
+    }
 
     // Clean up prior classes
-    root.classList.remove('dark', 'light', 'theme-dark', 'theme-light', 'theme-system', 'high-contrast');
+    root.classList.remove('dark', 'light', 'theme-dark', 'theme-light', 'theme-system', 'theme-context-aware', 'high-contrast');
 
     // Add CSS class corresponding to resolved theme and preference on document root
     root.classList.add(resolvedTheme);
@@ -30,6 +63,8 @@ export const ThemeAndAccessSyncListener: React.FC<{ children: React.ReactNode }>
 
     if (preference === 'system') {
       root.classList.add('theme-system');
+    } else if (preference === 'context_aware') {
+      root.classList.add('theme-context-aware');
     }
 
     if (highContrastFlag) {
@@ -52,7 +87,7 @@ export const ThemeAndAccessSyncListener: React.FC<{ children: React.ReactNode }>
       (userProfile?.themePreference as ThemePreference) || 
       'dark';
 
-    const validPref: ThemePreference = (savedLocalPref === 'dark' || savedLocalPref === 'light' || savedLocalPref === 'system')
+    const validPref: ThemePreference = (savedLocalPref === 'dark' || savedLocalPref === 'light' || savedLocalPref === 'system' || savedLocalPref === 'context_aware')
       ? savedLocalPref
       : 'dark';
 
@@ -74,6 +109,13 @@ export const ThemeAndAccessSyncListener: React.FC<{ children: React.ReactNode }>
     } else {
       mediaQuery.addListener(handleSystemThemeChange);
     }
+
+    // Circadian check interval for context_aware mode
+    const circadianInterval = setInterval(() => {
+      if (currentPreferenceRef.current === 'context_aware') {
+        applyThemeToDOM('context_aware', !!userProfile?.highContrast, !!userProfile?.reducedMotion);
+      }
+    }, 60000);
 
     // Listen for custom theme change events from Navigation toggle button
     const handleThemeChange = (e: CustomEvent<{ theme: ThemePreference }>) => {
@@ -104,7 +146,9 @@ export const ThemeAndAccessSyncListener: React.FC<{ children: React.ReactNode }>
       } else {
         mediaQuery.removeListener(handleSystemThemeChange);
       }
+      clearInterval(circadianInterval);
       window.removeEventListener('atlas-theme-changed' as any, handleThemeChange);
+      manageWakeLock(false);
     };
   }, [userProfile]);
 

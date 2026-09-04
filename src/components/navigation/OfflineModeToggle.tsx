@@ -7,9 +7,11 @@ import {
   CheckCircle2, 
   AlertCircle,
   Database,
-  ArrowUpRight
+  ArrowUpRight,
+  ListOrdered
 } from 'lucide-react';
 import { useOfflineSync } from '../../context/OfflineSyncContext';
+import { OfflineActivityLogModal } from '../offline/OfflineActivityLogModal';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 interface OfflineModeToggleProps {
@@ -27,11 +29,13 @@ export const OfflineModeToggle: React.FC<OfflineModeToggleProps> = ({
     pendingWritesCount, 
     isSyncing, 
     toggleForceOffline,
-    syncPendingWritesNow 
+    syncPendingWritesNow,
+    activityLog
   } = useOfflineSync();
 
   const [showTooltip, setShowTooltip] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
 
   const handleToggle = () => {
     audioFeedback.playMicroTick();
@@ -165,6 +169,25 @@ export const OfflineModeToggle: React.FC<OfflineModeToggleProps> = ({
             </button>
           )}
 
+          {/* View Offline Activity Log */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTooltip(false);
+              setIsLogModalOpen(true);
+              audioFeedback.playSubtleClick();
+            }}
+            className="w-full mt-2 py-1.5 px-2.5 rounded bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/20 text-[#F5F5F0]/90 font-mono text-[10px] font-bold flex items-center justify-between transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-1.5">
+              <ListOrdered className="w-3 h-3 text-[#C5A059]" />
+              <span>Offline Activity Log</span>
+            </span>
+            <span className="px-1.5 py-0.2 rounded bg-black text-[#C5A059] border border-[#C5A059]/30 text-[9px]">
+              {activityLog.length} events
+            </span>
+          </button>
+
           {syncFeedback && (
             <div className="text-[10px] font-mono text-emerald-300 bg-emerald-950/60 p-1.5 rounded text-center border border-emerald-500/30">
               {syncFeedback}
@@ -172,6 +195,12 @@ export const OfflineModeToggle: React.FC<OfflineModeToggleProps> = ({
           )}
         </div>
       )}
+
+      {/* Offline Activity Log Modal */}
+      <OfflineActivityLogModal
+        isOpen={isLogModalOpen}
+        onClose={() => setIsLogModalOpen(false)}
+      />
     </div>
   );
 };

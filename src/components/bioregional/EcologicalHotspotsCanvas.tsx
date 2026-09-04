@@ -165,8 +165,14 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Filter States
-  const [resourceFilter, setResourceFilter] = useState<ScarcityResourceType>('all');
+  // Filter & Layer States
+  const [activeLayers, setActiveLayers] = useState<{ water: boolean; energy: boolean; nutrient: boolean }>({
+    water: true,
+    energy: true,
+    nutrient: true
+  });
+  const [hotspotOpacity, setHotspotOpacity] = useState<number>(0.85);
+  const [isLayersManagerOpen, setIsLayersManagerOpen] = useState<boolean>(false);
   const [minSeverity, setMinSeverity] = useState<number>(50);
   const [isPulsing, setIsPulsing] = useState<boolean>(true);
   const [heatmapIntensity, setHeatmapIntensity] = useState<number>(0.75);
@@ -181,14 +187,14 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
     maxLat: -0.2
   }), []);
 
-  // Filtered scarcity zones
+  // Filtered scarcity zones based on active resource indicator layers and severity
   const filteredZones = useMemo(() => {
     return SCARCITY_ZONES.filter((z) => {
-      const matchType = resourceFilter === 'all' || z.type === resourceFilter;
+      const isLayerActive = activeLayers[z.type];
       const matchSeverity = z.severity >= minSeverity;
-      return matchType && matchSeverity;
+      return isLayerActive && matchSeverity;
     });
-  }, [resourceFilter, minSeverity]);
+  }, [activeLayers, minSeverity]);
 
   // Coordinate projection from [lng, lat] to canvas pixel coordinates
   const project = (lng: number, lat: number, width: number, height: number): [number, number] => {
@@ -250,20 +256,21 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
         const pulse = isPulsing ? Math.sin(tick + zone.severity * 0.1) * 6 : 0;
         const radius = Math.max(25, baseRadius + pulse);
 
-        // Color determination per scarcity resource type
-        let coreColor = 'rgba(244, 63, 94, 0.85)'; // Rose (Water)
-        let midColor = 'rgba(244, 63, 94, 0.35)';
+        // Color determination per scarcity resource type with hotspotOpacity scaling
+        const op = hotspotOpacity;
+        let coreColor = `rgba(244, 63, 94, ${(0.85 * op).toFixed(2)})`; // Rose (Water)
+        let midColor = `rgba(244, 63, 94, ${(0.35 * op).toFixed(2)})`;
         let outerColor = 'rgba(244, 63, 94, 0.0)';
         let strokeColor = '#F43F5E';
 
         if (zone.type === 'energy') {
-          coreColor = 'rgba(245, 158, 11, 0.9)'; // Amber (Energy)
-          midColor = 'rgba(245, 158, 11, 0.35)';
+          coreColor = `rgba(245, 158, 11, ${(0.9 * op).toFixed(2)})`; // Amber (Energy)
+          midColor = `rgba(245, 158, 11, ${(0.35 * op).toFixed(2)})`;
           outerColor = 'rgba(245, 158, 11, 0.0)';
           strokeColor = '#F59E0B';
         } else if (zone.type === 'nutrient') {
-          coreColor = 'rgba(168, 85, 247, 0.85)'; // Purple (Nutrient)
-          midColor = 'rgba(168, 85, 247, 0.35)';
+          coreColor = `rgba(168, 85, 247, ${(0.85 * op).toFixed(2)})`; // Purple (Nutrient)
+          midColor = `rgba(168, 85, 247, ${(0.35 * op).toFixed(2)})`;
           outerColor = 'rgba(168, 85, 247, 0.0)';
           strokeColor = '#A855F7';
         }
@@ -282,7 +289,7 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
         // Concentric Isoline Scarcity Boundary Rings
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = isSelected ? 2 : 1;
-        ctx.globalAlpha = isSelected ? 0.9 : 0.45;
+        ctx.globalAlpha = Math.min(1.0, (isSelected ? 0.95 : 0.5) * op);
 
         ctx.beginPath();
         ctx.arc(cx, cy, radius * 0.65, 0, Math.PI * 2);
@@ -292,7 +299,7 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
         ctx.arc(cx, cy, radius * 0.35, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.globalAlpha = 1.0;
+        ctx.globalAlpha = Math.min(1.0, Math.max(0.3, op));
 
         // Pulsing Epicenter Core Marker
         ctx.fillStyle = strokeColor;
@@ -303,6 +310,8 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 1.5;
         ctx.stroke();
+
+        ctx.globalAlpha = 1.0;
 
         // Highlight Crosshair if Selected or Hovered
         if (isSelected || isHovered) {
@@ -349,7 +358,7 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [filteredZones, BOUNDS, heatmapIntensity, isPulsing, selectedZone, selectedZoneId, hoveredZone]);
+  }, [filteredZones, BOUNDS, heatmapIntensity, isPulsing, hotspotOpacity, selectedZone, selectedZoneId, hoveredZone]);
 
   // Handle Resize
   useEffect(() => {
@@ -427,76 +436,324 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
             </div>
           </div>
 
-          {/* Filter Buttons */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] uppercase text-neutral-400 font-bold">Resource:</span>
-            {[
-              { id: 'all', label: 'All Deficits', icon: <Sparkles className="w-3 h-3 text-white" /> },
-              { id: 'water', label: 'Water', icon: <Droplets className="w-3 h-3 text-cyan-400" /> },
-              { id: 'energy', label: 'Energy', icon: <Zap className="w-3 h-3 text-amber-400" /> },
-              { id: 'nutrient', label: 'Nutrient', icon: <Layers className="w-3 h-3 text-purple-400" /> }
-            ].map((res) => (
+          {/* Layers Manager Controls & Presets */}
+          <div className="flex items-center justify-between gap-3 flex-wrap border-t border-[#F5F5F0]/10 pt-2 text-[10px]">
+            {/* Quick Individual Layer Toggles */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="uppercase text-neutral-400 font-bold flex items-center gap-1">
+                <Layers className="w-3 h-3 text-[#C5A059]" />
+                Layers:
+              </span>
+
               <button
-                key={res.id}
                 onClick={() => {
-                  setResourceFilter(res.id as ScarcityResourceType);
+                  setActiveLayers(prev => ({ ...prev, water: !prev.water }));
                   audioFeedback.playMicroTick();
                 }}
-                className={`px-2.5 py-1 rounded text-[10px] uppercase font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                  resourceFilter === res.id
-                    ? 'bg-rose-500 text-black shadow-md font-extrabold'
-                    : 'bg-[#141B16] text-[#F5F5F0]/60 hover:text-white hover:bg-[#1E2921]'
+                className={`px-2 py-1 rounded font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                  activeLayers.water
+                    ? 'bg-rose-950/80 text-rose-300 border-rose-500/50 shadow-sm'
+                    : 'bg-[#121613] text-neutral-500 border-[#F5F5F0]/10 line-through'
                 }`}
               >
-                {res.icon}
-                <span>{res.label}</span>
+                <Droplets className="w-3 h-3 text-cyan-400" />
+                <span>Water ({SCARCITY_ZONES.filter(z => z.type === 'water').length})</span>
               </button>
-            ))}
-          </div>
 
-          {/* Sliders: Severity Threshold + Heatmap Intensity */}
-          <div className="flex items-center gap-4 flex-wrap text-[10px]">
-            <div className="flex items-center gap-2">
-              <span className="text-neutral-400 uppercase font-bold">Min Deficit:</span>
-              <input
-                type="range"
-                min="30"
-                max="85"
-                step="5"
-                value={minSeverity}
-                onChange={(e) => setMinSeverity(Number(e.target.value))}
-                className="w-16 sm:w-20 accent-rose-500 cursor-pointer"
-              />
-              <span className="text-rose-400 font-bold font-mono">{minSeverity}%</span>
+              <button
+                onClick={() => {
+                  setActiveLayers(prev => ({ ...prev, energy: !prev.energy }));
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-2 py-1 rounded font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                  activeLayers.energy
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-500/50 shadow-sm'
+                    : 'bg-[#121613] text-neutral-500 border-[#F5F5F0]/10 line-through'
+                }`}
+              >
+                <Zap className="w-3 h-3 text-amber-400" />
+                <span>Energy ({SCARCITY_ZONES.filter(z => z.type === 'energy').length})</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveLayers(prev => ({ ...prev, nutrient: !prev.nutrient }));
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-2 py-1 rounded font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                  activeLayers.nutrient
+                    ? 'bg-purple-950/80 text-purple-300 border-purple-500/50 shadow-sm'
+                    : 'bg-[#121613] text-neutral-500 border-[#F5F5F0]/10 line-through'
+                }`}
+              >
+                <Layers className="w-3 h-3 text-purple-400" />
+                <span>Nutrients ({SCARCITY_ZONES.filter(z => z.type === 'nutrient').length})</span>
+              </button>
+
+              {/* Open Deep Layers Manager Panel Button */}
+              <button
+                onClick={() => {
+                  setIsLayersManagerOpen(!isLayersManagerOpen);
+                  audioFeedback.playSubtleClick();
+                }}
+                className={`px-2.5 py-1 rounded font-bold transition-all cursor-pointer flex items-center gap-1.5 border ml-1 ${
+                  isLayersManagerOpen
+                    ? 'bg-[#C5A059] text-black border-[#C5A059] font-extrabold shadow'
+                    : 'bg-[#141B16] text-[#C5A059] border-[#C5A059]/40 hover:border-[#C5A059]'
+                }`}
+              >
+                <Sliders className="w-3 h-3" />
+                <span>Layers Manager</span>
+                <span className="px-1 py-0.2 rounded bg-black/40 text-[9px]">
+                  {Object.values(activeLayers).filter(Boolean).length}/3
+                </span>
+              </button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-neutral-400 uppercase font-bold">Heat Glow:</span>
-              <input
-                type="range"
-                min="0.3"
-                max="1.2"
-                step="0.1"
-                value={heatmapIntensity}
-                onChange={(e) => setHeatmapIntensity(Number(e.target.value))}
-                className="w-16 accent-rose-500 cursor-pointer"
-              />
-            </div>
+            {/* Sliders: Hotspot Opacity & Severity Threshold */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-neutral-400 uppercase font-bold flex items-center gap-1">
+                  <Eye className="w-3 h-3 text-rose-400" />
+                  Hotspot Opacity:
+                </span>
+                <input
+                  type="range"
+                  min="0.15"
+                  max="1.0"
+                  step="0.05"
+                  value={hotspotOpacity}
+                  onChange={(e) => setHotspotOpacity(Number(e.target.value))}
+                  className="w-16 sm:w-20 accent-rose-500 cursor-pointer"
+                />
+                <span className="text-rose-400 font-bold font-mono text-[9px] w-7">
+                  {Math.round(hotspotOpacity * 100)}%
+                </span>
+              </div>
 
-            <button
-              onClick={() => {
-                setIsPulsing(!isPulsing);
-                audioFeedback.playMicroTick();
-              }}
-              className={`px-2 py-1 rounded text-[10px] font-bold border transition-all cursor-pointer ${
-                isPulsing
-                  ? 'bg-rose-950/80 text-rose-300 border-rose-500/40'
-                  : 'bg-[#141414] text-neutral-400 border-[#F5F5F0]/10'
-              }`}
-            >
-              {isPulsing ? 'Pulse: ON' : 'Pulse: STATIC'}
-            </button>
+              <div className="flex items-center gap-1.5">
+                <span className="text-neutral-400 uppercase font-bold">Min Deficit:</span>
+                <input
+                  type="range"
+                  min="30"
+                  max="85"
+                  step="5"
+                  value={minSeverity}
+                  onChange={(e) => setMinSeverity(Number(e.target.value))}
+                  className="w-14 sm:w-16 accent-rose-500 cursor-pointer"
+                />
+                <span className="text-rose-400 font-bold font-mono text-[9px]">{minSeverity}%</span>
+              </div>
+
+              <button
+                onClick={() => {
+                  setIsPulsing(!isPulsing);
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-2 py-1 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                  isPulsing
+                    ? 'bg-rose-950/80 text-rose-300 border-rose-500/40'
+                    : 'bg-[#141414] text-neutral-400 border-[#F5F5F0]/10'
+                }`}
+              >
+                {isPulsing ? 'Pulse: ON' : 'Pulse: STATIC'}
+              </button>
+            </div>
           </div>
+
+          {/* Deep Layers Manager Popover Pane */}
+          {isLayersManagerOpen && (
+            <div className="p-3.5 rounded-xl bg-[#090E0B] border border-[#C5A059]/40 space-y-3 animate-in fade-in zoom-in-95 duration-150 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-[#F5F5F0]/10 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[#C5A059] font-bold text-xs uppercase flex items-center gap-1.5 font-mono">
+                    <Layers className="w-4 h-4 text-[#C5A059]" />
+                    Ecological Hotspot Layers & Visibility Manager
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-[#162019] text-[#F5F5F0]/80 text-[10px] font-mono">
+                    Showing {filteredZones.length} of {SCARCITY_ZONES.length} Epicenters
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setActiveLayers({ water: true, energy: true, nutrient: true });
+                      setHotspotOpacity(0.85);
+                      setMinSeverity(50);
+                      audioFeedback.playMicroTick();
+                    }}
+                    className="text-[10px] text-neutral-400 hover:text-white underline cursor-pointer"
+                  >
+                    Reset Defaults
+                  </button>
+                  <button
+                    onClick={() => setIsLayersManagerOpen(false)}
+                    className="text-neutral-400 hover:text-white p-1 rounded hover:bg-white/10 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Layer Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs font-mono">
+                {/* Water Layer Card */}
+                <div className={`p-3 rounded-lg border transition-all ${
+                  activeLayers.water
+                    ? 'bg-[#131A15] border-rose-500/40'
+                    : 'bg-[#0B0F0C] border-[#F5F5F0]/10 opacity-60'
+                }`}>
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="font-bold text-rose-300 flex items-center gap-1.5">
+                      <Droplets className="w-3.5 h-3.5 text-cyan-400" />
+                      Water Baseflow Deficits
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={activeLayers.water}
+                      onChange={(e) => {
+                        setActiveLayers({ ...activeLayers, water: e.target.checked });
+                        audioFeedback.playMicroTick();
+                      }}
+                      className="accent-rose-500 w-4 h-4 cursor-pointer"
+                    />
+                  </div>
+                  <div className="text-[10px] text-neutral-400 font-sans space-y-0.5 pt-1">
+                    <p>Monitors seasonal baseflow, deep-aquifer depression cones & siltation chokes.</p>
+                    <div className="text-neutral-300 font-mono text-[9px] pt-1">
+                      3 Epicenters • 34,400 ha • 187,000 Inhabitants
+                    </div>
+                  </div>
+                </div>
+
+                {/* Energy Layer Card */}
+                <div className={`p-3 rounded-lg border transition-all ${
+                  activeLayers.energy
+                    ? 'bg-[#131A15] border-amber-500/40'
+                    : 'bg-[#0B0F0C] border-[#F5F5F0]/10 opacity-60'
+                }`}>
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-400" />
+                      Energy Storage Deficits
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={activeLayers.energy}
+                      onChange={(e) => {
+                        setActiveLayers({ ...activeLayers, energy: e.target.checked });
+                        audioFeedback.playMicroTick();
+                      }}
+                      className="accent-amber-500 w-4 h-4 cursor-pointer"
+                    />
+                  </div>
+                  <div className="text-[10px] text-neutral-400 font-sans space-y-0.5 pt-1">
+                    <p>Monitors solar battery saturation deficits & cooling microgrid curtailment.</p>
+                    <div className="text-neutral-300 font-mono text-[9px] pt-1">
+                      2 Epicenters • 42,000 ha • 40,000 Inhabitants
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nutrient Layer Card */}
+                <div className={`p-3 rounded-lg border transition-all ${
+                  activeLayers.nutrient
+                    ? 'bg-[#131A15] border-purple-500/40'
+                    : 'bg-[#0B0F0C] border-[#F5F5F0]/10 opacity-60'
+                }`}>
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="font-bold text-purple-300 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-purple-400" />
+                      Soil Nutrient Voids
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={activeLayers.nutrient}
+                      onChange={(e) => {
+                        setActiveLayers({ ...activeLayers, nutrient: e.target.checked });
+                        audioFeedback.playMicroTick();
+                      }}
+                      className="accent-purple-500 w-4 h-4 cursor-pointer"
+                    />
+                  </div>
+                  <div className="text-[10px] text-neutral-400 font-sans space-y-0.5 pt-1">
+                    <p>Monitors volcanic phosphate lockup, continuous grazing voids & SOM loss.</p>
+                    <div className="text-neutral-300 font-mono text-[9px] pt-1">
+                      2 Epicenters • 39,500 ha • 44,500 Inhabitants
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Opacity & Visualization Presets */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-lg bg-[#040805] border border-[#F5F5F0]/10 text-[10px] font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="text-neutral-400">Opacity Presets:</span>
+                  {[
+                    { label: 'Subtle (35%)', val: 0.35 },
+                    { label: 'Standard (75%)', val: 0.75 },
+                    { label: 'Vivid (100%)', val: 1.0 }
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      onClick={() => {
+                        setHotspotOpacity(p.val);
+                        audioFeedback.playMicroTick();
+                      }}
+                      className={`px-2 py-0.5 rounded cursor-pointer transition-all border ${
+                        Math.abs(hotspotOpacity - p.val) < 0.05
+                          ? 'bg-[#C5A059] text-black font-bold border-[#C5A059]'
+                          : 'bg-[#111812] text-neutral-300 border-[#F5F5F0]/10 hover:border-white/20'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-neutral-400">Layer Presets:</span>
+                  <button
+                    onClick={() => {
+                      setActiveLayers({ water: true, energy: true, nutrient: true });
+                      audioFeedback.playMicroTick();
+                    }}
+                    className="px-2 py-0.5 rounded bg-[#111812] text-neutral-300 border border-[#F5F5F0]/10 hover:border-white/20 cursor-pointer"
+                  >
+                    All Active
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveLayers({ water: true, energy: false, nutrient: false });
+                      audioFeedback.playMicroTick();
+                    }}
+                    className="px-2 py-0.5 rounded bg-[#111812] text-rose-300 border border-rose-500/30 hover:border-rose-500 cursor-pointer"
+                  >
+                    Solo Water
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveLayers({ water: false, energy: true, nutrient: false });
+                      audioFeedback.playMicroTick();
+                    }}
+                    className="px-2 py-0.5 rounded bg-[#111812] text-amber-300 border border-amber-500/30 hover:border-amber-500 cursor-pointer"
+                  >
+                    Solo Energy
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveLayers({ water: false, energy: false, nutrient: true });
+                      audioFeedback.playMicroTick();
+                    }}
+                    className="px-2 py-0.5 rounded bg-[#111812] text-purple-300 border border-purple-500/30 hover:border-purple-500 cursor-pointer"
+                  >
+                    Solo Nutrients
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

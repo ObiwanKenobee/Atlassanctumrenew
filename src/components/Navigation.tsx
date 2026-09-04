@@ -19,7 +19,9 @@ import {
   Radio,
   Cpu,
   GitBranch,
-  Globe2
+  Globe2,
+  Compass,
+  Leaf
 } from 'lucide-react';
 import { PageView } from '../types';
 import { PrimaryNavigationItem, BadgeColorVariant } from '../types/navigation';
@@ -38,6 +40,8 @@ import { useAuth } from '../context/AuthContext';
 import { UncertaintyOverlayToggle } from '../context/UncertaintyOverlayContext';
 import { OfflineModeToggle } from './navigation/OfflineModeToggle';
 import { SystemVitalityMonitor } from './navigation/SystemVitalityMonitor';
+import { SystemPulseIcon } from './diagnostics/SystemPulseIcon';
+import { BioregionalHazardBeacon } from './navigation/BioregionalHazardBeacon';
 import { MoralAlignmentHUD } from './MoralAlignmentHUD';
 import { audioFeedback } from '../lib/audioFeedback';
 import { prefetchView } from '../lib/viewPrefetch';
@@ -64,10 +68,10 @@ export const Navigation: React.FC<NavigationProps> = ({
   const { unreadCount, setIsDrawerOpen } = useMissionAlerts();
   const { userProfile, currentUser, updatePlatformSettings } = useAuth();
 
-  // Theme preference state ('dark' | 'light' | 'system') persisted to localStorage
-  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'system'>(() => {
+  // Theme preference state ('dark' | 'light' | 'system' | 'context_aware') persisted to localStorage
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'system' | 'context_aware'>(() => {
     const saved = localStorage.getItem('atlas_theme_mode');
-    return (saved === 'dark' || saved === 'light' || saved === 'system') ? saved : 'dark';
+    return (saved === 'dark' || saved === 'light' || saved === 'system' || saved === 'context_aware') ? saved : 'dark';
   });
 
   useEffect(() => {
@@ -93,9 +97,10 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   const handleToggleTheme = () => {
     audioFeedback.playSubtleClick();
-    let nextTheme: 'dark' | 'light' | 'system';
+    let nextTheme: 'dark' | 'light' | 'system' | 'context_aware';
     if (currentTheme === 'dark') nextTheme = 'light';
     else if (currentTheme === 'light') nextTheme = 'system';
+    else if (currentTheme === 'system') nextTheme = 'context_aware';
     else nextTheme = 'dark';
 
     setCurrentTheme(nextTheme);
@@ -638,6 +643,25 @@ export const Navigation: React.FC<NavigationProps> = ({
             <span className="hidden md:inline">AI Sanctum</span>
           </button>
 
+          {/* Voice Command Natural Language Navigator (V) */}
+          <button
+            id="open-voice-command-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              const event = new CustomEvent('open-gemini-live');
+              window.dispatchEvent(event);
+            }}
+            aria-label="Open Voice Commands (Press V)"
+            title="Voice Commands: Speak to navigate views & trigger actions (Press V)"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] sm:min-h-[38px] border border-[#C5A059]/40 hover:border-[#C5A059] bg-[#0D0D0D] hover:bg-[#1B3022] rounded-full text-xs font-mono text-[#C5A059] transition-all cursor-pointer shadow-xs"
+          >
+            <Mic className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <span className="hidden xl:inline text-[11px] font-bold">Voice</span>
+            <kbd className="hidden lg:inline px-1 py-0.2 text-[9px] bg-black/50 border border-[#C5A059]/30 rounded text-neutral-300 font-mono">
+              V
+            </kbd>
+          </button>
+
           {/* Global Search & Command Center (⌘K / /) */}
           <button
             id="open-command-center-btn"
@@ -664,15 +688,21 @@ export const Navigation: React.FC<NavigationProps> = ({
             />
           </div>
 
-          {/* Infrastructure Health Status: SystemVitalityMonitor */}
-          <SystemVitalityMonitor />
+          {/* Real-time Bioregional Hazard Monitor Beacon */}
+          <BioregionalHazardBeacon onSelectTab={onSelectTab} />
 
-          {/* Theme Toggle Button (Cycles through 'Dark', 'Light', and 'System' preferences) */}
+          {/* Infrastructure Health Status: SystemVitalityMonitor & Real-time System Pulse */}
+          <div className="flex items-center gap-1.5">
+            <SystemPulseIcon />
+            <SystemVitalityMonitor />
+          </div>
+
+          {/* Theme Toggle Button (Cycles through 'Dark', 'Light', 'System', and 'Context-Aware' preferences) */}
           <button
             id="theme-toggle-btn"
             onClick={handleToggleTheme}
             aria-label={`Theme preference: ${currentTheme}. Click to cycle theme`}
-            title={`Switch Theme: currently ${currentTheme.toUpperCase()} (Click to switch to ${currentTheme === 'dark' ? 'LIGHT' : currentTheme === 'light' ? 'SYSTEM' : 'DARK'})`}
+            title={`Switch Theme: currently ${currentTheme.toUpperCase()} (Click to cycle between Dark, Light, System, and Context-Aware)`}
             className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] sm:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/80 hover:text-[#F5F5F0] cursor-pointer"
           >
             {currentTheme === 'dark' && (
@@ -691,6 +721,12 @@ export const Navigation: React.FC<NavigationProps> = ({
               <>
                 <Monitor className="w-3.5 h-3.5 text-cyan-400" />
                 <span className="text-[10px] hidden md:inline font-mono">System</span>
+              </>
+            )}
+            {currentTheme === 'context_aware' && (
+              <>
+                <Compass className="w-3.5 h-3.5 text-emerald-400 animate-spin-slow" />
+                <span className="text-[10px] hidden md:inline font-mono text-emerald-300 font-bold">Auto</span>
               </>
             )}
           </button>

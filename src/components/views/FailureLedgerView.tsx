@@ -18,24 +18,48 @@ import {
   XCircle,
   HelpCircle,
   Hash,
-  Download
+  Download,
+  RotateCcw
 } from 'lucide-react';
 import { FAILURE_LEDGER_ENTRIES } from '../../data/failureLedgerData';
 import { FailureLedgerEntry, FailureCategory, FailureSeverity } from '../../types';
 import { RealityCheck } from '../RealityCheck';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { useConfirmation } from '../../context/ConfirmationDialogContext';
 
 interface FailureLedgerViewProps {
   onInspectProvenance?: (prov: any) => void;
 }
 
 export const FailureLedgerView: React.FC<FailureLedgerViewProps> = ({ onInspectProvenance }) => {
+  const { confirm } = useConfirmation();
   const [entries, setEntries] = useState<FailureLedgerEntry[]>(FAILURE_LEDGER_ENTRIES);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
   const [expandedEntryId, setExpandedEntryId] = useState<string>(FAILURE_LEDGER_ENTRIES[0].id);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+
+  const handleResetLedger = async () => {
+    const confirmed = await confirm({
+      title: 'Purge & Reset Failure Ledger',
+      message: 'Are you sure you want to reset all failure records to the canonical baseline? Any newly logged uncommitted failure reports will be permanently purged.',
+      confirmText: 'Purge & Reset Ledger',
+      cancelText: 'Keep Current Ledger',
+      variant: 'danger',
+      requiresTypedConfirmation: 'RESET',
+      consequenceSummary: [
+        'Custom local case drafts will be deleted',
+        'Ledger state reverts to verified genesis entries',
+        'Historical failure index will be recomputed'
+      ]
+    });
+
+    if (confirmed) {
+      setEntries(FAILURE_LEDGER_ENTRIES);
+      audioFeedback.playSuccessChime();
+    }
+  };
 
   // New failure report form state
   const [newProjectName, setNewProjectName] = useState('');
@@ -148,11 +172,20 @@ export const FailureLedgerView: React.FC<FailureLedgerViewProps> = ({ onInspectP
 
         <div className="flex items-center gap-3">
           <button
+            onClick={handleResetLedger}
+            className="px-3 py-2.5 bg-neutral-900 hover:bg-red-950/80 text-neutral-300 hover:text-red-300 border border-neutral-700 hover:border-red-500/50 font-bold text-xs uppercase font-mono tracking-wider rounded-sm flex items-center gap-1.5 transition-all cursor-pointer shadow"
+            title="Purge custom changes and revert ledger to canonical baseline"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-neutral-400" />
+            <span>Reset Ledger</span>
+          </button>
+
+          <button
             onClick={() => {
               setIsSubmitModalOpen(true);
               audioFeedback.playMicroTick();
             }}
-            className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#b08e4c] text-black font-bold text-xs uppercase font-mono tracking-widest rounded-sm flex items-center gap-1.5 transition-all shadow"
+            className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#b08e4c] text-black font-bold text-xs uppercase font-mono tracking-widest rounded-sm flex items-center gap-1.5 transition-all shadow cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Log Failure Case

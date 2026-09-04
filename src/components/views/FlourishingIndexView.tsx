@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { FlourishingDimension, FlourishingIndicator } from '../../types';
 import { FLOURISHING_DIMENSIONS } from '../../data/prompt2CivilizationData';
+import { BioregionalTrendsModule } from '../flourishing/BioregionalTrendsModule';
 
 interface FlourishingIndexViewProps {
   onSelectTab: (tab: any) => void;
@@ -166,6 +167,9 @@ export const FlourishingIndexView: React.FC<FlourishingIndexViewProps> = ({ onSe
           })}
         </div>
       </div>
+
+      {/* BIOREGIONAL HISTORICAL TRENDS & REGENERATIVE METRICS (RECHARTS) */}
+      <BioregionalTrendsModule />
 
       {/* Main Breakdown: Dimension Deep-Dive & Community Weight Calibration */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

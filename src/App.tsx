@@ -12,26 +12,32 @@ import { ActiveMissionStatusBar } from './components/ActiveMissionStatusBar';
 import { Footer } from './components/Footer';
 import { GlobalLoadingIndicator } from './components/GlobalLoadingIndicator';
 import { ViewLoadingSkeleton } from './components/ViewLoadingSkeleton';
-import { CommandmentsModal } from './components/CommandmentsModal';
-import { CommandCenterModal } from './components/CommandCenterModal';
-import { MoralScorecardModal } from './components/MoralScorecardModal';
-import { DataProvenanceModal } from './components/DataProvenanceModal';
-import { FloatingNewsletterWidget } from './components/FloatingNewsletterWidget';
-import { FloatingWelcomeBanner } from './components/FloatingWelcomeBanner';
-import { GeminiChatModal } from './components/GeminiChatModal';
-import { LiveVoiceModal } from './components/LiveVoiceModal';
 import { ThemeAndAccessSyncListener } from './components/ThemeAndAccessSyncListener';
+import { ConfirmationProvider } from './context/ConfirmationDialogContext';
+import { ContextAwareThemeProvider } from './context/ContextAwareThemeContext';
 import { MoralCompassCursor } from './components/MoralCompassCursor';
-import { MissionAlertDrawer } from './components/MissionAlertDrawer';
-import { GlobalEpistemicSearch } from './components/GlobalEpistemicSearch';
-import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
-import { TrustLayerModal } from './components/trust/TrustLayerModal';
 import { TrustLayerBanner } from './components/trust/TrustLayerBanner';
 import { VerificationToastProvider } from './context/VerificationToastContext';
 import { VerificationNotificationContainer } from './components/verification/VerificationNotificationContainer';
+import { BioregionalHazardProvider } from './context/BioregionalHazardContext';
 import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
+
+// Dynamic imports for secondary modals and utility widgets to reduce initial bundle size
+const CommandmentsModal = React.lazy(() => import('./components/CommandmentsModal').then(m => ({ default: m.CommandmentsModal })));
+const CommandCenterModal = React.lazy(() => import('./components/CommandCenterModal').then(m => ({ default: m.CommandCenterModal })));
+const MoralScorecardModal = React.lazy(() => import('./components/MoralScorecardModal').then(m => ({ default: m.MoralScorecardModal })));
+const DataProvenanceModal = React.lazy(() => import('./components/DataProvenanceModal').then(m => ({ default: m.DataProvenanceModal })));
+const FloatingNewsletterWidget = React.lazy(() => import('./components/FloatingNewsletterWidget').then(m => ({ default: m.FloatingNewsletterWidget })));
+const FloatingWelcomeBanner = React.lazy(() => import('./components/FloatingWelcomeBanner').then(m => ({ default: m.FloatingWelcomeBanner })));
+const GeminiChatModal = React.lazy(() => import('./components/GeminiChatModal').then(m => ({ default: m.GeminiChatModal })));
+const LiveVoiceModal = React.lazy(() => import('./components/LiveVoiceModal').then(m => ({ default: m.LiveVoiceModal })));
+const VoiceCommandModal = React.lazy(() => import('./components/navigation/VoiceCommandModal').then(m => ({ default: m.VoiceCommandModal })));
+const MissionAlertDrawer = React.lazy(() => import('./components/MissionAlertDrawer').then(m => ({ default: m.MissionAlertDrawer })));
+const GlobalEpistemicSearch = React.lazy(() => import('./components/GlobalEpistemicSearch').then(m => ({ default: m.GlobalEpistemicSearch })));
+const KeyboardShortcutsModal = React.lazy(() => import('./components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })));
+const TrustLayerModal = React.lazy(() => import('./components/trust/TrustLayerModal').then(m => ({ default: m.TrustLayerModal })));
 
 // Lazy-Loaded Views for instant code-splitting and progressive delivery
 const AtlasStewardView = React.lazy(() => import('./components/steward/AtlasStewardView').then(m => ({ default: m.AtlasStewardView })));
@@ -86,6 +92,7 @@ export default function App() {
   const [commandmentsModalOpen, setCommandmentsModalOpen] = useState(false);
   const [geminiChatOpen, setGeminiChatOpen] = useState(false);
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false);
+  const [voiceCommandOpen, setVoiceCommandOpen] = useState(false);
   const [commandCenterInitialQuery, setCommandCenterInitialQuery] = useState<string>('');
   const [provenanceModalData, setProvenanceModalData] = useState<DataProvenance | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -113,12 +120,16 @@ export default function App() {
         } else if (e.key === '/') {
           e.preventDefault();
           setGlobalSearchOpen(true);
+        } else if (e.key.toLowerCase() === 'v') {
+          e.preventDefault();
+          setVoiceCommandOpen((prev) => !prev);
         }
       }
     };
 
     const handleOpenChat = () => setGeminiChatOpen(true);
     const handleOpenVoice = () => setLiveVoiceOpen(true);
+    const handleOpenVoiceCommand = () => setVoiceCommandOpen(true);
     const handleOpenCommandments = () => setCommandmentsModalOpen(true);
     const handleOpenSearch = () => setGlobalSearchOpen(true);
     const handleOpenShortcuts = () => setShortcutsModalOpen(true);
@@ -131,6 +142,7 @@ export default function App() {
       setCommandmentsModalOpen(false);
       setGeminiChatOpen(false);
       setLiveVoiceOpen(false);
+      setVoiceCommandOpen(false);
       setProvenanceModalData(null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -138,6 +150,7 @@ export default function App() {
       const q = e.detail?.query;
       if (q) {
         setLiveVoiceOpen(false);
+        setVoiceCommandOpen(false);
         setCommandCenterInitialQuery(q);
         setCommandCenterOpen(true);
       }
@@ -151,6 +164,8 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('open-gemini-chat', handleOpenChat);
     window.addEventListener('open-live-voice', handleOpenVoice);
+    window.addEventListener('open-voice-commands', handleOpenVoiceCommand);
+    window.addEventListener('open-gemini-live', handleOpenVoiceCommand);
     window.addEventListener('open-commandments', handleOpenCommandments);
     window.addEventListener('open-global-search', handleOpenSearch);
     window.addEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
@@ -165,6 +180,8 @@ export default function App() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('open-gemini-chat', handleOpenChat);
       window.removeEventListener('open-live-voice', handleOpenVoice);
+      window.removeEventListener('open-voice-commands', handleOpenVoiceCommand);
+      window.removeEventListener('open-gemini-live', handleOpenVoiceCommand);
       window.removeEventListener('open-commandments', handleOpenCommandments);
       window.removeEventListener('open-global-search', handleOpenSearch);
       window.removeEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
@@ -197,13 +214,16 @@ export default function App() {
     <AuthProvider>
       <Web3WalletProvider>
         <OfflineSyncProvider>
-          <MissionAlertProvider>
-            <UncertaintyOverlayProvider>
-              <TrustLayerProvider>
-                <ActiveMissionProvider>
-                  <VerificationToastProvider>
-                    <ThemeAndAccessSyncListener>
-                    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
+          <ContextAwareThemeProvider>
+            <MissionAlertProvider>
+              <UncertaintyOverlayProvider>
+                <TrustLayerProvider>
+                  <ActiveMissionProvider>
+                    <VerificationToastProvider>
+                      <ConfirmationProvider>
+                        <BioregionalHazardProvider>
+                          <ThemeAndAccessSyncListener>
+                            <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
             {/* Moral Compass Dynamic Cursor Trail */}
             <MoralCompassCursor 
               moralIntensity={94.8} 
@@ -550,98 +570,111 @@ export default function App() {
               onOpenCommandCenter={() => setCommandCenterOpen(true)}
             />
 
-            {/* Mission Alert Notification Slide-over Drawer */}
-            <MissionAlertDrawer 
-              onSelectTab={handleSelectTab}
-              onInspectProvenance={handleInspectProvenance}
-            />
+            {/* Secondary Utility Modals & Drawers wrapped in Suspense */}
+            <Suspense fallback={null}>
+              {/* Mission Alert Notification Slide-over Drawer */}
+              <MissionAlertDrawer 
+                onSelectTab={handleSelectTab}
+                onInspectProvenance={handleInspectProvenance}
+              />
 
-            {/* 10 Commandments of Architecture Modal */}
-            <CommandmentsModal
-              isOpen={commandmentsModalOpen}
-              onClose={() => setCommandmentsModalOpen(false)}
-            />
+              {/* 10 Commandments of Architecture Modal */}
+              <CommandmentsModal
+                isOpen={commandmentsModalOpen}
+                onClose={() => setCommandmentsModalOpen(false)}
+              />
 
-            {/* Multi-Turn Gemini Chatbot Modal */}
-            <GeminiChatModal
-              isOpen={geminiChatOpen}
-              onClose={() => setGeminiChatOpen(false)}
-            />
+              {/* Multi-Turn Gemini Chatbot Modal */}
+              <GeminiChatModal
+                isOpen={geminiChatOpen}
+                onClose={() => setGeminiChatOpen(false)}
+              />
 
-            {/* Live Voice Streaming Modal */}
-            <LiveVoiceModal
-              isOpen={liveVoiceOpen}
-              onClose={() => setLiveVoiceOpen(false)}
-              onTriggerCommandCenterSearch={(query) => {
-                setLiveVoiceOpen(false);
-                setCommandCenterInitialQuery(query);
-                setCommandCenterOpen(true);
-              }}
-            />
+              {/* Live Voice Streaming Modal */}
+              <LiveVoiceModal
+                isOpen={liveVoiceOpen}
+                onClose={() => setLiveVoiceOpen(false)}
+                onTriggerCommandCenterSearch={(query) => {
+                  setLiveVoiceOpen(false);
+                  setCommandCenterInitialQuery(query);
+                  setCommandCenterOpen(true);
+                }}
+              />
 
-            {/* Global AI Command Center Modal (⌘K) */}
-            <CommandCenterModal
-              isOpen={commandCenterOpen}
-              initialQuery={commandCenterInitialQuery}
-              onClose={() => {
-                setCommandCenterOpen(false);
-                setCommandCenterInitialQuery('');
-              }}
-              onSelectProject={(proj) => {
-                setCommandCenterOpen(false);
-                handleSelectTab('observatory');
-              }}
-            />
+              {/* Global AI Command Center Modal (⌘K) */}
+              <CommandCenterModal
+                isOpen={commandCenterOpen}
+                initialQuery={commandCenterInitialQuery}
+                onClose={() => {
+                  setCommandCenterOpen(false);
+                  setCommandCenterInitialQuery('');
+                }}
+                onSelectProject={(proj) => {
+                  setCommandCenterOpen(false);
+                  handleSelectTab('observatory');
+                }}
+              />
 
-            {/* Global Moral Intelligence Policy Evaluator Modal */}
-            <MoralScorecardModal
-              isOpen={moralSimulatorOpen}
-              onClose={() => setMoralSimulatorOpen(false)}
-            />
+              {/* Global Moral Intelligence Policy Evaluator Modal */}
+              <MoralScorecardModal
+                isOpen={moralSimulatorOpen}
+                onClose={() => setMoralSimulatorOpen(false)}
+              />
 
-            {/* Global Epistemic Data Provenance Modal */}
-            <DataProvenanceModal
-              provenance={provenanceModalData}
-              isOpen={!!provenanceModalData}
-              onClose={() => setProvenanceModalData(null)}
-            />
+              {/* Global Epistemic Data Provenance Modal */}
+              <DataProvenanceModal
+                provenance={provenanceModalData}
+                isOpen={!!provenanceModalData}
+                onClose={() => setProvenanceModalData(null)}
+              />
 
-            {/* Global Epistemic Search Modal (Triggered by /) */}
-            <GlobalEpistemicSearch
-              isOpen={globalSearchOpen}
-              onClose={() => setGlobalSearchOpen(false)}
-              onSelectTab={handleSelectTab}
-            />
+              {/* Global Epistemic Search Modal (Triggered by /) */}
+              <GlobalEpistemicSearch
+                isOpen={globalSearchOpen}
+                onClose={() => setGlobalSearchOpen(false)}
+                onSelectTab={handleSelectTab}
+              />
 
-            {/* Global Keyboard Shortcuts Modal (Triggered by ?) */}
-            <KeyboardShortcutsModal
-              isOpen={shortcutsModalOpen}
-              onClose={() => setShortcutsModalOpen(false)}
-              onSelectTab={handleSelectTab}
-            />
+              {/* Global Keyboard Shortcuts Modal (Triggered by ?) */}
+              <KeyboardShortcutsModal
+                isOpen={shortcutsModalOpen}
+                onClose={() => setShortcutsModalOpen(false)}
+                onSelectTab={handleSelectTab}
+              />
 
-            {/* Mini Floating Newsletter & Research Dispatch Widget */}
-            <FloatingNewsletterWidget
-              onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
-            />
+              {/* Mini Floating Newsletter & Research Dispatch Widget */}
+              <FloatingNewsletterWidget
+                onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
+              />
 
-            {/* Mini Sovereign Cookie & Trust Layer Banner (Docked on Left) */}
-            <TrustLayerBanner />
+              {/* Mini Sovereign Cookie & Trust Layer Banner (Docked on Left) */}
+              <TrustLayerBanner />
 
-            {/* Central Master 12-Pillar Trust Layer Modal */}
-            <TrustLayerModal />
+              {/* SpeechRecognition-powered Voice Command Modal */}
+              <VoiceCommandModal
+                isOpen={voiceCommandOpen}
+                onClose={() => setVoiceCommandOpen(false)}
+                onSelectTab={handleSelectTab}
+              />
+
+              {/* Central Master 12-Pillar Trust Layer Modal */}
+              <TrustLayerModal />
+            </Suspense>
 
             {/* Blockchain-backed Epistemic Ledger Verification Notification Toasts */}
             <VerificationNotificationContainer />
           </div>
         </ThemeAndAccessSyncListener>
+        </BioregionalHazardProvider>
+        </ConfirmationProvider>
         </VerificationToastProvider>
         </ActiveMissionProvider>
         </TrustLayerProvider>
         </UncertaintyOverlayProvider>
-      </MissionAlertProvider>
-      </OfflineSyncProvider>
-      </Web3WalletProvider>
+        </MissionAlertProvider>
+        </ContextAwareThemeProvider>
+        </OfflineSyncProvider>
+        </Web3WalletProvider>
     </AuthProvider>
   );
 }
