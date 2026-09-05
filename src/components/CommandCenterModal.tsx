@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Sparkles, X, AlertCircle, ArrowRight, Shield, Layers, HelpCircle, RefreshCw } from 'lucide-react';
+import { Search, Sparkles, X, AlertCircle, ArrowRight, Shield, Layers, HelpCircle, RefreshCw, Terminal, Bug } from 'lucide-react';
+import { SystemDiagnosticReportView } from './diagnostics/SystemDiagnosticReportView';
+import { errorLogger } from '../lib/errorLogger';
 
 interface CommandCenterModalProps {
   isOpen: boolean;
@@ -20,6 +22,7 @@ interface IntelligenceResponse {
 }
 
 const PRESET_QUERIES = [
+  "system-diagnostic-report: Inspect JavaScript runtime errors & unhandled rejections",
   "Analyze a place: Nairobi Mathare River Basin",
   "Find an opportunity: Regenerative urban drainage & permeable pavers",
   "Compare interventions in the Decision Room",
@@ -35,10 +38,20 @@ export const CommandCenterModal: React.FC<CommandCenterModalProps> = ({
   onNavigateTab,
   initialQuery
 }) => {
+  const [activeTab, setActiveTab] = useState<'intelligence' | 'diagnostics'>('intelligence');
+  const [diagnosticErrorCount, setDiagnosticErrorCount] = useState<number>(() => errorLogger.getLogs().length);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<IntelligenceResponse | null>(null);
   const [sourceTag, setSourceTag] = useState<string>('');
+  
+  // Track error count
+  useEffect(() => {
+    const unsub = errorLogger.subscribe((logs) => {
+      setDiagnosticErrorCount(logs.length);
+    });
+    return () => unsub();
+  }, []);
   
   // Touch swipe-to-dismiss gesture state for tablets and mobile
   const [touchOffsetY, setTouchOffsetY] = useState<number>(0);
@@ -71,6 +84,21 @@ export const CommandCenterModal: React.FC<CommandCenterModalProps> = ({
 
   const handleRunQuery = async (queryToRun: string) => {
     if (!queryToRun.trim()) return;
+    
+    // Check if query is targeting the system-diagnostic-report tool
+    const lower = queryToRun.toLowerCase().trim();
+    if (
+      lower.includes('system-diagnostic-report') ||
+      lower.includes('diagnostic report') ||
+      lower === 'diagnostics' ||
+      lower === 'error log' ||
+      lower === 'errors'
+    ) {
+      setActiveTab('diagnostics');
+      return;
+    }
+
+    setActiveTab('intelligence');
     setQuery(queryToRun);
     setLoading(true);
     setResult(null);
@@ -141,8 +169,18 @@ export const CommandCenterModal: React.FC<CommandCenterModalProps> = ({
   // Handle incoming initialQuery
   useEffect(() => {
     if (isOpen && initialQuery) {
-      setQuery(initialQuery);
-      handleRunQuery(initialQuery);
+      const lower = initialQuery.toLowerCase().trim();
+      if (
+        lower.includes('diagnostic') ||
+        lower.includes('system-diagnostic-report') ||
+        lower.includes('error log')
+      ) {
+        setActiveTab('diagnostics');
+      } else {
+        setActiveTab('intelligence');
+        setQuery(initialQuery);
+        handleRunQuery(initialQuery);
+      }
     }
   }, [isOpen, initialQuery]);
 
@@ -217,8 +255,47 @@ export const CommandCenterModal: React.FC<CommandCenterModalProps> = ({
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="p-4 sm:p-6 border-b border-[#F5F5F0]/10 bg-[#0D0D0D] shrink-0">
+        {/* Mode Navigation Ribbon */}
+        <div className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-[#090909] border-b border-[#F5F5F0]/10 text-xs font-mono select-none overflow-x-auto">
+          <button
+            id="cmd-tab-intelligence"
+            onClick={() => setActiveTab('intelligence')}
+            className={`px-3 py-1.5 rounded flex items-center gap-1.5 transition-all cursor-pointer font-bold shrink-0 ${
+              activeTab === 'intelligence'
+                ? 'bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/40 shadow-sm'
+                : 'text-neutral-400 hover:text-white border border-transparent'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Decision Intelligence</span>
+          </button>
+          <button
+            id="cmd-tab-diagnostics"
+            onClick={() => setActiveTab('diagnostics')}
+            className={`px-3 py-1.5 rounded flex items-center gap-1.5 transition-all cursor-pointer font-bold shrink-0 ${
+              activeTab === 'diagnostics'
+                ? 'bg-rose-950/80 text-rose-300 border border-rose-500/50 shadow-sm'
+                : 'text-neutral-400 hover:text-white border border-transparent'
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5 text-rose-400" />
+            <span>system-diagnostic-report</span>
+            {diagnosticErrorCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-rose-500 text-white font-bold ml-0.5">
+                {diagnosticErrorCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeTab === 'diagnostics' ? (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <SystemDiagnosticReportView isEmbedded={true} onClose={onClose} />
+          </div>
+        ) : (
+          <>
+            {/* Search Bar */}
+            <div className="p-4 sm:p-6 border-b border-[#F5F5F0]/10 bg-[#0D0D0D] shrink-0">
           <form 
             onSubmit={(e) => {
               e.preventDefault();
@@ -402,6 +479,8 @@ export const CommandCenterModal: React.FC<CommandCenterModalProps> = ({
             </div>
           )}
         </div>
+        </>
+      )}
 
         {/* Responsible AI Transparency Footer */}
         <div className="px-6 py-3 bg-[#080808] border-t border-[#F5F5F0]/10 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-[#F5F5F0]/50 font-mono">

@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, RotateCcw, Copy, Check, Terminal, ShieldAlert, Home } from 'lucide-react';
+import { errorLogger } from '../lib/errorLogger';
 
 interface Props {
   children: ReactNode;
@@ -41,6 +42,11 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Atlas Sanctum Global Error Boundary caught an error:', error, errorInfo);
+    try {
+      errorLogger.recordReactBoundaryError(error, errorInfo?.componentStack || undefined);
+    } catch {
+      // ignore
+    }
     this.setState({
       error,
       errorInfo

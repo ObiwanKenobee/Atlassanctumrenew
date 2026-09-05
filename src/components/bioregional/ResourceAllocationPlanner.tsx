@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Sliders,
   TrendingUp,
@@ -25,10 +25,29 @@ import {
   X,
   History,
   GitCompare,
-  Plus
+  Plus,
+  Save,
+  Clock,
+  RefreshCw,
+  Activity,
+  Maximize2
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid,
+  ReferenceLine
+} from 'recharts';
 import { BioregionalLedgerData } from '../../data/bioregionalLedgerData';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { useViewRenderTracker } from '../../hooks/useViewRenderTracker';
 
 export interface ResourceFlowAllocation {
   flowId: string;
@@ -80,10 +99,27 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
   onApplyScenario,
   onClose
 }) => {
+  useViewRenderTracker('Resource Allocation Planner');
+
   const [targetYear, setTargetYear] = useState<number>(2030);
   const [appliedPresetId, setAppliedPresetId] = useState<string>('balanced');
   const [appliedSuccess, setAppliedSuccess] = useState<boolean>(false);
   const [snapshotSuccessToast, setSnapshotSuccessToast] = useState<string | null>(null);
+
+  // Local Autosave State & Persistence
+  const autosaveKey = useMemo(() => `bioregional_alloc_planner_autosave_${region.regionId}`, [region.regionId]);
+  const checkpointsKey = useMemo(() => `bioregional_alloc_checkpoints_${region.regionId}`, [region.regionId]);
+  const [lastAutosavedAt, setLastAutosavedAt] = useState<string | null>(null);
+  const [hasRestorableDraft, setHasRestorableDraft] = useState<boolean>(false);
+  const [restorableDraftData, setRestorableDraftData] = useState<{
+    targetYear: number;
+    allocations: ResourceFlowAllocation[];
+    appliedPresetId: string;
+    timestamp: string;
+  } | null>(null);
+  const [draftBannerDismissed, setDraftBannerDismissed] = useState<boolean>(false);
+  const [chartMetric, setChartMetric] = useState<'flourishing' | 'water' | 'carbon' | 'circularity' | 'dual'>('flourishing');
+  const [showStatusQuoBaseline, setShowStatusQuoBaseline] = useState<boolean>(true);
 
   // Snapshot Management States
   const [snapshots, setSnapshots] = useState<ScenarioSnapshot[]>([
@@ -146,6 +182,88 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
       };
     });
   });
+
+  // Check for existing saved draft on initial mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(autosaveKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && Array.isArray(parsed.allocations) && parsed.allocations.length > 0) {
+          setRestorableDraftData(parsed);
+          setHasRestorableDraft(true);
+        }
+      }
+    } catch {
+      // ignore localStorage parse errors
+    }
+
+    try {
+      const storedCheckpoints = localStorage.getItem(checkpointsKey);
+      if (storedCheckpoints) {
+        const parsed = JSON.parse(storedCheckpoints);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSnapshots(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [autosaveKey, checkpointsKey]);
+
+  // Autosave to localStorage on allocation or configuration change
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      try {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const draftPayload = {
+          targetYear,
+          appliedPresetId,
+          allocations,
+          timestamp: timeStr,
+          epoch: now.getTime()
+        };
+        localStorage.setItem(autosaveKey, JSON.stringify(draftPayload));
+        setLastAutosavedAt(timeStr);
+      } catch (err) {
+        console.warn('Autosave to localStorage failed:', err);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [allocations, targetYear, appliedPresetId, autosaveKey]);
+
+  // Restore draft handler
+  const handleRestoreAutosaveDraft = () => {
+    if (!restorableDraftData) return;
+    audioFeedback.playSuccess();
+    setTargetYear(restorableDraftData.targetYear || 2030);
+    setAppliedPresetId(restorableDraftData.appliedPresetId || 'custom');
+    setAllocations(restorableDraftData.allocations);
+    setHasRestorableDraft(false);
+    setSnapshotSuccessToast(`Restored simulation draft from ${restorableDraftData.timestamp}`);
+    setTimeout(() => setSnapshotSuccessToast(null), 3500);
+  };
+
+  // Discard draft handler
+  const handleDiscardAutosaveDraft = () => {
+    audioFeedback.playMicroTick();
+    try {
+      localStorage.removeItem(autosaveKey);
+    } catch {
+      // ignore
+    }
+    setHasRestorableDraft(false);
+    setRestorableDraftData(null);
+    setLastAutosavedAt(null);
+  };
 
   // What-If Presets
   const PRESETS: WhatIfScenarioPreset[] = useMemo(() => [
@@ -308,6 +426,56 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
     };
   }, [allocations, targetYear]);
 
+  // 5-Year Real-Time Predictive Timeline Dataset for Recharts
+  const predictive5YearTimeline = useMemo(() => {
+    const years = [2026, 2027, 2028, 2029, 2030];
+    const baseScore = 78.4;
+    const baseWater = 1.48;
+    const baseCarbon = 4.20;
+    const baseCircularity = 88.0;
+
+    const finalTargetDeltaScore = projectionResults.projectedFlourishingScore - baseScore;
+    const finalTargetDeltaWater = projectionResults.projectedWaterYieldM3 - baseWater;
+    const finalTargetDeltaCarbon = projectionResults.projectedCarbonRate - baseCarbon;
+    const finalTargetDeltaCirc = projectionResults.avgCircularity - baseCircularity;
+
+    return years.map((yr, idx) => {
+      // Non-linear ecological maturation curve (smoothstep S-curve progress)
+      const t = idx / 4; // 0 to 1
+      const sCurve = t * t * (3 - 2 * t);
+
+      // Simulated Trajectory
+      const flourishingScore = +(baseScore + finalTargetDeltaScore * sCurve).toFixed(1);
+      const waterYieldM3 = +(baseWater + finalTargetDeltaWater * sCurve).toFixed(2);
+      const carbonRateTonnes = +(baseCarbon + finalTargetDeltaCarbon * sCurve).toFixed(2);
+      const circularityPct = +(baseCircularity + finalTargetDeltaCirc * sCurve).toFixed(1);
+
+      // Status Quo Baseline (climate stress baseline drift without interventions)
+      const climateStressDrift = idx * 0.32;
+      const flourishingBaseline = +(baseScore - climateStressDrift).toFixed(1);
+      const waterBaseline = +(baseWater * (1 - idx * 0.015)).toFixed(2);
+      const carbonBaseline = +(baseCarbon * (1 - idx * 0.012)).toFixed(2);
+      const circularityBaseline = +(baseCircularity - idx * 0.4).toFixed(1);
+
+      const deltaVsStatusQuo = +(flourishingScore - flourishingBaseline).toFixed(1);
+
+      return {
+        year: yr,
+        yearLabel: `${yr}`,
+        flourishingScore,
+        flourishingBaseline,
+        waterYieldM3,
+        waterBaseline,
+        carbonRateTonnes,
+        carbonBaseline,
+        circularityPct,
+        circularityBaseline,
+        deltaVsStatusQuo,
+        targetBoundary: 85.0
+      };
+    });
+  }, [projectionResults]);
+
   // Apply to ledger handler
   const handleCommitScenario = () => {
     audioFeedback.playSubtleClick();
@@ -326,27 +494,39 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
     }
   };
 
-  // Snapshot Management Handlers
-  const handleSaveSnapshot = () => {
+  // Snapshot & Checkpoint Management Handlers
+  const handleSaveSnapshot = (nameOverride?: string) => {
     audioFeedback.playSuccess();
     const activePreset = PRESETS.find((p) => p.id === appliedPresetId);
-    const presetLabel = activePreset ? activePreset.name : 'Custom Simulation Scenario';
-    const finalName = customSnapshotName.trim() || `${presetLabel} (Epoch ${targetYear})`;
+    const presetLabel = activePreset ? activePreset.name : 'Custom Allocation Baseline';
+    const now = new Date();
+    const dateFormatted = now.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const timeFormatted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const finalName = (nameOverride || customSnapshotName).trim() || `Checkpoint: ${presetLabel} (${dateFormatted} ${timeFormatted})`;
 
     const newSnapshot: ScenarioSnapshot = {
-      id: `snap-${Date.now()}`,
+      id: `checkpoint-${Date.now()}`,
       name: finalName,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: `${dateFormatted}, ${timeFormatted}`,
       targetYear,
       presetName: presetLabel,
       allocations: JSON.parse(JSON.stringify(allocations)),
       projections: { ...projectionResults }
     };
 
-    setSnapshots((prev) => [newSnapshot, ...prev]);
+    setSnapshots((prev) => {
+      const nextList = [newSnapshot, ...prev];
+      try {
+        localStorage.setItem(checkpointsKey, JSON.stringify(nextList));
+      } catch (err) {
+        console.warn('Failed to persist checkpoint to localStorage:', err);
+      }
+      return nextList;
+    });
+
     setCustomSnapshotName('');
-    setSnapshotSuccessToast(`Saved scenario snapshot: "${finalName}"`);
-    setTimeout(() => setSnapshotSuccessToast(null), 3200);
+    setSnapshotSuccessToast(`Manual Checkpoint Saved: "${finalName}" (Persisted in Local Storage)`);
+    setTimeout(() => setSnapshotSuccessToast(null), 3500);
   };
 
   const handleRevertToSnapshot = (snapshot: ScenarioSnapshot) => {
@@ -354,14 +534,22 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
     setTargetYear(snapshot.targetYear);
     setAllocations(JSON.parse(JSON.stringify(snapshot.allocations)));
     setAppliedPresetId('custom');
-    setSnapshotSuccessToast(`Reverted simulation state to "${snapshot.name}"`);
-    setTimeout(() => setSnapshotSuccessToast(null), 3200);
+    setSnapshotSuccessToast(`Reverted configuration to Checkpoint: "${snapshot.name}"`);
+    setTimeout(() => setSnapshotSuccessToast(null), 3500);
   };
 
   const handleDeleteSnapshot = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     audioFeedback.playMicroTick();
-    setSnapshots((prev) => prev.filter((s) => s.id !== id));
+    setSnapshots((prev) => {
+      const nextList = prev.filter((s) => s.id !== id);
+      try {
+        localStorage.setItem(checkpointsKey, JSON.stringify(nextList));
+      } catch {
+        // ignore
+      }
+      return nextList;
+    });
     if (comparingSnapshotId === id) setComparingSnapshotId(null);
   };
 
@@ -393,6 +581,50 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
         </div>
       )}
 
+      {/* Local Autosave Recovery Banner */}
+      {hasRestorableDraft && !draftBannerDismissed && restorableDraftData && (
+        <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#0F1E14] via-[#0A160F] to-[#07100B] border-2 border-emerald-500/60 shadow-[0_0_25px_rgba(16,185,129,0.15)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <span className="p-2 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+              <Clock className="w-4 h-4" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white text-xs">Unsaved Draft Detected in Local Storage</span>
+                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-emerald-950 text-emerald-300 border border-emerald-500/30">
+                  {restorableDraftData.timestamp}
+                </span>
+              </div>
+              <p className="text-[10px] text-neutral-300 font-sans mt-0.5">
+                An active simulation draft for {region.regionName} was preserved locally (Horizon {restorableDraftData.targetYear}, {restorableDraftData.allocations.length} custom flows). Restore where you left off?
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <button
+              onClick={handleRestoreAutosaveDraft}
+              className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-[11px] flex items-center gap-1.5 cursor-pointer shadow transition-all"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Restore Draft</span>
+            </button>
+            <button
+              onClick={handleDiscardAutosaveDraft}
+              className="px-2.5 py-1.5 rounded-lg bg-[#141A15] hover:bg-rose-950/60 text-neutral-400 hover:text-rose-300 border border-white/10 hover:border-rose-500/40 text-[11px] cursor-pointer transition-all"
+            >
+              Discard
+            </button>
+            <button
+              onClick={() => setDraftBannerDismissed(true)}
+              className="p-1 text-neutral-500 hover:text-white"
+              title="Dismiss banner"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#F5F5F0]/15 pb-4">
         <div className="flex items-center gap-3">
@@ -414,8 +646,29 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
           </div>
         </div>
 
-        {/* Right Header Controls: Snapshots Drawer Button + Horizon Switcher */}
+        {/* Right Header Controls: Local Autosave Badge + Snapshots Drawer Button + Horizon Switcher */}
         <div className="flex items-center gap-2.5 flex-wrap self-start md:self-auto">
+          {/* Autosave Status Badge */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0E1511] border border-emerald-500/30 text-[10px]">
+            <Save className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="text-neutral-400">Autosave:</span>
+            <span className="text-emerald-300 font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {lastAutosavedAt ? lastAutosavedAt : 'Active'}
+            </span>
+          </div>
+
+          {/* Manual Checkpoint Creator */}
+          <button
+            id="create-manual-checkpoint-btn"
+            onClick={() => handleSaveSnapshot()}
+            title="Create a manual checkpoint snapshot of the current state"
+            className="px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 hover:border-emerald-400 font-bold text-[10px] flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+          >
+            <Bookmark className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Create Checkpoint</span>
+          </button>
+
           {/* Snapshots Toggle */}
           <button
             onClick={() => {
@@ -484,7 +737,7 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
               className="flex-1 bg-black/40 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-cyan-400"
             />
             <button
-              onClick={handleSaveSnapshot}
+              onClick={() => handleSaveSnapshot()}
               className="px-3.5 py-1.5 rounded bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -507,8 +760,13 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
                 >
                   <div>
                     <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="font-bold text-white text-xs truncate">{snap.name}</span>
-                      <span className="text-[9px] text-neutral-400 font-mono">{snap.timestamp}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Bookmark className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span className="font-bold text-white text-xs truncate">{snap.name}</span>
+                      </div>
+                      <span className="px-1.5 py-0.2 rounded text-[8px] bg-emerald-950 text-emerald-300 border border-emerald-500/30 shrink-0 font-mono">
+                        Saved Locally
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-neutral-400 flex-wrap">
                       <span className="text-cyan-400 font-bold">Epoch {snap.targetYear}</span>
@@ -518,6 +776,8 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
                       </span>
                       <span>•</span>
                       <span>Circularity: {snap.projections.avgCircularity}%</span>
+                      <span>•</span>
+                      <span className="text-neutral-500">{snap.timestamp}</span>
                     </div>
                   </div>
 
@@ -533,15 +793,16 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
                         }`}
                       >
                         <GitCompare className="w-3 h-3" />
-                        <span>{isBeingCompared ? 'Comparing' : 'Compare Side-by-Side'}</span>
+                        <span>{isBeingCompared ? 'Comparing' : 'Compare'}</span>
                       </button>
 
                       <button
                         onClick={() => handleRevertToSnapshot(snap)}
-                        className="px-2 py-1 rounded font-bold bg-white/5 hover:bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500 cursor-pointer transition-all flex items-center gap-1"
+                        title="Revert to this checkpoint configuration"
+                        className="px-2 py-1 rounded font-bold bg-emerald-950/40 hover:bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500 cursor-pointer transition-all flex items-center gap-1"
                       >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>Revert State</span>
+                        <RotateCcw className="w-3 h-3 text-emerald-400" />
+                        <span>Revert</span>
                       </button>
                     </div>
 
@@ -725,6 +986,260 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
           </div>
         </div>
       )}
+
+      {/* 5-Year Real-Time Predictive Trend Chart Panel */}
+      <div className="p-4 rounded-xl bg-[#090F0C] border border-cyan-500/40 shadow-xl space-y-3.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F5F5F0]/10 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-lg bg-cyan-950/80 text-cyan-400 border border-cyan-500/40">
+              <Activity className="w-4 h-4" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-sm text-white tracking-wide">
+                  5-Year Real-Time Predictive Ecological Trajectory
+                </span>
+                <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-cyan-950 text-cyan-300 border border-cyan-500/40">
+                  2026 – 2030 Timeline
+                </span>
+              </div>
+              <p className="text-[10px] text-neutral-400 font-sans mt-0.5">
+                Simulated autoregressive response curves reacting live to flow reallocations and circularity targets.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+            {/* Baseline toggle */}
+            <button
+              onClick={() => {
+                setShowStatusQuoBaseline(!showStatusQuoBaseline);
+                audioFeedback.playMicroTick();
+              }}
+              className={`px-2.5 py-1 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                showStatusQuoBaseline
+                  ? 'bg-neutral-800 text-neutral-200 border-neutral-600'
+                  : 'bg-black/40 text-neutral-500 border-white/10'
+              }`}
+            >
+              Baseline: {showStatusQuoBaseline ? 'ON' : 'OFF'}
+            </button>
+
+            {/* Metric Mode Switcher */}
+            <div className="flex items-center gap-1 bg-[#121914] p-1 rounded-lg border border-white/10">
+              {[
+                { id: 'flourishing', label: 'Flourishing' },
+                { id: 'water', label: 'Water Yield' },
+                { id: 'carbon', label: 'Carbon Rate' },
+                { id: 'circularity', label: 'Circularity' },
+                { id: 'dual', label: 'Dual View' }
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    setChartMetric(m.id as any);
+                    audioFeedback.playMicroTick();
+                  }}
+                  className={`px-2 py-1 rounded text-[9px] font-bold transition-all cursor-pointer ${
+                    chartMetric === m.id
+                      ? 'bg-cyan-500 text-black shadow font-extrabold'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Predictive Trend Chart Canvas */}
+        <div className="w-full h-56 relative">
+          <ResponsiveContainer width="100%" height="100%">
+            {chartMetric === 'dual' ? (
+              <LineChart data={predictive5YearTimeline} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#253528" opacity={0.5} />
+                <XAxis dataKey="year" stroke="#688070" tick={{ fill: '#8FA895', fontSize: 10 }} />
+                <YAxis yAxisId="left" domain={[50, 100]} stroke="#10b981" tick={{ fill: '#10b981', fontSize: 10 }} />
+                <YAxis yAxisId="right" orientation="right" domain={[1.0, 3.0]} stroke="#06b6d4" tick={{ fill: '#06b6d4', fontSize: 10 }} />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="p-2.5 rounded-lg bg-black/90 border border-cyan-500/50 shadow-2xl backdrop-blur-md text-[10px] space-y-1">
+                          <div className="font-bold text-white border-b border-white/10 pb-1 flex justify-between">
+                            <span>Epoch Year {label}</span>
+                            <span className="text-cyan-400">Δ vs Status Quo: +{data.deltaVsStatusQuo}</span>
+                          </div>
+                          <div className="flex justify-between gap-3 text-emerald-400">
+                            <span>Flourishing Score:</span>
+                            <span className="font-bold">{data.flourishingScore} / 100</span>
+                          </div>
+                          <div className="flex justify-between gap-3 text-cyan-300">
+                            <span>Annual Water Yield:</span>
+                            <span className="font-bold">{data.waterYieldM3}M m³</span>
+                          </div>
+                          <div className="flex justify-between gap-3 text-amber-300">
+                            <span>Carbon Drawdown:</span>
+                            <span className="font-bold">{data.carbonRateTonnes}k tCO2e</span>
+                          </div>
+                          <div className="flex justify-between gap-3 text-purple-300">
+                            <span>Circularity:</span>
+                            <span className="font-bold">{data.circularityPct}%</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <ReferenceLine yAxisId="left" y={85.0} stroke="#C5A059" strokeDasharray="3 3" />
+                <Line yAxisId="left" type="monotone" dataKey="flourishingScore" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: '#10b981' }} name="Flourishing Score" />
+                {showStatusQuoBaseline && (
+                  <Line yAxisId="left" type="monotone" dataKey="flourishingBaseline" stroke="#6b7280" strokeDasharray="4 4" strokeWidth={1.5} dot={false} name="Status Quo Baseline" />
+                )}
+                <Line yAxisId="right" type="monotone" dataKey="waterYieldM3" stroke="#06b6d4" strokeWidth={2.5} dot={{ r: 3, fill: '#06b6d4' }} name="Water Yield (M m³)" />
+              </LineChart>
+            ) : (
+              <AreaChart
+                data={predictive5YearTimeline}
+                margin={{ top: 10, right: 15, left: -10, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="allocSimulatedGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={chartMetric === 'water' ? '#06b6d4' : chartMetric === 'carbon' ? '#f59e0b' : chartMetric === 'circularity' ? '#a855f7' : '#10b981'} stopOpacity={0.4} />
+                    <stop offset="95%" stopColor={chartMetric === 'water' ? '#06b6d4' : chartMetric === 'carbon' ? '#f59e0b' : chartMetric === 'circularity' ? '#a855f7' : '#10b981'} stopOpacity={0.0} />
+                  </linearGradient>
+                  <linearGradient id="allocBaselineGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4b5563" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#4b5563" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#253528" opacity={0.5} />
+                <XAxis dataKey="year" stroke="#688070" tick={{ fill: '#8FA895', fontSize: 10 }} />
+                <YAxis
+                  stroke="#688070"
+                  tick={{ fill: '#8FA895', fontSize: 10 }}
+                  domain={
+                    chartMetric === 'water'
+                      ? [1.2, 'auto']
+                      : chartMetric === 'carbon'
+                      ? [3.5, 'auto']
+                      : chartMetric === 'circularity'
+                      ? [70, 100]
+                      : [60, 100]
+                  }
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      const currentVal = chartMetric === 'water'
+                        ? `${data.waterYieldM3}M m³`
+                        : chartMetric === 'carbon'
+                        ? `${data.carbonRateTonnes}k tCO2e`
+                        : chartMetric === 'circularity'
+                        ? `${data.circularityPct}%`
+                        : `${data.flourishingScore}/100`;
+
+                      const baseVal = chartMetric === 'water'
+                        ? `${data.waterBaseline}M m³`
+                        : chartMetric === 'carbon'
+                        ? `${data.carbonBaseline}k tCO2e`
+                        : chartMetric === 'circularity'
+                        ? `${data.circularityBaseline}%`
+                        : `${data.flourishingBaseline}/100`;
+
+                      return (
+                        <div className="p-2.5 rounded-lg bg-black/90 border border-cyan-500/50 shadow-2xl backdrop-blur-md text-[10px] space-y-1">
+                          <div className="font-bold text-white border-b border-white/10 pb-1 flex justify-between">
+                            <span>Year {label} Forecast</span>
+                            <span className="text-cyan-400 font-bold">Δ vs Baseline: +{data.deltaVsStatusQuo} pts</span>
+                          </div>
+                          <div className="flex justify-between gap-4 text-white">
+                            <span className="text-cyan-300">Simulated Trajectory:</span>
+                            <span className="font-bold text-cyan-200">{currentVal}</span>
+                          </div>
+                          {showStatusQuoBaseline && (
+                            <div className="flex justify-between gap-4 text-neutral-400">
+                              <span>Status Quo Baseline:</span>
+                              <span className="font-mono">{baseVal}</span>
+                            </div>
+                          )}
+                          <div className="text-[8px] text-emerald-400 pt-0.5 border-t border-white/5">
+                            {data.flourishingScore >= 85 ? '✦ Planetary Boundary Satisfied' : '● Regenerative Transition Path'}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                {chartMetric === 'flourishing' && (
+                  <ReferenceLine y={85.0} stroke="#C5A059" strokeDasharray="3 3" />
+                )}
+                {showStatusQuoBaseline && (
+                  <Area
+                    type="monotone"
+                    dataKey={
+                      chartMetric === 'water'
+                        ? 'waterBaseline'
+                        : chartMetric === 'carbon'
+                        ? 'carbonBaseline'
+                        : chartMetric === 'circularity'
+                        ? 'circularityBaseline'
+                        : 'flourishingBaseline'
+                    }
+                    stroke="#6b7280"
+                    strokeDasharray="4 4"
+                    fill="url(#allocBaselineGradient)"
+                    strokeWidth={1.5}
+                    name="Status Quo"
+                  />
+                )}
+                <Area
+                  type="monotone"
+                  dataKey={
+                    chartMetric === 'water'
+                      ? 'waterYieldM3'
+                      : chartMetric === 'carbon'
+                      ? 'carbonRateTonnes'
+                      : chartMetric === 'circularity'
+                      ? 'circularityPct'
+                      : 'flourishingScore'
+                  }
+                  stroke={chartMetric === 'water' ? '#06b6d4' : chartMetric === 'carbon' ? '#f59e0b' : chartMetric === 'circularity' ? '#a855f7' : '#10b981'}
+                  fill="url(#allocSimulatedGradient)"
+                  strokeWidth={2.5}
+                  name="Simulated Allocation"
+                />
+              </AreaChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+
+        {/* 5-Year Trajectory Milestones Footer */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-[#F5F5F0]/10 text-[9px] font-mono">
+          {predictive5YearTimeline.map((item) => (
+            <div key={item.year} className="p-2 rounded bg-black/40 border border-white/5 space-y-0.5">
+              <div className="flex items-center justify-between text-neutral-400">
+                <span className="font-bold text-white">{item.year}</span>
+                <span className={`text-[8px] font-bold ${item.deltaVsStatusQuo >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  +{item.deltaVsStatusQuo}
+                </span>
+              </div>
+              <div className="text-emerald-300 font-bold text-xs">
+                {item.flourishingScore}
+                <span className="text-[8px] font-normal text-neutral-400">/100</span>
+              </div>
+              <div className="text-neutral-400 text-[8px]">
+                {item.waterYieldM3}M m³ • {item.carbonRateTonnes}k C
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Preset What-If Scenarios Grid */}
       <div className="space-y-2">

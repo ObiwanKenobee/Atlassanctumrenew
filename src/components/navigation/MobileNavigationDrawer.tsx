@@ -22,7 +22,8 @@ import {
   Radio,
   Cpu,
   GitBranch,
-  Globe2
+  Globe2,
+  Terminal
 } from 'lucide-react';
 import { isNavigationItemActive, trackNavigationEvent, getNavLabel } from '../../lib/navigationHelpers';
 import { UncertaintyOverlayToggle } from '../../context/UncertaintyOverlayContext';
@@ -550,17 +551,17 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
         <div className="text-[10px] font-mono uppercase tracking-widest text-[#F5F5F0]/50">
           Quick Civilization Tools
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {onOpenCommandments && (
             <button
               onClick={() => {
                 onOpenCommandments();
                 onClose();
               }}
-              className="py-3 px-3 min-h-[44px] bg-[#121212] hover:bg-[#1A1A1A] border border-[#C5A059]/40 text-[#C5A059] rounded-sm text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+              className="py-3 px-2.5 min-h-[44px] bg-[#121212] hover:bg-[#1A1A1A] border border-[#C5A059]/40 text-[#C5A059] rounded-sm text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
-              <Scale className="w-4 h-4" />
-              <span>10 Commandments</span>
+              <Scale className="w-4 h-4 shrink-0" />
+              <span className="truncate">Commandments</span>
             </button>
           )}
 
@@ -569,10 +570,10 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
               onOpenMoralSimulator();
               onClose();
             }}
-            className="py-3 px-3 min-h-[44px] bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/50 text-[#C5A059] rounded-sm text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+            className="py-3 px-2.5 min-h-[44px] bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/50 text-[#C5A059] rounded-sm text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
-            <Scale className="w-4 h-4" />
-            <span>Moral Simulator</span>
+            <Scale className="w-4 h-4 shrink-0" />
+            <span className="truncate">Moral Simulator</span>
           </button>
 
           <button
@@ -580,10 +581,21 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
               onOpenCommandCenter();
               onClose();
             }}
-            className="py-3 px-3 min-h-[44px] bg-[#0A0A0A] hover:bg-[#151515] border border-[#F5F5F0]/20 text-[#F5F5F0] rounded-sm text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+            className="py-3 px-2.5 min-h-[44px] bg-[#0A0A0A] hover:bg-[#151515] border border-[#F5F5F0]/20 text-[#F5F5F0] rounded-sm text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
-            <Search className="w-4 h-4 text-[#C5A059]" />
-            <span>Command (⌘K)</span>
+            <Search className="w-4 h-4 text-[#C5A059] shrink-0" />
+            <span className="truncate">Command Center</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onOpenCommandCenter();
+              onClose();
+            }}
+            className="py-3 px-2.5 min-h-[44px] bg-rose-950/40 hover:bg-rose-950/70 border border-rose-500/40 text-rose-300 rounded-sm text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
+          >
+            <Terminal className="w-4 h-4 text-rose-400 shrink-0" />
+            <span className="truncate">Diagnostics</span>
           </button>
         </div>
       </div>

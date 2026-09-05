@@ -63,6 +63,7 @@ import { TemporalRegenerationSlider } from '../bioregional/TemporalRegenerationS
 import { NodeComparator } from '../bioregional/NodeComparator';
 import { GenerativeSoundscapeEngine } from '../bioregional/GenerativeSoundscapeEngine';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { useViewRenderTracker } from '../../hooks/useViewRenderTracker';
 
 // High-fidelity abstract bioregional health visual backgrounds generated via Imagen
 const BIOREGIONAL_HEALTH_BACKGROUNDS = [
@@ -109,6 +110,8 @@ export const BioregionalTwinView: React.FC<BioregionalTwinViewProps> = ({
   onSelectTab,
   onOpenMoralSimulator 
 }) => {
+  useViewRenderTracker('Bioregional Twin 3D');
+
   const [scenarios] = useState<BioregionalTwinScenario[]>(BIOREGIONAL_TWIN_SCENARIOS);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>(BIOREGIONAL_TWIN_SCENARIOS[0].id);
   const [selectedBgId, setSelectedBgId] = useState<string>(BIOREGIONAL_HEALTH_BACKGROUNDS[0].id);

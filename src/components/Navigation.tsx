@@ -662,6 +662,20 @@ export const Navigation: React.FC<NavigationProps> = ({
             </kbd>
           </button>
 
+          {/* Mobile Fast Search Trigger */}
+          <button
+            id="mobile-search-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              onOpenCommandCenter();
+            }}
+            aria-label="Open Search & Command Center"
+            title="Search all views & modules (⌘K)"
+            className="flex md:hidden items-center justify-center min-h-[44px] min-w-[44px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 text-[#C5A059] cursor-pointer"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
           {/* Global Search & Command Center (⌘K / /) */}
           <button
             id="open-command-center-btn"
@@ -671,7 +685,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             }}
             aria-label="Open Command Center (⌘K)"
             title="Search all views, ledgers, and modules (⌘K)"
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 min-h-[36px] sm:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/70 hover:text-[#F5F5F0] cursor-pointer"
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/70 hover:text-[#F5F5F0] cursor-pointer"
           >
             <Search className="w-3.5 h-3.5 text-[#C5A059]" />
             <span className="hidden lg:inline">Search</span>
@@ -691,8 +705,8 @@ export const Navigation: React.FC<NavigationProps> = ({
           {/* Real-time Bioregional Hazard Monitor Beacon */}
           <BioregionalHazardBeacon onSelectTab={onSelectTab} />
 
-          {/* Infrastructure Health Status: SystemVitalityMonitor & Real-time System Pulse */}
-          <div className="flex items-center gap-1.5">
+          {/* Infrastructure Health Status: SystemVitalityMonitor & Real-time System Pulse (Streamlined on Tablet/Desktop) */}
+          <div className="hidden md:flex items-center gap-1.5">
             <SystemPulseIcon />
             <SystemVitalityMonitor />
           </div>
@@ -703,30 +717,30 @@ export const Navigation: React.FC<NavigationProps> = ({
             onClick={handleToggleTheme}
             aria-label={`Theme preference: ${currentTheme}. Click to cycle theme`}
             title={`Switch Theme: currently ${currentTheme.toUpperCase()} (Click to cycle between Dark, Light, System, and Context-Aware)`}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] sm:min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/80 hover:text-[#F5F5F0] cursor-pointer"
+            className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[auto] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/15 hover:border-[#C5A059]/50 transition-all text-xs font-mono text-[#F5F5F0]/80 hover:text-[#F5F5F0] cursor-pointer"
           >
             {currentTheme === 'dark' && (
               <>
                 <Moon className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span className="text-[10px] hidden md:inline font-mono">Dark</span>
+                <span className="text-[10px] hidden lg:inline font-mono">Dark</span>
               </>
             )}
             {currentTheme === 'light' && (
               <>
                 <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-[10px] hidden md:inline font-mono">Light</span>
+                <span className="text-[10px] hidden lg:inline font-mono">Light</span>
               </>
             )}
             {currentTheme === 'system' && (
               <>
                 <Monitor className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="text-[10px] hidden md:inline font-mono">System</span>
+                <span className="text-[10px] hidden lg:inline font-mono">System</span>
               </>
             )}
             {currentTheme === 'context_aware' && (
               <>
                 <Compass className="w-3.5 h-3.5 text-emerald-400 animate-spin-slow" />
-                <span className="text-[10px] hidden md:inline font-mono text-emerald-300 font-bold">Auto</span>
+                <span className="text-[10px] hidden lg:inline font-mono text-emerald-300 font-bold">Auto</span>
               </>
             )}
           </button>
@@ -741,7 +755,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               audioFeedback.playSubtleClick();
               setMobileMenuOpen(!mobileMenuOpen);
             }}
-            className="xl:hidden p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-md bg-[#141414] border border-[#F5F5F0]/10 text-[#F5F5F0] hover:text-[#C5A059] hover:border-[#C5A059]/40 transition-colors cursor-pointer"
+            className="xl:hidden p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md bg-[#141414] border border-[#F5F5F0]/10 text-[#F5F5F0] hover:text-[#C5A059] hover:border-[#C5A059]/40 transition-colors cursor-pointer"
             aria-label="Toggle Navigation Menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

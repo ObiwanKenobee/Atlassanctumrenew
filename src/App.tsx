@@ -23,6 +23,7 @@ import { BioregionalHazardProvider } from './context/BioregionalHazardContext';
 import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
+import { PerformanceMonitorOverlay } from './components/performance/PerformanceMonitorOverlay';
 
 // Dynamic imports for secondary modals and utility widgets to reduce initial bundle size
 const CommandmentsModal = React.lazy(() => import('./components/CommandmentsModal').then(m => ({ default: m.CommandmentsModal })));
@@ -660,6 +661,9 @@ export default function App() {
               {/* Central Master 12-Pillar Trust Layer Modal */}
               <TrustLayerModal />
             </Suspense>
+
+            {/* Real-time Render & Performance Telemetry HUD */}
+            <PerformanceMonitorOverlay />
 
             {/* Blockchain-backed Epistemic Ledger Verification Notification Toasts */}
             <VerificationNotificationContainer />

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   AlertTriangle,
   Droplets,
@@ -178,6 +179,9 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
   const [heatmapIntensity, setHeatmapIntensity] = useState<number>(0.75);
   const [selectedZone, setSelectedZone] = useState<ScarcityZone | null>(null);
   const [hoveredZone, setHoveredZone] = useState<ScarcityZone | null>(null);
+  const [canvasDim, setCanvasDim] = useState<{ width: number; height: number }>({ width: 850, height: 440 });
+
+  const HIGH_RISK_THRESHOLD = 75;
 
   // Coordinates bounding box for East Africa Bioregional transect
   const BOUNDS = useMemo(() => ({
@@ -195,6 +199,11 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
       return isLayerActive && matchSeverity;
     });
   }, [activeLayers, minSeverity]);
+
+  // Detected high-risk threshold hotspots
+  const criticalZones = useMemo(() => {
+    return filteredZones.filter((z) => z.severity >= HIGH_RISK_THRESHOLD);
+  }, [filteredZones]);
 
   // Coordinate projection from [lng, lat] to canvas pixel coordinates
   const project = (lng: number, lat: number, width: number, height: number): [number, number] => {
@@ -368,13 +377,28 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
       if (!canvas || !container) return;
 
       const rect = container.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = Math.max(380, rect.height);
+      const w = rect.width || 850;
+      const h = Math.max(380, rect.height || 420);
+      canvas.width = w;
+      canvas.height = h;
+      setCanvasDim({ width: w, height: h });
     };
 
     handleResize();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (containerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        handleResize();
+      });
+      resizeObserver.observe(containerRef.current);
+    }
+
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
   }, []);
 
   // Hit testing for clicks and hover
@@ -770,8 +794,108 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
           onMouseLeave={() => setHoveredZone(null)}
         />
 
-        {/* Legend Overlay */}
-        <div className="absolute top-3 left-3 p-2.5 rounded-lg bg-black/85 border border-rose-500/40 backdrop-blur-md text-[10px] space-y-1 pointer-events-none shadow-xl">
+        {/* Interactive Animated Hotspot Pinpoint Overlays with Entrance, Hover & High-Risk Pulsing */}
+        <div className="absolute inset-0 pointer-events-none">
+          {filteredZones.map((zone, idx) => {
+            const [cx, cy] = project(zone.lng, zone.lat, canvasDim.width, canvasDim.height);
+            const isHighRisk = zone.severity >= HIGH_RISK_THRESHOLD;
+            const isSelected = (selectedZone?.id === zone.id) || (selectedZoneId === zone.id);
+            const isHovered = hoveredZone?.id === zone.id;
+
+            return (
+              <motion.div
+                key={zone.id}
+                initial={{ scale: 0, opacity: 0, y: 8 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0, opacity: 0 }}
+                transition={{ type: 'spring', damping: 15, stiffness: 280, delay: idx * 0.04 }}
+                style={{ left: `${cx}px`, top: `${cy}px` }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedZone(zone);
+                  if (onSelectZone) onSelectZone(zone);
+                  audioFeedback.playSubtleClick();
+                }}
+                onMouseEnter={() => {
+                  setHoveredZone(zone);
+                  audioFeedback.playMicroTick();
+                }}
+                onMouseLeave={() => {
+                  if (hoveredZone?.id === zone.id) setHoveredZone(null);
+                }}
+              >
+                <motion.div
+                  whileHover={{ scale: 1.25, zIndex: 40 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`relative flex items-center justify-center transition-all ${
+                    isSelected
+                      ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-110 z-30'
+                      : isHovered
+                      ? 'z-30 scale-105'
+                      : 'z-10'
+                  }`}
+                >
+                  {/* High-Risk Threshold Pulsing Wave Rings */}
+                  {isHighRisk && (
+                    <motion.span
+                      animate={{
+                        scale: [1, 2.5, 1],
+                        opacity: [0.9, 0, 0.9]
+                      }}
+                      transition={{
+                        duration: 1.8,
+                        repeat: Infinity,
+                        ease: 'easeInOut'
+                      }}
+                      className="absolute -inset-2 rounded-full border-2 border-rose-500 pointer-events-none shadow-[0_0_15px_rgba(244,63,94,0.7)]"
+                    />
+                  )}
+
+                  {/* Secondary Pulsing Radar Ring for Critical Outliers (>= 80% Severity) */}
+                  {zone.severity >= 80 && (
+                    <motion.span
+                      animate={{
+                        scale: [1, 3.2, 1],
+                        opacity: [0.6, 0, 0.6]
+                      }}
+                      transition={{
+                        duration: 2.2,
+                        repeat: Infinity,
+                        ease: 'easeOut',
+                        delay: 0.35
+                      }}
+                      className="absolute -inset-3 rounded-full border border-rose-400/50 pointer-events-none"
+                    />
+                  )}
+
+                  {/* Hotspot Core Tag Badge */}
+                  <div className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold flex items-center gap-1 shadow-xl border backdrop-blur-md transition-all ${
+                    zone.type === 'water'
+                      ? 'bg-rose-950/90 text-rose-200 border-rose-500/70 hover:bg-rose-900'
+                      : zone.type === 'energy'
+                      ? 'bg-amber-950/90 text-amber-200 border-amber-500/70 hover:bg-amber-900'
+                      : 'bg-purple-950/90 text-purple-200 border-purple-500/70 hover:bg-purple-900'
+                  }`}>
+                    <span>{zone.type === 'water' ? '💧' : zone.type === 'energy' ? '⚡' : '🌿'}</span>
+                    <span>{zone.severity}%</span>
+                    {isHighRisk && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
+                    )}
+                  </div>
+                </motion.div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Legend Overlay with Entrance Animation */}
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+          className="absolute top-3 left-3 p-2.5 rounded-lg bg-black/85 border border-rose-500/40 backdrop-blur-md text-[10px] space-y-1 pointer-events-none shadow-xl z-20"
+        >
           <div className="font-bold text-rose-300 uppercase flex items-center gap-1.5">
             <ShieldAlert className="w-3 h-3 text-rose-400" />
             Scarcity Heat Gradient
@@ -791,64 +915,123 @@ export const EcologicalHotspotsCanvas: React.FC<EcologicalHotspotsCanvasProps> =
           <div className="text-[9px] text-neutral-400 pt-1 border-t border-white/10">
             Click any hotspot zone to inspect diagnostic telemetry
           </div>
-        </div>
+        </motion.div>
 
-        {/* Floating Scarcity Diagnostic Inspector (When Hovered or Selected) */}
-        {(selectedZone || hoveredZone) && (
-          <div className="absolute bottom-3 right-3 max-w-sm w-full p-3.5 rounded-xl bg-black/90 border border-rose-500/60 shadow-2xl backdrop-blur-md space-y-2 animate-in fade-in zoom-in-95 duration-150">
-            {(() => {
-              const zone = selectedZone || hoveredZone!;
-              return (
-                <>
-                  <div className="flex items-center justify-between text-[10px] border-b border-[#F5F5F0]/10 pb-1.5">
-                    <span className={`font-bold uppercase flex items-center gap-1 ${
-                      zone.type === 'water' ? 'text-rose-400' : zone.type === 'energy' ? 'text-amber-400' : 'text-purple-400'
-                    }`}>
-                      {zone.type === 'water' ? '💧 Water Scarcity Zone' : zone.type === 'energy' ? '⚡ Energy Deficit Zone' : '🌿 Soil Nutrient Void'}
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-500/40 font-bold">
-                      {zone.severity}% Severity
-                    </span>
-                  </div>
-
-                  <div>
-                    <h4 className="font-serif font-bold text-white text-xs">
-                      {zone.name}
-                    </h4>
-                    <p className="text-[10px] text-neutral-400 mt-0.5">
-                      GPS: ({zone.lat.toFixed(2)}° S, {zone.lng.toFixed(2)}° E) • {(zone.affectedHectares / 1000).toFixed(1)}k Hectares • {zone.populationImpacted.toLocaleString()} Inhabitants
-                    </p>
-                  </div>
-
-                  <div className="p-2 rounded bg-[#101511] border border-rose-500/20 text-[10px] space-y-1">
-                    <div className="text-rose-300 font-bold flex items-center gap-1">
-                      <TrendingDown className="w-3 h-3 text-rose-400" />
-                      {zone.inSituMetric}
-                    </div>
-                    <div className="text-neutral-400">
-                      <strong className="text-neutral-300">Driver:</strong> {zone.primaryDriver}
-                    </div>
-                  </div>
-
-                  <div className="p-2 rounded bg-emerald-950/40 border border-emerald-500/30 text-[10px] text-emerald-300 space-y-0.5">
-                    <div className="font-bold flex items-center gap-1 text-emerald-400">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      Recommended In-Situ Protocol:
-                    </div>
-                    <p className="font-sans leading-snug">
-                      {zone.recommendedIntervention}
-                    </p>
-                  </div>
-
-                  <div className="text-[9px] text-neutral-400 pt-1 flex items-center justify-between border-t border-white/10">
-                    <span className="truncate max-w-[200px]">Node: {zone.telemetrySourceNode}</span>
-                    <span className="text-emerald-400 font-bold">Section 30 Attested</span>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
+        {/* High-Risk Threshold Alert Banner Overlay (When high-risk hotspots detected) */}
+        {criticalZones.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -12, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', damping: 16 }}
+            className="absolute top-3 right-3 p-2.5 rounded-xl bg-gradient-to-r from-rose-950/95 via-[#1E0E12]/90 to-black/90 border border-rose-500/60 backdrop-blur-md text-[10px] space-y-1.5 shadow-2xl max-w-xs z-20"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 font-bold text-rose-300">
+                <motion.span
+                  animate={{ scale: [1, 1.3, 1], opacity: [0.8, 1, 0.8] }}
+                  transition={{ duration: 1.3, repeat: Infinity }}
+                  className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0 shadow-[0_0_8px_rgba(244,63,94,0.9)]"
+                />
+                <span>{criticalZones.length} High-Risk Thresholds Detected</span>
+              </div>
+              <span className="px-1.5 py-0.2 rounded text-[8px] bg-rose-900/60 text-rose-300 border border-rose-500/40 uppercase font-bold">
+                Critical (&gt;=75%)
+              </span>
+            </div>
+            <p className="text-[9px] text-neutral-300">
+              Ecosystem thresholds breached. Concentric radar rings pulse over critical deficit nodes.
+            </p>
+            <button
+              onClick={() => {
+                const topCritical = [...criticalZones].sort((a, b) => b.severity - a.severity)[0];
+                if (topCritical) {
+                  setSelectedZone(topCritical);
+                  if (onSelectZone) onSelectZone(topCritical);
+                  audioFeedback.playSubtleClick();
+                }
+              }}
+              className="w-full px-2 py-1 rounded bg-rose-900/70 hover:bg-rose-800 text-rose-200 border border-rose-500/40 text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all shadow"
+            >
+              <span>Inspect Peak Deficit Epicenter</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </motion.div>
         )}
+
+        {/* Floating Scarcity Diagnostic Inspector (When Hovered or Selected) with AnimatePresence */}
+        <AnimatePresence>
+          {(selectedZone || hoveredZone) && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 10 }}
+              whileHover={{ scale: 1.01 }}
+              transition={{ type: 'spring', damping: 18, stiffness: 320 }}
+              className="absolute bottom-3 right-3 max-w-sm w-full p-3.5 rounded-xl bg-black/92 border border-rose-500/60 shadow-2xl backdrop-blur-md space-y-2 z-30"
+            >
+              {(() => {
+                const zone = selectedZone || hoveredZone!;
+                const isHighRisk = zone.severity >= HIGH_RISK_THRESHOLD;
+
+                return (
+                  <>
+                    <div className="flex items-center justify-between text-[10px] border-b border-[#F5F5F0]/10 pb-1.5">
+                      <span className={`font-bold uppercase flex items-center gap-1 ${
+                        zone.type === 'water' ? 'text-rose-400' : zone.type === 'energy' ? 'text-amber-400' : 'text-purple-400'
+                      }`}>
+                        {zone.type === 'water' ? '💧 Water Scarcity Zone' : zone.type === 'energy' ? '⚡ Energy Deficit Zone' : '🌿 Soil Nutrient Void'}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {isHighRisk && (
+                          <span className="px-1.5 py-0.2 rounded bg-rose-900/80 text-rose-200 border border-rose-500/50 text-[8px] font-bold uppercase animate-pulse">
+                            High-Risk Pulse
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-500/40 font-bold">
+                          {zone.severity}% Severity
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-serif font-bold text-white text-xs">
+                        {zone.name}
+                      </h4>
+                      <p className="text-[10px] text-neutral-400 mt-0.5">
+                        GPS: ({zone.lat.toFixed(2)}° S, {zone.lng.toFixed(2)}° E) • {(zone.affectedHectares / 1000).toFixed(1)}k Hectares • {zone.populationImpacted.toLocaleString()} Inhabitants
+                      </p>
+                    </div>
+
+                    <div className="p-2 rounded bg-[#101511] border border-rose-500/20 text-[10px] space-y-1">
+                      <div className="text-rose-300 font-bold flex items-center gap-1">
+                        <TrendingDown className="w-3 h-3 text-rose-400" />
+                        {zone.inSituMetric}
+                      </div>
+                      <div className="text-neutral-400">
+                        <strong className="text-neutral-300">Driver:</strong> {zone.primaryDriver}
+                      </div>
+                    </div>
+
+                    <div className="p-2 rounded bg-emerald-950/40 border border-emerald-500/30 text-[10px] text-emerald-300 space-y-0.5">
+                      <div className="font-bold flex items-center gap-1 text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        Recommended In-Situ Protocol:
+                      </div>
+                      <p className="font-sans leading-snug">
+                        {zone.recommendedIntervention}
+                      </p>
+                    </div>
+
+                    <div className="text-[9px] text-neutral-400 pt-1 flex items-center justify-between border-t border-white/10">
+                      <span className="truncate max-w-[200px]">Node: {zone.telemetrySourceNode}</span>
+                      <span className="text-emerald-400 font-bold">Section 30 Attested</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

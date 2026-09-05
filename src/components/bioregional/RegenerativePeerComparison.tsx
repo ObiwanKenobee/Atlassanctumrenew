@@ -11,6 +11,7 @@ import {
   TreePine,
   Layers,
   ArrowUpRight,
+  ArrowDownRight,
   Info,
   CheckCircle2,
   Lock,
@@ -19,10 +20,15 @@ import {
   Sliders,
   Calendar,
   Eye,
-  EyeOff
+  EyeOff,
+  Flame,
+  LayoutGrid,
+  SlidersHorizontal,
+  Filter
 } from 'lucide-react';
 import { BioregionalLedgerData } from '../../data/bioregionalLedgerData';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { D3ResourceEfficiencyRadar } from './D3ResourceEfficiencyRadar';
 
 export interface RegionalArchetype {
   id: string;
@@ -313,6 +319,9 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
   const [selectedArchetypeKey, setSelectedArchetypeKey] = useState<string>(defaultArchetypeKey);
   const [benchmarkMode, setBenchmarkMode] = useState<'archetype' | 'global'>('archetype');
   const [showBenchmarkingTrend, setShowBenchmarkingTrend] = useState<boolean>(true);
+  const [viewTab, setViewTab] = useState<'unified' | 'heatmap' | 'matrix'>('unified');
+  const [heatmapFilter, setHeatmapFilter] = useState<'all' | 'high_impact' | 'outperforming' | 'deficits'>('all');
+  const [hoveredIndicatorId, setHoveredIndicatorId] = useState<string | null>(null);
 
   const activeArchetype = ARCHETYPE_DATABASE[selectedArchetypeKey] || ARCHETYPE_DATABASE.savanna_silvopasture;
 
@@ -439,6 +448,64 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
     ];
   }, [activeArchetype, currentMetrics]);
 
+  // Heatmap Variance Contribution Engine:
+  // Evaluates which specific indicators generate the highest percentage variance relative to the archetype cohort
+  const varianceAnalysis = useMemo(() => {
+    const rawItems = metricCards.map((card) => {
+      const rawDelta = card.deltaVsMedian;
+      const isOutperforming = card.lowerIsBetter ? rawDelta <= 0 : rawDelta >= 0;
+      const absVariance = Math.abs(rawDelta);
+      const favorableDelta = card.lowerIsBetter ? -rawDelta : rawDelta;
+      return {
+        ...card,
+        rawDelta,
+        absVariance,
+        isOutperforming,
+        favorableDelta
+      };
+    });
+
+    const totalAbsVariance = rawItems.reduce((acc, it) => acc + it.absVariance, 0) || 1;
+
+    const itemsWithShare = rawItems.map((it) => {
+      const contributionShare = +((it.absVariance / totalAbsVariance) * 100).toFixed(1);
+      let driverLevel: 'primary' | 'moderate' | 'minor' = 'minor';
+      if (contributionShare >= 22) driverLevel = 'primary';
+      else if (contributionShare >= 12) driverLevel = 'moderate';
+
+      return {
+        ...it,
+        contributionShare,
+        driverLevel
+      };
+    }).sort((a, b) => b.contributionShare - a.contributionShare);
+
+    const topDriver = itemsWithShare[0];
+    const outperformingCount = itemsWithShare.filter((a) => a.isOutperforming).length;
+    const deficitCount = itemsWithShare.filter((a) => !a.isOutperforming).length;
+
+    return {
+      items: itemsWithShare,
+      totalAbsVariance,
+      topDriver,
+      outperformingCount,
+      deficitCount
+    };
+  }, [metricCards]);
+
+  const filteredHeatmapItems = useMemo(() => {
+    if (heatmapFilter === 'high_impact') {
+      return varianceAnalysis.items.filter((it) => it.driverLevel === 'primary' || it.driverLevel === 'moderate');
+    }
+    if (heatmapFilter === 'outperforming') {
+      return varianceAnalysis.items.filter((it) => it.isOutperforming);
+    }
+    if (heatmapFilter === 'deficits') {
+      return varianceAnalysis.items.filter((it) => !it.isOutperforming);
+    }
+    return varianceAnalysis.items;
+  }, [varianceAnalysis, heatmapFilter]);
+
   return (
     <div className="p-4 sm:p-5 rounded-2xl bg-[#090D0A] border border-[#C5A059]/40 shadow-2xl space-y-6 font-mono text-xs text-[#F5F5F0]">
       {/* Header Bar */}
@@ -462,22 +529,68 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
           </div>
         </div>
 
-        {/* Right Header Controls: Benchmarking Trend Toggle + Peer Benchmark Toggle Mode */}
+        {/* Right Header Controls: View Mode Tabs + Benchmarking Trend Toggle + Peer Benchmark Toggle Mode */}
         <div className="flex items-center gap-2.5 flex-wrap self-start md:self-auto">
+          {/* View Tab Selector: Unified, Variance Heatmap, Matrix */}
+          <div className="flex items-center gap-1 bg-[#121914] p-1 rounded-lg border border-[#F5F5F0]/10 text-[10px]">
+            <button
+              onClick={() => {
+                setViewTab('unified');
+                audioFeedback.playMicroTick();
+              }}
+              className={`px-2.5 py-1 rounded font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                viewTab === 'unified'
+                  ? 'bg-[#C5A059] text-black shadow font-extrabold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <LayoutGrid className="w-3 h-3" />
+              <span>Unified View</span>
+            </button>
+            <button
+              onClick={() => {
+                setViewTab('heatmap');
+                audioFeedback.playMicroTick();
+              }}
+              className={`px-2.5 py-1 rounded font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                viewTab === 'heatmap'
+                  ? 'bg-[#C5A059] text-black shadow font-extrabold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Flame className="w-3 h-3 text-amber-500" />
+              <span>Variance Heatmap</span>
+            </button>
+            <button
+              onClick={() => {
+                setViewTab('matrix');
+                audioFeedback.playMicroTick();
+              }}
+              className={`px-2.5 py-1 rounded font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                viewTab === 'matrix'
+                  ? 'bg-[#C5A059] text-black shadow font-extrabold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-3 h-3" />
+              <span>Distribution Matrix</span>
+            </button>
+          </div>
+
           {/* Benchmarking Trend Toggle */}
           <button
             onClick={() => {
               setShowBenchmarkingTrend(!showBenchmarkingTrend);
               audioFeedback.playMicroTick();
             }}
-            className={`px-3 py-1.5 rounded-lg border font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg border font-bold transition-all cursor-pointer flex items-center gap-1.5 text-[10px] ${
               showBenchmarkingTrend
                 ? 'bg-[#C5A059] text-black border-[#C5A059] font-extrabold shadow'
                 : 'bg-[#121914] text-[#C5A059] border-[#C5A059]/40 hover:border-[#C5A059]'
             }`}
           >
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>Benchmarking Trend: {showBenchmarkingTrend ? 'ON' : 'OFF'}</span>
+            <span>12-Mo Trend: {showBenchmarkingTrend ? 'ON' : 'OFF'}</span>
           </button>
 
           {/* Peer Benchmark Toggle Mode */}
@@ -618,7 +731,307 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
         </div>
       )}
 
-      {/* Benchmark Distribution Matrix */}
+      {/* Resource Indicator Variance Contribution Heatmap Section (Rendered on 'unified' or 'heatmap' mode) */}
+      {(viewTab === 'unified' || viewTab === 'heatmap') && (
+        <div className="p-4 sm:p-5 rounded-xl bg-[#0B100D] border-2 border-[#C5A059]/60 shadow-2xl space-y-4 animate-in fade-in duration-200">
+          {/* Heatmap Section Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-[#C5A059]/20 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                <Flame className="w-5 h-5 text-amber-400" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-serif font-bold text-white text-sm sm:text-base">
+                    Resource Indicator Variance Contribution Heatmap
+                  </h4>
+                  <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-950 text-amber-300 border border-amber-500/40">
+                    Archetype Divergence Decomposition
+                  </span>
+                </div>
+                <p className="text-[10px] text-neutral-400 font-sans mt-0.5">
+                  Deconstructs the exact mathematical share that each resource indicator contributes to total variance between your region and the {activeArchetype.name} cohort median.
+                </p>
+              </div>
+            </div>
+
+            {/* Heatmap Filter Toggle Pills */}
+            <div className="flex items-center gap-1.5 flex-wrap self-start sm:self-auto bg-black/40 p-1 rounded-lg border border-white/5 text-[9px]">
+              <button
+                onClick={() => {
+                  setHeatmapFilter('all');
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-2 py-1 rounded font-bold transition-all cursor-pointer ${
+                  heatmapFilter === 'all'
+                    ? 'bg-[#C5A059] text-black font-extrabold shadow'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                All Indicators ({varianceAnalysis.items.length})
+              </button>
+              <button
+                onClick={() => {
+                  setHeatmapFilter('high_impact');
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-2 py-1 rounded font-bold transition-all cursor-pointer ${
+                  heatmapFilter === 'high_impact'
+                    ? 'bg-[#C5A059] text-black font-extrabold shadow'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                High Impact Drivers
+              </button>
+              <button
+                onClick={() => {
+                  setHeatmapFilter('outperforming');
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-2 py-1 rounded font-bold transition-all cursor-pointer ${
+                  heatmapFilter === 'outperforming'
+                    ? 'bg-emerald-500 text-black font-extrabold shadow'
+                    : 'text-emerald-400/80 hover:text-emerald-300'
+                }`}
+              >
+                Outperformers ({varianceAnalysis.outperformingCount})
+              </button>
+              <button
+                onClick={() => {
+                  setHeatmapFilter('deficits');
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-2 py-1 rounded font-bold transition-all cursor-pointer ${
+                  heatmapFilter === 'deficits'
+                    ? 'bg-rose-500 text-black font-extrabold shadow'
+                    : 'text-rose-400/80 hover:text-rose-300'
+                }`}
+              >
+                Deficit Lags ({varianceAnalysis.deficitCount})
+              </button>
+            </div>
+          </div>
+
+          {/* Divergence Heat Spectrum Bar (100% proportional breakdown ribbon) */}
+          <div className="space-y-1.5 p-3 rounded-lg bg-[#070B08] border border-white/10">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-neutral-300 font-bold flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-[#C5A059]" />
+                Proportional Variance Share Decomposition (% of Divergence):
+              </span>
+              <div className="flex items-center gap-3 text-[9px]">
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <span className="w-2 h-2 rounded bg-emerald-500"></span>
+                  Regenerative Surplus
+                </span>
+                <span className="flex items-center gap-1 text-rose-400">
+                  <span className="w-2 h-2 rounded bg-rose-500"></span>
+                  Deficit Bottleneck
+                </span>
+              </div>
+            </div>
+
+            {/* Stacked Proportional Ribbon */}
+            <div className="relative w-full h-5 bg-black/60 rounded-lg overflow-hidden flex border border-white/10">
+              {varianceAnalysis.items.map((item) => (
+                <div
+                  key={item.id}
+                  style={{ width: `${item.contributionShare}%` }}
+                  title={`${item.name}: ${item.contributionShare}% of total variance (${item.deltaVsMedian >= 0 ? '+' : ''}${item.deltaVsMedian}%)`}
+                  className={`h-full border-r border-black/40 transition-all cursor-pointer relative group flex items-center justify-center overflow-hidden ${
+                    item.isOutperforming
+                      ? item.driverLevel === 'primary'
+                        ? 'bg-emerald-500 hover:bg-emerald-400'
+                        : 'bg-emerald-600/80 hover:bg-emerald-500'
+                      : item.driverLevel === 'primary'
+                      ? 'bg-rose-500 hover:bg-rose-400'
+                      : 'bg-rose-600/80 hover:bg-rose-500'
+                  }`}
+                  onMouseEnter={() => {
+                    setHoveredIndicatorId(item.id);
+                    audioFeedback.playMicroTick();
+                  }}
+                  onMouseLeave={() => setHoveredIndicatorId(null)}
+                >
+                  <span className="text-[8px] font-bold text-black select-none truncate px-1 drop-shadow-sm">
+                    {item.contributionShare >= 10 ? `${item.contributionShare}%` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between text-[8px] text-neutral-400 font-sans">
+              <span>Cumulative Sum: 100% of Measured Archetype Divergence</span>
+              <span className="text-[#C5A059]">Hover segments or cards below to inspect dynamic biophysical drivers</span>
+            </div>
+          </div>
+
+          {/* Top Variance Driver Spotlight Banner */}
+          {varianceAnalysis.topDriver && (
+            <div className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              varianceAnalysis.topDriver.isOutperforming
+                ? 'bg-gradient-to-r from-emerald-950/80 via-[#0F1E14] to-black/80 border-emerald-500/50'
+                : 'bg-gradient-to-r from-rose-950/80 via-[#210D12] to-black/80 border-rose-500/50'
+            }`}>
+              <div className="flex items-start gap-2.5">
+                <span className={`p-2 rounded-lg border shrink-0 ${
+                  varianceAnalysis.topDriver.isOutperforming
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                    : 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                }`}>
+                  <Award className="w-5 h-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-neutral-400 uppercase font-bold">#1 Divergence Driver:</span>
+                    <h5 className="font-serif font-bold text-white text-xs sm:text-sm">
+                      {varianceAnalysis.topDriver.name}
+                    </h5>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase border ${
+                      varianceAnalysis.topDriver.isOutperforming
+                        ? 'bg-emerald-900/60 text-emerald-200 border-emerald-500/50'
+                        : 'bg-rose-900/60 text-rose-200 border-rose-500/50'
+                    }`}>
+                      {varianceAnalysis.topDriver.contributionShare}% Total Share
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-neutral-300 font-sans mt-0.5">
+                    {varianceAnalysis.topDriver.isOutperforming
+                      ? `Your region leads the cohort with ${varianceAnalysis.topDriver.currentValue} ${varianceAnalysis.topDriver.unit} (+${varianceAnalysis.topDriver.deltaVsMedian}% above cohort median). This is your primary competitive ecological advantage.`
+                      : `Your region registers ${varianceAnalysis.topDriver.currentValue} ${varianceAnalysis.topDriver.unit} (${varianceAnalysis.topDriver.deltaVsMedian}% vs archetype median). This single indicator represents the highest-leverage gap to close.`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="shrink-0 flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 border-t sm:border-t-0 sm:border-l border-white/10 pt-2 sm:pt-0 sm:pl-3">
+                <span className="text-[9px] text-neutral-400">Contribution Weight:</span>
+                <span className="text-base font-bold text-[#C5A059]">
+                  {varianceAnalysis.topDriver.contributionShare}%
+                </span>
+                <span className="text-[8px] text-neutral-400">of archetype variance</span>
+              </div>
+            </div>
+          )}
+
+          {/* The Heatmap Matrix Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredHeatmapItems.map((item) => {
+              const isOutperforming = item.isOutperforming;
+              const isHovered = hoveredIndicatorId === item.id;
+              const share = item.contributionShare;
+
+              // Compute continuous heat gradient styling
+              const heatColorClass = isOutperforming
+                ? item.driverLevel === 'primary'
+                  ? 'bg-gradient-to-br from-emerald-950/90 via-[#0E2014] to-[#070E0A] border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                  : item.driverLevel === 'moderate'
+                  ? 'bg-gradient-to-br from-emerald-950/60 via-[#0B170F] to-[#070E0A] border-emerald-500/40'
+                  : 'bg-gradient-to-br from-[#0D1510] to-[#070B09] border-emerald-500/20'
+                : item.driverLevel === 'primary'
+                ? 'bg-gradient-to-br from-rose-950/90 via-[#220E13] to-[#0F0709] border-rose-500/60 shadow-[0_0_15px_rgba(244,63,94,0.15)]'
+                : item.driverLevel === 'moderate'
+                ? 'bg-gradient-to-br from-rose-950/60 via-[#1A0B0F] to-[#0F0709] border-rose-500/40'
+                : 'bg-gradient-to-br from-[#160D10] to-[#0A0608] border-rose-500/20';
+
+              return (
+                <div
+                  key={item.id}
+                  onMouseEnter={() => {
+                    setHoveredIndicatorId(item.id);
+                    audioFeedback.playMicroTick();
+                  }}
+                  onMouseLeave={() => setHoveredIndicatorId(null)}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer space-y-3 ${heatColorClass} ${
+                    isHovered ? 'scale-[1.02] ring-1 ring-[#C5A059]' : ''
+                  }`}
+                >
+                  {/* Card Header: Icon, Name & Driver Level */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="p-1.5 rounded-lg bg-black/50 border border-white/10 shrink-0">
+                        {item.icon}
+                      </span>
+                      <div>
+                        <h5 className="font-serif font-bold text-white text-xs">
+                          {item.name}
+                        </h5>
+                        <span className="text-[9px] text-neutral-400">
+                          {item.unit}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Driver Level Badge */}
+                    <div className="text-right shrink-0">
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase border flex items-center gap-1 ${
+                        item.driverLevel === 'primary'
+                          ? isOutperforming
+                            ? 'bg-emerald-900/80 text-emerald-200 border-emerald-400'
+                            : 'bg-rose-900/80 text-rose-200 border-rose-400'
+                          : item.driverLevel === 'moderate'
+                          ? 'bg-[#18201A] text-neutral-300 border-white/20'
+                          : 'bg-black/40 text-neutral-400 border-white/10'
+                      }`}>
+                        {item.driverLevel === 'primary' && <Flame className="w-2.5 h-2.5 text-amber-400" />}
+                        {item.driverLevel === 'primary' ? 'Primary Driver' : item.driverLevel === 'moderate' ? 'Moderate Driver' : 'Minor'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Heatmap Variance Contribution Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[9px]">
+                      <span className="text-neutral-400">Share of Total Divergence:</span>
+                      <span className="font-bold text-white">{share}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-black/60 rounded-full overflow-hidden border border-white/10">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isOutperforming ? 'bg-gradient-to-r from-emerald-500 to-emerald-300' : 'bg-gradient-to-r from-rose-500 to-amber-400'
+                        }`}
+                        style={{ width: `${Math.min(100, share * 3)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Values & Delta vs Median */}
+                  <div className="p-2 rounded bg-black/40 border border-white/5 flex items-baseline justify-between text-[10px]">
+                    <div>
+                      <span className="text-[8px] text-neutral-400 uppercase block">Your Region:</span>
+                      <span className="font-bold text-white text-xs">{item.currentValue} {item.unit}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[8px] text-neutral-400 uppercase block">Archetype Med:</span>
+                      <span className="text-neutral-300 text-xs">{item.benchmarks.median} {item.unit}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[8px] text-neutral-400 uppercase block">Variance:</span>
+                      <span className={`font-bold text-xs ${isOutperforming ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {item.deltaVsMedian >= 0 ? `+${item.deltaVsMedian}%` : `${item.deltaVsMedian}%`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Strategic Transfer / Action Recommendation */}
+                  <div className="pt-2 border-t border-white/10 text-[9px] space-y-1 font-sans">
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-400 font-bold">Standing:</span>
+                      <span className="text-emerald-400 font-mono font-bold">{item.percentile}th %tile in Archetype</span>
+                    </div>
+                    <p className="text-neutral-300 leading-tight">
+                      {isOutperforming
+                        ? 'Leading practice verified. High potential to export technical protocols to regional cohort members.'
+                        : `Deficit gap. Target closing toward archetype median of ${item.benchmarks.median} ${item.unit}.`}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Benchmark Distribution Matrix (Rendered on 'unified' or 'matrix' mode) */}
+      {(viewTab === 'unified' || viewTab === 'matrix') && (
       <div className="space-y-3">
         <div className="flex items-center justify-between text-[11px]">
           <span className="text-[#C5A059] font-bold uppercase flex items-center gap-1.5">
@@ -747,6 +1160,7 @@ export const RegenerativePeerComparison: React.FC<RegenerativePeerComparisonProp
           })}
         </div>
       </div>
+      )}
 
       {/* Transferable Insights from Top-Performing Peers */}
       <div className="p-4 rounded-xl bg-[#0E1410] border border-emerald-500/30 space-y-2">
