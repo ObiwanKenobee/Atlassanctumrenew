@@ -47,7 +47,8 @@ export type PageView =
   | 'resources'
   | 'governance'
   | 'about'
-  | 'economics-pricing';
+  | 'economics-pricing'
+  | 'analytics-report';
 
 // AI Engineering & Epistemic Insights Types
 export interface AIEpistemicAuditResult {

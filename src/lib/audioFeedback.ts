@@ -4,6 +4,8 @@
  * using pure Web Audio API without external asset dependencies.
  */
 
+import { hapticFeedback } from './hapticFeedback';
+
 class AudioFeedbackEngine {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
@@ -102,8 +104,10 @@ class AudioFeedbackEngine {
 
   /**
    * Soft dual-tone on view transition (432Hz Pythagorean foundation)
+   * Also triggers mobile haptic pulse via Vibration API
    */
   public playViewTransition() {
+    hapticFeedback.triggerViewTransitionHaptic();
     this.playBell([432, 648], 0.35, 'sine', 0.6);
   }
 
@@ -111,6 +115,7 @@ class AudioFeedbackEngine {
    * Uplifting harmonic chord on data synchronization / successful calculation (528Hz Solfeggio / C major triad)
    */
   public playSyncComplete() {
+    hapticFeedback.triggerSuccessHaptic();
     this.playBell([528, 660, 792], 0.7, 'sine', 0.85);
   }
 
@@ -132,6 +137,7 @@ class AudioFeedbackEngine {
    * Subtle alert chime for ecological telemetry warnings (warm 396Hz harmonic)
    */
   public playAlertPing() {
+    hapticFeedback.triggerWarningHaptic();
     this.playBell([396, 594], 0.6, 'triangle', 0.7);
   }
 
@@ -139,6 +145,7 @@ class AudioFeedbackEngine {
    * Telemetry anomaly or critical warning chime
    */
   public playTelemetryWarning() {
+    hapticFeedback.triggerWarningHaptic();
     this.playBell([330, 495, 660], 0.65, 'triangle', 0.85);
   }
 
@@ -256,3 +263,4 @@ class AudioFeedbackEngine {
 }
 
 export const audioFeedback = new AudioFeedbackEngine();
+export { hapticFeedback };

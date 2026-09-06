@@ -43,7 +43,7 @@ import { SystemVitalityMonitor } from './navigation/SystemVitalityMonitor';
 import { SystemPulseIcon } from './diagnostics/SystemPulseIcon';
 import { BioregionalHazardBeacon } from './navigation/BioregionalHazardBeacon';
 import { MoralAlignmentHUD } from './MoralAlignmentHUD';
-import { audioFeedback } from '../lib/audioFeedback';
+import { audioFeedback, hapticFeedback } from '../lib/audioFeedback';
 import { prefetchView } from '../lib/viewPrefetch';
 
 interface NavigationProps {
@@ -216,12 +216,15 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         <div className="flex items-center gap-[clamp(0.5rem,1.2vw,1rem)] shrink-0 pl-2 sm:pl-3">
           <button
+            id="nav-platform-tour-trigger"
             onClick={() => {
               audioFeedback.playSubtleClick();
+              hapticFeedback.triggerLightClickHaptic();
+              window.dispatchEvent(new CustomEvent('open-platform-tour'));
               window.dispatchEvent(new CustomEvent('start-interactive-walkthrough'));
             }}
             className="text-[#C5A059] hover:underline font-semibold text-[8px] sm:text-[9px] md:text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
-            title="Start Interactive Platform Walkthrough"
+            title="Start Interactive Platform Tour"
           >
             <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#C5A059]" />
             <span className="hidden xs:inline">Platform Tour</span>

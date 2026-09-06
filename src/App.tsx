@@ -39,6 +39,7 @@ const MissionAlertDrawer = React.lazy(() => import('./components/MissionAlertDra
 const GlobalEpistemicSearch = React.lazy(() => import('./components/GlobalEpistemicSearch').then(m => ({ default: m.GlobalEpistemicSearch })));
 const KeyboardShortcutsModal = React.lazy(() => import('./components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })));
 const TrustLayerModal = React.lazy(() => import('./components/trust/TrustLayerModal').then(m => ({ default: m.TrustLayerModal })));
+const PlatformTourOverlay = React.lazy(() => import('./components/navigation/PlatformTourOverlay').then(m => ({ default: m.PlatformTourOverlay })));
 
 // Lazy-Loaded Views for instant code-splitting and progressive delivery
 const AtlasStewardView = React.lazy(() => import('./components/steward/AtlasStewardView').then(m => ({ default: m.AtlasStewardView })));
@@ -83,6 +84,7 @@ const StoriesView = React.lazy(() => import('./components/views/StoriesView').th
 const ResourcesView = React.lazy(() => import('./components/views/ResourcesView').then(m => ({ default: m.ResourcesView })));
 const GovernanceHubView = React.lazy(() => import('./components/views/GovernanceHubView').then(m => ({ default: m.GovernanceHubView })));
 const EconomicsPricingView = React.lazy(() => import('./components/views/EconomicsPricingView').then(m => ({ default: m.EconomicsPricingView })));
+const AnalyticsReportView = React.lazy(() => import('./components/views/AnalyticsReportView').then(m => ({ default: m.AnalyticsReportView })));
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<PageView>('home');
@@ -94,9 +96,26 @@ export default function App() {
   const [geminiChatOpen, setGeminiChatOpen] = useState(false);
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false);
   const [voiceCommandOpen, setVoiceCommandOpen] = useState(false);
+  const [platformTourOpen, setPlatformTourOpen] = useState(false);
   const [commandCenterInitialQuery, setCommandCenterInitialQuery] = useState<string>('');
   const [provenanceModalData, setProvenanceModalData] = useState<DataProvenance | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Automatic first-visit platform tour check
+  useEffect(() => {
+    try {
+      const tourCompleted = localStorage.getItem('atlas_platform_tour_completed');
+      const dontShow = localStorage.getItem('atlas_platform_tour_dont_show');
+      if (!tourCompleted && !dontShow) {
+        const timer = setTimeout(() => {
+          setPlatformTourOpen(true);
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
+    } catch {
+      // Storage unavailable in sandboxed environment
+    }
+  }, []);
 
   // Global keyboard shortcuts & custom event listeners
   useEffect(() => {
@@ -172,6 +191,8 @@ export default function App() {
     window.addEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
     window.addEventListener('atlas-reset-to-home', handleResetToHome);
     window.addEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
+    const handleOpenTour = () => setPlatformTourOpen(true);
+    window.addEventListener('open-platform-tour', handleOpenTour);
     window.addEventListener('inspect-data-provenance' as any, handleInspectCustomProvenance);
 
     // Proactively prefetch priority modules on idle
@@ -186,6 +207,7 @@ export default function App() {
       window.removeEventListener('open-commandments', handleOpenCommandments);
       window.removeEventListener('open-global-search', handleOpenSearch);
       window.removeEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
+      window.removeEventListener('open-platform-tour', handleOpenTour);
       window.removeEventListener('atlas-reset-to-home', handleResetToHome);
       window.removeEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
       window.removeEventListener('inspect-data-provenance' as any, handleInspectCustomProvenance);
@@ -483,6 +505,10 @@ export default function App() {
                     />
                   )}
 
+                  {currentTab === 'analytics-report' && (
+                    <AnalyticsReportView />
+                  )}
+
                   {currentTab === 'regenerative-mission' && (
                     <RegenerativeMissionView
                       onSelectTab={handleSelectTab}
@@ -589,6 +615,13 @@ export default function App() {
               <GeminiChatModal
                 isOpen={geminiChatOpen}
                 onClose={() => setGeminiChatOpen(false)}
+              />
+
+              {/* Guided Platform Tour Overlay */}
+              <PlatformTourOverlay
+                isOpen={platformTourOpen}
+                onClose={() => setPlatformTourOpen(false)}
+                onSelectTab={handleSelectTab}
               />
 
               {/* Live Voice Streaming Modal */}

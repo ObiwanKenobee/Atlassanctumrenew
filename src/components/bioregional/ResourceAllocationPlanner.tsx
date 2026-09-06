@@ -46,7 +46,7 @@ import {
   ReferenceLine
 } from 'recharts';
 import { BioregionalLedgerData } from '../../data/bioregionalLedgerData';
-import { audioFeedback } from '../../lib/audioFeedback';
+import { audioFeedback, hapticFeedback } from '../../lib/audioFeedback';
 import { useViewRenderTracker } from '../../hooks/useViewRenderTracker';
 
 export interface ResourceFlowAllocation {
@@ -497,6 +497,7 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
   // Snapshot & Checkpoint Management Handlers
   const handleSaveSnapshot = (nameOverride?: string) => {
     audioFeedback.playSuccess();
+    hapticFeedback.triggerHighStakesHaptic();
     const activePreset = PRESETS.find((p) => p.id === appliedPresetId);
     const presetLabel = activePreset ? activePreset.name : 'Custom Allocation Baseline';
     const now = new Date();
@@ -531,6 +532,7 @@ export const ResourceAllocationPlanner: React.FC<ResourceAllocationPlannerProps>
 
   const handleRevertToSnapshot = (snapshot: ScenarioSnapshot) => {
     audioFeedback.playSubtleClick();
+    hapticFeedback.triggerHighStakesHaptic();
     setTargetYear(snapshot.targetYear);
     setAllocations(JSON.parse(JSON.stringify(snapshot.allocations)));
     setAppliedPresetId('custom');

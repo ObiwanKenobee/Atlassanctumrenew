@@ -435,6 +435,14 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
               description: 'Synthesis of bioregional, social, and economic regenerative ROI',
               icon: BarChart3,
               targetTab: 'impact-dashboard'
+            },
+            {
+              id: 'analytics-report-item',
+              label: 'Analytics Report',
+              description: 'Interactive Recharts visualization of user activity, compute energy & watershed dynamics',
+              icon: BarChart3,
+              targetTab: 'analytics-report',
+              badge: { text: 'Recharts', variant: 'emerald' }
             }
           ]
         }
@@ -817,6 +825,18 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
       targetTab: 'economics-pricing',
       badge: { text: 'New Model', variant: 'gold' },
       analytics: { category: 'Navigation', action: 'navigate_economics_pricing' }
+    },
+
+    // 7c. Analytics Report (Recharts Activity & Resource Consumption)
+    {
+      id: 'analytics-report-nav',
+      label: 'Analytics',
+      labelKey: 'nav.analytics',
+      type: 'link',
+      icon: BarChart3,
+      targetTab: 'analytics-report',
+      badge: { text: 'Live', variant: 'emerald' },
+      analytics: { category: 'Navigation', action: 'navigate_analytics_report' }
     },
 
     // 8. About & Sanctum Governance Charter
