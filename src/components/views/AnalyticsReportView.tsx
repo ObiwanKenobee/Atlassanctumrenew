@@ -15,7 +15,8 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend
+  Legend,
+  ReferenceLine
 } from 'recharts';
 import {
   BarChart3,
@@ -47,10 +48,49 @@ import {
   ExternalLink,
   ChevronRight,
   Filter,
-  Info
+  Info,
+  Palette,
+  Tag,
+  Pin,
+  Plus,
+  Trash2,
+  Play,
+  Pause,
+  TrendingUp,
+  Gauge,
+  SlidersHorizontal,
+  Bookmark,
+  Edit3,
+  Bell,
+  Globe,
+  Camera,
+  Target
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { audioFeedback, hapticFeedback } from '../../lib/audioFeedback';
+import {
+  generatePredictiveResourceForecast,
+  PredictiveConfig,
+  ForecastScenario
+} from '../analytics/PredictiveTrendsEngine';
+import {
+  AlertManagerModal,
+  MissionAlertBanner,
+  MetricAlertRule,
+  TriggeredMissionAlert,
+  DEFAULT_ALERT_RULES,
+  AlertMetricKey
+} from '../analytics/AlertNotificationSystem';
+import {
+  ExternalApiSyncModal,
+  ExternalSyncFeed,
+  DEFAULT_SYNC_FEED
+} from '../analytics/ExternalApiSyncModal';
+import {
+  SavedInsightsSidebar,
+  SavedInsightSnapshot,
+  PRESET_SAVED_INSIGHTS
+} from '../analytics/SavedInsightsSidebar';
 
 // Activity time-series data with comparative baselines
 const ACTIVITY_24H = [
@@ -151,12 +191,187 @@ export interface DrilldownInspection {
   recommendation: string;
 }
 
+// Chart Annotation definition for marking milestones and anomalies
+export interface ChartAnnotation {
+  id: string;
+  chartId: 'activity' | 'resource' | 'watershed' | 'telemetry';
+  dataPointX: string;
+  label: string;
+  description: string;
+  category: 'milestone' | 'anomaly' | 'audit' | 'target';
+  createdAt: string;
+  author: string;
+}
+
+const DEFAULT_ANNOTATIONS: ChartAnnotation[] = [
+  {
+    id: 'anno-1',
+    chartId: 'activity',
+    dataPointX: 'Wed',
+    label: 'Milestone: Steward Quorum Surge',
+    description: 'Cross-catchment consensus quorum reached 99.8% with 6,100 active stewards.',
+    category: 'milestone',
+    createdAt: '2026-09-02T14:30:00Z',
+    author: 'Aberdare Guild Council'
+  },
+  {
+    id: 'anno-2',
+    chartId: 'activity',
+    dataPointX: '12:00',
+    label: 'Anomaly: Prover Load Spike',
+    description: 'Unexpected 45% spike in real-time ZK-SNARK sensor verification proofs.',
+    category: 'anomaly',
+    createdAt: '2026-09-05T12:00:00Z',
+    author: 'Telemetry Watchdog'
+  },
+  {
+    id: 'anno-3',
+    chartId: 'resource',
+    dataPointX: 'Apr',
+    label: 'Milestone: Agrivoltaic Array Go-Live',
+    description: 'Bifacial solar tracking array added 1,100 kWh net renewable surplus.',
+    category: 'milestone',
+    createdAt: '2026-04-15T09:00:00Z',
+    author: 'Grid Engineering Team'
+  },
+  {
+    id: 'anno-4',
+    chartId: 'resource',
+    dataPointX: 'Jun',
+    label: 'Anomaly: Cloud Shadowing Delta',
+    description: 'Generation delta buffered automatically by hydro and battery storage.',
+    category: 'anomaly',
+    createdAt: '2026-06-18T14:00:00Z',
+    author: 'Autonomous Microgrid Controller'
+  },
+  {
+    id: 'anno-5',
+    chartId: 'watershed',
+    dataPointX: 'Aberdare Catchment',
+    label: 'Milestone: Peak Aquifer Infiltration',
+    description: 'Achieved 7,650 m³ recharge via indigenous cloud forest retention.',
+    category: 'milestone',
+    createdAt: '2026-07-12T10:00:00Z',
+    author: 'Hydrology Taskforce'
+  },
+  {
+    id: 'anno-6',
+    chartId: 'telemetry',
+    dataPointX: 'T-12m',
+    label: 'Anomaly: Radio Mesh Congestion',
+    description: 'High-frequency burst of 640 KB/s without packet drop across 4,210 nodes.',
+    category: 'anomaly',
+    createdAt: '2026-09-06T04:40:00Z',
+    author: 'LoRaWAN Edge Supervisor'
+  }
+];
+
+// Color palette definitions for Recharts components
+const PALETTES = {
+  default_professional: {
+    id: 'default_professional',
+    name: 'Default Professional',
+    isHighContrast: false,
+    stewards: '#10B981',
+    operatives: '#06B6D4',
+    queries: '#C5A059',
+    stewardsGradStart: '#10B981',
+    operativesGradStart: '#06B6D4',
+    queriesGradStart: '#C5A059',
+    compute: '#EF4444',
+    solar: '#10B981',
+    netSurplus: '#F59E0B',
+    baselineStewards: '#6EE7B7',
+    baselineCompute: '#F87171',
+    baselineSolar: '#34D399',
+    waterRecharge: '#06B6D4',
+    waterExtraction: '#64748B',
+    packetRate: '#C5A059',
+    latency: '#06B6D4',
+    grid: '#263429',
+    gridOpacity: 0.5,
+    axisText: '#7E8B82',
+    tooltipBg: '#0B120E',
+    tooltipBorder: '#10B981',
+    tooltipText: '#F5F5F0',
+    donutColors: ['#10B981', '#06B6D4', '#C5A059', '#8B5CF6', '#F59E0B'],
+    domainColors: ['#10B981', '#06B6D4', '#C5A059', '#8B5CF6', '#F59E0B'],
+    comparisonBaseline: '#6EE7B7',
+    comparisonCompute: '#F87171',
+    comparisonSolar: '#34D399',
+    recharge: '#06B6D4',
+    extraction: '#64748B',
+    telemetryPacket: '#C5A059',
+    telemetryLatency: '#06B6D4',
+    milestoneLine: '#F59E0B',
+    milestoneLabel: '#FDE68A',
+    anomalyLine: '#EF4444',
+    anomalyLabel: '#FCA5A5',
+    auditLine: '#06B6D4',
+    auditLabel: '#67E8F9'
+  },
+  high_contrast: {
+    id: 'high_contrast',
+    name: 'High Contrast (WCAG AAA)',
+    isHighContrast: true,
+    stewards: '#FFFF00', // Neon Yellow
+    operatives: '#00FFFF', // Electric Cyan
+    queries: '#FF007F', // Vivid Magenta / Hot Pink
+    stewardsGradStart: '#FFFF00',
+    operativesGradStart: '#00FFFF',
+    queriesGradStart: '#FF007F',
+    compute: '#FF0055', // Stark Crimson
+    solar: '#39FF14', // Neon Lime
+    netSurplus: '#FFFF00', // Bright Yellow
+    baselineStewards: '#FFFFFF', // Stark White
+    baselineCompute: '#FF9999',
+    baselineSolar: '#99FF99',
+    comparisonBaseline: '#FFFFFF',
+    comparisonCompute: '#FF9999',
+    comparisonSolar: '#99FF99',
+    waterRecharge: '#00FFFF',
+    waterExtraction: '#E2E8F0', // High contrast silver
+    recharge: '#00FFFF',
+    extraction: '#E2E8F0',
+    packetRate: '#FFFF00',
+    latency: '#00FFFF',
+    telemetryPacket: '#FFFF00',
+    telemetryLatency: '#00FFFF',
+    grid: '#4B5563', // High contrast grid lines
+    gridOpacity: 0.8,
+    axisText: '#F3F4F6', // Pure bright axis text
+    tooltipBg: '#000000',
+    tooltipBorder: '#FFFFFF',
+    tooltipText: '#FFFFFF',
+    donutColors: ['#FFFF00', '#00FFFF', '#FF007F', '#39FF14', '#FFA500'],
+    domainColors: ['#FFFF00', '#00FFFF', '#FF007F', '#39FF14', '#FFA500'],
+    milestoneLine: '#FFFF00',
+    milestoneLabel: '#FFFF00',
+    anomalyLine: '#FF0055',
+    anomalyLabel: '#FF6699',
+    auditLine: '#00FFFF',
+    auditLabel: '#00FFFF'
+  }
+};
+
 export const AnalyticsReportView: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('7d');
   const [selectedBioregion, setSelectedBioregion] = useState<string>('all');
   const [isExportingJson, setIsExportingJson] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Color Palette Switcher State
+  const [colorPalette, setColorPalette] = useState<'default_professional' | 'high_contrast'>('default_professional');
+  const activePalette = PALETTES[colorPalette];
+  const isHighContrast = colorPalette === 'high_contrast';
+
+  // Live Data Polling State
+  const [isLiveData, setIsLiveData] = useState<boolean>(false);
+  const [livePollInterval, setLivePollInterval] = useState<number>(5); // seconds: 3, 5, 10, 30
+  const [lastPolledTime, setLastPolledTime] = useState<string>('06:10:24 AM');
+  const [pollCountdown, setPollCountdown] = useState<number>(5);
+  const [telemetryStream, setTelemetryStream] = useState(TELEMETRY_STREAM_DATA);
 
   // Comparison Mode state
   const [comparisonMode, setComparisonMode] = useState<boolean>(false);
@@ -170,16 +385,153 @@ export const AnalyticsReportView: React.FC = () => {
   const [drilldownData, setDrilldownData] = useState<DrilldownInspection | null>(null);
   const [drilldownSearch, setDrilldownSearch] = useState<string>('');
 
-  // Close drilldown on Escape key
+  // Custom Chart Annotations State
+  const [annotations, setAnnotations] = useState<ChartAnnotation[]>(() => {
+    try {
+      const saved = localStorage.getItem('atlas_chart_annotations');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      // fallback
+    }
+    return DEFAULT_ANNOTATIONS;
+  });
+
+  const [isAnnotationModalOpen, setIsAnnotationModalOpen] = useState(false);
+  const [showAnnotationsDrawer, setShowAnnotationsDrawer] = useState(false);
+  const [showAnnotationsOnCharts, setShowAnnotationsOnCharts] = useState(true);
+  const [annotationCategoryFilter, setAnnotationCategoryFilter] = useState<'all' | 'milestone' | 'anomaly' | 'audit'>('all');
+
+  // New Annotation Form State
+  const [annotationForm, setAnnotationForm] = useState<{
+    chartId: 'activity' | 'resource' | 'watershed' | 'telemetry';
+    dataPointX: string;
+    label: string;
+    description: string;
+    category: 'milestone' | 'anomaly' | 'audit' | 'target';
+    author: string;
+  }>({
+    chartId: 'activity',
+    dataPointX: 'Wed',
+    label: '',
+    description: '',
+    category: 'milestone',
+    author: 'Bioregional Observer'
+  });
+
+  // Predictive Trends Forecasting State
+  const [predictiveConfig, setPredictiveConfig] = useState<PredictiveConfig>({
+    enabled: false,
+    horizonMonths: 3,
+    scenario: 'baseline_ols',
+    showConfidenceInterval: true,
+    confidenceBandPct: 8
+  });
+  const [showPredictiveMenu, setShowPredictiveMenu] = useState<boolean>(false);
+
+  // Threshold Metric Alert System State
+  const [alertRules, setAlertRules] = useState<MetricAlertRule[]>(() => {
+    try {
+      const saved = localStorage.getItem('atlas_metric_alert_rules');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return DEFAULT_ALERT_RULES;
+  });
+
+  const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredMissionAlert[]>([]);
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('atlas_metric_alert_rules', JSON.stringify(alertRules));
+    } catch (e) {
+      // ignore
+    }
+  }, [alertRules]);
+
+  // External API Sync Feed State
+  const [externalSyncFeed, setExternalSyncFeed] = useState<ExternalSyncFeed | null>(() => {
+    try {
+      const saved = localStorage.getItem('atlas_external_sync_feed');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      // ignore
+    }
+    return DEFAULT_SYNC_FEED;
+  });
+  const [isExternalSyncModalOpen, setIsExternalSyncModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      if (externalSyncFeed) {
+        localStorage.setItem('atlas_external_sync_feed', JSON.stringify(externalSyncFeed));
+      } else {
+        localStorage.removeItem('atlas_external_sync_feed');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [externalSyncFeed]);
+
+  // Saved Insights / Snapshots State
+  const [savedInsights, setSavedInsights] = useState<SavedInsightSnapshot[]>(() => {
+    try {
+      const saved = localStorage.getItem('atlas_saved_insights');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return PRESET_SAVED_INSIGHTS;
+  });
+  const [isSavedInsightsOpen, setIsSavedInsightsOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('atlas_saved_insights', JSON.stringify(savedInsights));
+    } catch (e) {
+      // ignore
+    }
+  }, [savedInsights]);
+
+  // Persist annotations to local storage
+  useEffect(() => {
+    try {
+      localStorage.setItem('atlas_chart_annotations', JSON.stringify(annotations));
+    } catch (e) {
+      // ignore
+    }
+  }, [annotations]);
+
+  // Close drilldown, alert, or annotation modals on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && drilldownData) {
-        setDrilldownData(null);
+      if (e.key === 'Escape') {
+        if (isAnnotationModalOpen) {
+          setIsAnnotationModalOpen(false);
+        } else if (isAlertModalOpen) {
+          setIsAlertModalOpen(false);
+        } else if (isExternalSyncModalOpen) {
+          setIsExternalSyncModalOpen(false);
+        } else if (isSavedInsightsOpen) {
+          setIsSavedInsightsOpen(false);
+        } else if (drilldownData) {
+          setDrilldownData(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [drilldownData]);
+  }, [drilldownData, isAnnotationModalOpen, isAlertModalOpen, isExternalSyncModalOpen, isSavedInsightsOpen]);
 
   // Active time-series dataset
   const activityData = useMemo(() => {
@@ -191,9 +543,19 @@ export const AnalyticsReportView: React.FC = () => {
     }
   }, [timeRange]);
 
-  // Dynamic resource consumption data with selected comparison overlay
+  // Filtered biophysical data based on active bioregional filter
+  const filteredBiophysicalData = useMemo(() => {
+    if (selectedBioregion === 'all') return BIOPHYSICAL_RESOURCES_DATA;
+    if (selectedBioregion === 'mara') return BIOPHYSICAL_RESOURCES_DATA.filter(b => b.watershed.toLowerCase().includes('mara'));
+    if (selectedBioregion === 'aberdare') return BIOPHYSICAL_RESOURCES_DATA.filter(b => b.watershed.toLowerCase().includes('aberdare'));
+    if (selectedBioregion === 'naivasha') return BIOPHYSICAL_RESOURCES_DATA.filter(b => b.watershed.toLowerCase().includes('naivasha'));
+    if (selectedBioregion === 'rift') return BIOPHYSICAL_RESOURCES_DATA.filter(b => b.watershed.toLowerCase().includes('rift'));
+    return BIOPHYSICAL_RESOURCES_DATA;
+  }, [selectedBioregion]);
+
+  // Dynamic resource consumption data with selected comparison overlay and external feed value
   const resourceConsumptionData = useMemo(() => {
-    return RESOURCE_ENERGY_DATA.map(item => {
+    return RESOURCE_ENERGY_DATA.map((item, idx) => {
       let compCompute = item.baselineComputeKWh;
       let compSolar = item.baselineSolarKWh;
 
@@ -211,19 +573,330 @@ export const AnalyticsReportView: React.FC = () => {
       const compNetSurplus = compSolar - compCompute;
       const netDeltaVsComparison = item.netOffsetKWh - compNetSurplus;
 
+      // Map external sync feed if enabled for resource chart
+      let externalMetricValue: number | undefined = undefined;
+      if (externalSyncFeed && externalSyncFeed.isEnabled && externalSyncFeed.targetChart === 'resource') {
+        const feedPoint = externalSyncFeed.dataPoints.find(p => p.label === item.epoch) || externalSyncFeed.dataPoints[idx];
+        if (feedPoint) {
+          externalMetricValue = feedPoint.value;
+        }
+      }
+
       return {
         ...item,
         comparisonComputeKWh: compCompute,
         comparisonSolarKWh: compSolar,
         comparisonNetSurplusKWh: compNetSurplus,
-        netDeltaVsComparison
+        netDeltaVsComparison,
+        externalMetricValue
       };
     });
-  }, [comparisonPeriod]);
+  }, [comparisonPeriod, externalSyncFeed]);
+
+  // Predictive Trends Regression Model calculations
+  const predictiveForecastResult = useMemo(() => {
+    return generatePredictiveResourceForecast(resourceConsumptionData, predictiveConfig);
+  }, [resourceConsumptionData, predictiveConfig]);
+
+  // Mapped Telemetry Stream with External Feed injection if enabled
+  const mappedTelemetryStream = useMemo(() => {
+    return telemetryStream.map((item, idx) => {
+      let externalMetricValue: number | undefined = undefined;
+      if (externalSyncFeed && externalSyncFeed.isEnabled && externalSyncFeed.targetChart === 'telemetry') {
+        const feedPoint = externalSyncFeed.dataPoints.find(p => p.label === item.minute) || externalSyncFeed.dataPoints[idx];
+        if (feedPoint) {
+          externalMetricValue = feedPoint.value;
+        }
+      }
+      return {
+        ...item,
+        externalMetricValue
+      };
+    });
+  }, [telemetryStream, externalSyncFeed]);
+
+  // Current view snapshot state representation for Saved Insights
+  const currentSnapshotState = useMemo((): SavedInsightSnapshot['state'] => ({
+    timeRange,
+    selectedBioregion,
+    comparisonMode,
+    comparisonPeriod,
+    colorPalette: colorPalette === 'high_contrast' ? 'high_contrast' : 'default',
+    predictiveEnabled: predictiveConfig.enabled,
+    predictiveHorizonMonths: predictiveConfig.horizonMonths,
+    predictiveScenario: predictiveConfig.scenario,
+    showConfidenceInterval: predictiveConfig.showConfidenceInterval,
+    annotations,
+    externalFeedEnabled: externalSyncFeed?.isEnabled ?? false
+  }), [
+    timeRange,
+    selectedBioregion,
+    comparisonMode,
+    comparisonPeriod,
+    colorPalette,
+    predictiveConfig,
+    annotations,
+    externalSyncFeed
+  ]);
+
+  // Auto-calculated KPI Summary Metrics based on active data selection
+  const autoCalculatedKpis = useMemo(() => {
+    // 1. Year-over-Year (or Period-over-Period) Growth
+    const currentStewardsSum = activityData.reduce((acc, row) => acc + row.stewards, 0);
+    const baselineStewardsSum = activityData.reduce(
+      (acc, row) => acc + (row.prevStewards || Math.round(row.stewards * 0.86)),
+      0
+    );
+    const yoyGrowthRate = baselineStewardsSum > 0
+      ? ((currentStewardsSum - baselineStewardsSum) / baselineStewardsSum) * 100
+      : 14.2;
+    const deltaStewards = currentStewardsSum - baselineStewardsSum;
+
+    // 2. Resource Efficiency Variance
+    const totalCompute = resourceConsumptionData.reduce((acc, r) => acc + r.computeKWh, 0);
+    const totalSolar = resourceConsumptionData.reduce((acc, r) => acc + r.greenSolarKWh, 0);
+    const netSurplusKWh = totalSolar - totalCompute;
+    const resourceEfficiencyVariancePct = totalCompute > 0
+      ? ((totalSolar - totalCompute) / totalCompute) * 100
+      : 32.4;
+
+    const baselineComputeSum = resourceConsumptionData.reduce((acc, r) => acc + (r.comparisonComputeKWh || r.baselineComputeKWh), 0);
+    const baselineSolarSum = resourceConsumptionData.reduce((acc, r) => acc + (r.comparisonSolarKWh || r.baselineSolarKWh), 0);
+    const efficiencyImprovementVsBaseline = baselineComputeSum > 0
+      ? resourceEfficiencyVariancePct - (((baselineSolarSum - baselineComputeSum) / baselineComputeSum) * 100)
+      : 8.6;
+
+    // 3. Biophysical Aquifer Recharge Variance & Ratio
+    const totalRecharge = filteredBiophysicalData.reduce((acc, w) => acc + w.waterRechargeM3, 0);
+    const totalExtraction = filteredBiophysicalData.reduce((acc, w) => acc + w.waterExtractionM3, 0);
+    const netAquiferDelta = totalRecharge - totalExtraction;
+    const rechargeRatio = totalExtraction > 0 ? (totalRecharge / totalExtraction).toFixed(2) : '3.36';
+    const aquiferSurplusPct = totalExtraction > 0 ? (((totalRecharge - totalExtraction) / totalExtraction) * 100).toFixed(1) : '235.7';
+
+    // 4. Epistemic Quorum Velocity
+    const totalAudits = activityData.reduce((acc, a) => acc + a.epistemicAudits, 0);
+    const totalQueries = activityData.reduce((acc, a) => acc + a.aiQueries, 0);
+    const quorumVelocityPct = ((totalAudits / (totalAudits + totalQueries * 0.08)) * 100).toFixed(1);
+
+    return {
+      yoyGrowthRate: yoyGrowthRate.toFixed(1),
+      currentStewardsSum,
+      deltaStewards,
+      resourceEfficiencyVariancePct: resourceEfficiencyVariancePct.toFixed(1),
+      netSurplusKWh,
+      efficiencyImprovementVsBaseline: efficiencyImprovementVsBaseline.toFixed(1),
+      totalRecharge,
+      totalExtraction,
+      netAquiferDelta,
+      rechargeRatio,
+      aquiferSurplusPct,
+      totalAudits,
+      quorumVelocityPct
+    };
+  }, [activityData, resourceConsumptionData, filteredBiophysicalData]);
+
+  // Live Data Auto-Polling Effect
+  useEffect(() => {
+    if (!isLiveData) return;
+
+    setPollCountdown(livePollInterval);
+
+    const countdownInterval = setInterval(() => {
+      setPollCountdown(prev => (prev <= 1 ? livePollInterval : prev - 1));
+    }, 1000);
+
+    const pollInterval = setInterval(() => {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setLastPolledTime(timeString);
+
+      // Subtle realistic telemetry perturbation
+      setTelemetryStream(prev => {
+        const jitterPacket = Math.floor(Math.random() * 50) - 22;
+        const jitterSensors = Math.floor(Math.random() * 6) - 2;
+        const jitterLatency = Math.floor(Math.random() * 4) - 2;
+        return prev.map((item, idx) => {
+          if (idx === prev.length - 1) {
+            return {
+              ...item,
+              packetRateKBs: Math.max(680, Math.min(840, item.packetRateKBs + jitterPacket)),
+              activeSensors: Math.max(4260, Math.min(4350, item.activeSensors + jitterSensors)),
+              latencyMs: Math.max(28, Math.min(45, item.latencyMs + jitterLatency))
+            };
+          }
+          return item;
+        });
+      });
+
+      // Trigger smooth Recharts transition
+      setRefreshKey(prev => prev + 1);
+    }, livePollInterval * 1000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(countdownInterval);
+    };
+  }, [isLiveData, livePollInterval]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Evaluate Threshold Metric Alerts whenever data or live polling updates
+  useEffect(() => {
+    if (!alertRules || alertRules.length === 0) return;
+
+    const latestResource = resourceConsumptionData[resourceConsumptionData.length - 1];
+    const latestTelemetry = telemetryStream[telemetryStream.length - 1];
+    const latestActivity = activityData[activityData.length - 1];
+    const maxExtraction = Math.max(...filteredBiophysicalData.map(b => b.waterExtractionM3));
+    const minRecharge = Math.min(...filteredBiophysicalData.map(b => b.waterRechargeM3));
+
+    const currentMetricValues: Record<AlertMetricKey, number> = {
+      computeKWh: latestResource?.computeKWh || 5300,
+      greenSolarKWh: latestResource?.greenSolarKWh || 7200,
+      waterExtractionM3: maxExtraction || 1890,
+      waterRechargeM3: minRecharge || 2150,
+      latencyMs: latestTelemetry?.latencyMs || 34,
+      packetRateKBs: latestTelemetry?.packetRateKBs || 745,
+      stewards: latestActivity?.stewards || 4310
+    };
+
+    const newTriggered: TriggeredMissionAlert[] = [];
+
+    alertRules.forEach(rule => {
+      if (!rule.isEnabled) return;
+      const currentVal = currentMetricValues[rule.metric];
+      if (currentVal === undefined) return;
+
+      const isViolated = rule.comparator === 'gt'
+        ? currentVal > rule.threshold
+        : currentVal < rule.threshold;
+
+      if (isViolated) {
+        const alertId = `alert-${rule.id}-${Date.now()}`;
+        const message = `Threshold limit hit: ${rule.name}. Current value ${currentVal.toLocaleString()} ${rule.unit} ${rule.comparator === 'gt' ? 'exceeds ceiling' : 'drops below floor'} of ${rule.threshold.toLocaleString()} ${rule.unit}.`;
+        
+        newTriggered.push({
+          id: alertId,
+          ruleId: rule.id,
+          ruleName: rule.name,
+          metric: rule.metric,
+          currentValue: currentVal,
+          threshold: rule.threshold,
+          comparator: rule.comparator,
+          severity: rule.severity,
+          timestamp: new Date().toISOString(),
+          message,
+          acknowledged: false
+        });
+
+        // Trigger browser notification if permitted
+        if (rule.browserNotification && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification(`[Atlas Sanctum Alert] ${rule.name}`, {
+              body: message,
+              icon: '/favicon.ico'
+            });
+          } catch {
+            // ignore
+          }
+        }
+      }
+    });
+
+    if (newTriggered.length > 0) {
+      setTriggeredAlerts(prev => {
+        const existingRuleIds = new Set(prev.map(p => p.ruleId));
+        const toAdd = newTriggered.filter(n => !existingRuleIds.has(n.ruleId));
+        if (toAdd.length > 0) {
+          audioFeedback.playAlertPing();
+          hapticFeedback.triggerWarningHaptic();
+          return [...toAdd, ...prev];
+        }
+        return prev;
+      });
+    }
+  }, [resourceConsumptionData, telemetryStream, activityData, filteredBiophysicalData, alertRules]);
+
+  const handleTestTriggerAlert = (rule: MetricAlertRule) => {
+    hapticFeedback.triggerWarningHaptic();
+    audioFeedback.playAlertPing();
+    const mockVal = rule.comparator === 'gt' ? Math.round(rule.threshold * 1.15) : Math.round(rule.threshold * 0.85);
+    const testAlert: TriggeredMissionAlert = {
+      id: `test-${rule.id}-${Date.now()}`,
+      ruleId: rule.id,
+      ruleName: `[TEST] ${rule.name}`,
+      metric: rule.metric,
+      currentValue: mockVal,
+      threshold: rule.threshold,
+      comparator: rule.comparator,
+      severity: rule.severity,
+      timestamp: new Date().toISOString(),
+      message: `Simulated threshold alert: ${rule.name} reached ${mockVal.toLocaleString()} ${rule.unit} (${rule.comparator === 'gt' ? '>' : '<'} ${rule.threshold.toLocaleString()}).`,
+      acknowledged: false
+    };
+
+    setTriggeredAlerts(prev => [testAlert, ...prev]);
+
+    if (rule.browserNotification && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(`[Atlas Test Alert] ${rule.name}`, {
+          body: testAlert.message,
+          icon: '/favicon.ico'
+        });
+      } catch {}
+    }
+
+    showToast(`Test alert fired for "${rule.name}"`);
+  };
+
+  const handleDismissAlert = (id: string) => {
+    hapticFeedback.triggerLightClickHaptic();
+    setTriggeredAlerts(prev => prev.filter(a => a.id !== id));
+  };
+
+  const handleRecallInsight = (insight: SavedInsightSnapshot) => {
+    hapticFeedback.triggerSuccessHaptic();
+    audioFeedback.playSuccess();
+
+    setTimeRange(insight.state.timeRange);
+    setSelectedBioregion(insight.state.selectedBioregion);
+    setComparisonMode(insight.state.comparisonMode);
+    setComparisonPeriod(insight.state.comparisonPeriod);
+    setColorPalette(insight.state.colorPalette === 'high_contrast' ? 'high_contrast' : 'default_professional');
+    setPredictiveConfig({
+      enabled: insight.state.predictiveEnabled,
+      horizonMonths: insight.state.predictiveHorizonMonths,
+      scenario: insight.state.predictiveScenario,
+      showConfidenceInterval: insight.state.showConfidenceInterval,
+      confidenceBandPct: 8
+    });
+
+    if (insight.state.annotations && Array.isArray(insight.state.annotations)) {
+      setAnnotations(insight.state.annotations);
+    }
+
+    if (externalSyncFeed) {
+      setExternalSyncFeed({
+        ...externalSyncFeed,
+        isEnabled: insight.state.externalFeedEnabled
+      });
+    }
+
+    setIsSavedInsightsOpen(false);
+    showToast(`Restored Saved Insight: "${insight.title}"`);
+  };
+
+  const handleSaveInsight = (insight: SavedInsightSnapshot) => {
+    setSavedInsights(prev => [insight, ...prev]);
+  };
+
+  const handleDeleteInsight = (id: string) => {
+    hapticFeedback.triggerWarningHaptic();
+    setSavedInsights(prev => prev.filter(i => i.id !== id));
+    showToast('Saved insight snapshot deleted');
   };
 
   // Live Telemetry Refresh
@@ -786,6 +1459,133 @@ export const AnalyticsReportView: React.FC = () => {
     );
   }, [drilldownData, drilldownSearch]);
 
+  // Available data points getter for the annotation target picker
+  const getAvailableDataPoints = (chartId: 'activity' | 'resource' | 'watershed' | 'telemetry') => {
+    switch (chartId) {
+      case 'activity':
+        return activityData.map(d => d.time);
+      case 'resource':
+        return resourceConsumptionData.map(d => d.epoch);
+      case 'watershed':
+        return filteredBiophysicalData.map(d => d.watershed);
+      case 'telemetry':
+        return telemetryStream.map(d => d.minute);
+      default:
+        return [];
+    }
+  };
+
+  // Custom Annotation Handlers
+  const handleOpenAnnotateModal = (chartId: 'activity' | 'resource' | 'watershed' | 'telemetry' = 'activity', pointX?: string) => {
+    hapticFeedback.triggerLightClickHaptic();
+    audioFeedback.playMicroTick();
+    const available = getAvailableDataPoints(chartId);
+    const defaultPoint = (pointX && available.includes(pointX)) ? pointX : (available[0] || 'Wed');
+
+    setAnnotationForm({
+      chartId,
+      dataPointX: defaultPoint,
+      label: '',
+      description: '',
+      category: 'milestone',
+      author: 'Bioregional Steward'
+    });
+    setIsAnnotationModalOpen(true);
+  };
+
+  const handleOpenAnnotateFromDrilldown = () => {
+    if (!drilldownData) return;
+    hapticFeedback.triggerLightClickHaptic();
+    audioFeedback.playMicroTick();
+
+    let targetChart: 'activity' | 'resource' | 'watershed' | 'telemetry' = 'activity';
+    let targetPoint = 'Wed';
+
+    if (drilldownData.category === 'activity') {
+      targetChart = 'activity';
+      const match = drilldownData.title.match(/Interval:\s*([^\s—]+)/);
+      targetPoint = match ? match[1] : (activityData[0]?.time || '12:00');
+    } else if (drilldownData.category === 'resource') {
+      targetChart = 'resource';
+      const match = drilldownData.title.match(/Epoch:\s*([^\s—]+)/);
+      targetPoint = match ? match[1] : 'Apr';
+    } else if (drilldownData.category === 'watershed') {
+      targetChart = 'watershed';
+      const match = drilldownData.title.match(/^([^—]+)/);
+      targetPoint = match ? match[1].trim() : 'Aberdare Catchment';
+    } else if (drilldownData.category === 'telemetry') {
+      targetChart = 'telemetry';
+      const match = drilldownData.title.match(/Timestamp:\s*([^\s—]+)/);
+      targetPoint = match ? match[1] : 'Now';
+    }
+
+    setAnnotationForm({
+      chartId: targetChart,
+      dataPointX: targetPoint,
+      label: `Annotated Factor: ${drilldownData.primaryMetric.label}`,
+      description: `Observed at ${targetPoint}. ${drilldownData.recommendation}`,
+      category: 'milestone',
+      author: 'Field Observer'
+    });
+    setDrilldownData(null);
+    setIsAnnotationModalOpen(true);
+  };
+
+  const handleSaveAnnotation = () => {
+    if (!annotationForm.label.trim()) {
+      showToast('Please specify a title or milestone label for this annotation');
+      return;
+    }
+
+    hapticFeedback.triggerSuccessHaptic();
+    audioFeedback.playSuccess();
+
+    const newAnno: ChartAnnotation = {
+      id: `anno-${Date.now()}`,
+      chartId: annotationForm.chartId,
+      dataPointX: annotationForm.dataPointX,
+      label: annotationForm.label.trim(),
+      description: annotationForm.description.trim() || 'No additional notes provided.',
+      category: annotationForm.category,
+      createdAt: new Date().toISOString(),
+      author: annotationForm.author.trim() || 'Steward Observer'
+    };
+
+    setAnnotations(prev => [newAnno, ...prev]);
+    setIsAnnotationModalOpen(false);
+    showToast(`Annotation added to ${newAnno.chartId.toUpperCase()} graph.`);
+  };
+
+  const handleDeleteAnnotation = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    hapticFeedback.triggerWarningHaptic();
+    audioFeedback.playAlertPing();
+    setAnnotations(prev => prev.filter(a => a.id !== id));
+    showToast('Annotation removed from graph');
+  };
+
+  const handleToggleLiveData = () => {
+    const next = !isLiveData;
+    setIsLiveData(next);
+    if (next) {
+      hapticFeedback.triggerSuccessHaptic();
+      audioFeedback.playSyncComplete();
+      showToast(`Live Auto-Polling enabled (Polling every ${livePollInterval}s)`);
+    } else {
+      hapticFeedback.triggerLightClickHaptic();
+      audioFeedback.playMicroTick();
+      showToast('Live Auto-Polling paused');
+    }
+  };
+
+  const handleTogglePalette = () => {
+    hapticFeedback.triggerLightClickHaptic();
+    audioFeedback.playMicroTick();
+    const next = colorPalette === 'default_professional' ? 'high_contrast' : 'default_professional';
+    setColorPalette(next);
+    showToast(next === 'high_contrast' ? 'High Contrast Palette Enabled (WCAG AAA)' : 'Default Professional Palette Restored');
+  };
+
   return (
     <div className="min-h-screen bg-[#070B08] text-[#F5F5F0] font-sans p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Toast Notification */}
@@ -795,6 +1595,9 @@ export const AnalyticsReportView: React.FC = () => {
           <span className="font-mono">{toastMessage}</span>
         </div>
       )}
+
+      {/* Active Threshold Mission Alerts Banner */}
+      <MissionAlertBanner alerts={triggeredAlerts} onDismiss={handleDismissAlert} />
 
       {/* View Header & Primary Navigation Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#F5F5F0]/10 pb-6">
@@ -824,6 +1627,118 @@ export const AnalyticsReportView: React.FC = () => {
 
         {/* Controls Toolbar */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Live Data Toggle Switch */}
+          <div className="flex items-center bg-[#0C140F] border border-emerald-500/30 rounded-lg p-1 text-xs font-mono">
+            <button
+              id="toggle-live-data-btn"
+              onClick={handleToggleLiveData}
+              className={`px-3 py-1.5 rounded-md font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                isLiveData
+                  ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+              title="Toggle automatic background polling of live telemetry streams"
+            >
+              {isLiveData ? (
+                <>
+                  <Pause className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Live: ON</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 text-neutral-400" />
+                  <span>Live: OFF</span>
+                  <span className="w-2 h-2 rounded-full bg-neutral-600" />
+                </>
+              )}
+            </button>
+
+            {/* Polling interval selector (only when Live is ON) */}
+            {isLiveData && (
+              <div className="flex items-center pl-2 border-l border-emerald-500/20 gap-1.5">
+                <span className="text-[10px] text-emerald-400/80">Every:</span>
+                <select
+                  value={livePollInterval}
+                  onChange={(e) => {
+                    hapticFeedback.triggerLightClickHaptic();
+                    setLivePollInterval(Number(e.target.value));
+                    showToast(`Polling interval set to ${e.target.value}s`);
+                  }}
+                  aria-label="Polling interval in seconds"
+                  className="bg-[#070E09] text-emerald-300 border border-emerald-500/40 rounded px-1.5 py-0.5 text-[11px] font-mono focus:outline-none cursor-pointer"
+                >
+                  <option value={3}>3s</option>
+                  <option value={5}>5s</option>
+                  <option value={10}>10s</option>
+                  <option value={30}>30s</option>
+                </select>
+                <span className="text-[10px] text-neutral-400 px-1 font-mono">
+                  {pollCountdown}s
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Color Palette Switcher */}
+          <button
+            id="palette-switcher-btn"
+            onClick={handleTogglePalette}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+              isHighContrast
+                ? 'bg-yellow-950/90 border-yellow-400 text-yellow-300 shadow-[0_0_12px_rgba(255,255,0,0.3)]'
+                : 'bg-[#0F1711] border-[#F5F5F0]/15 text-neutral-300 hover:text-white hover:border-[#F5F5F0]/30'
+            }`}
+            title="Toggle between High Contrast (WCAG AAA) and Default Professional visualization styles"
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span>{isHighContrast ? 'High Contrast' : 'Default Palette'}</span>
+            <span className={`w-2 h-2 rounded-full ${isHighContrast ? 'bg-yellow-400' : 'bg-emerald-500'}`} />
+          </button>
+
+          {/* Annotations Controls Button */}
+          <div className="flex items-center bg-[#0F1711] p-1 rounded-lg border border-[#F5F5F0]/15 text-xs font-mono">
+            <button
+              id="open-annotations-modal-btn"
+              onClick={() => handleOpenAnnotateModal('activity')}
+              className="px-2.5 py-1.5 rounded text-neutral-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Add a custom text annotation to a specific data point"
+            >
+              <Tag className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Annotate</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#C5A059]/20 text-[#C5A059] font-bold">
+                {annotations.length}
+              </span>
+            </button>
+            <button
+              id="toggle-annotations-drawer-btn"
+              onClick={() => {
+                hapticFeedback.triggerLightClickHaptic();
+                setShowAnnotationsDrawer(prev => !prev);
+              }}
+              className={`px-2 py-1.5 rounded text-[11px] transition-colors cursor-pointer ${
+                showAnnotationsDrawer ? 'bg-white/10 text-white' : 'text-neutral-400 hover:text-white'
+              }`}
+              title="View all annotations list"
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+            </button>
+            <button
+              id="toggle-annotations-overlay-btn"
+              onClick={() => {
+                hapticFeedback.triggerLightClickHaptic();
+                setShowAnnotationsOnCharts(prev => !prev);
+                showToast(showAnnotationsOnCharts ? 'Annotations hidden on charts' : 'Annotations visible on charts');
+              }}
+              className={`px-2 py-1.5 rounded text-[10px] font-mono transition-colors cursor-pointer ${
+                showAnnotationsOnCharts ? 'text-emerald-400' : 'text-neutral-500 line-through'
+              }`}
+              title="Toggle showing annotation markers on charts"
+            >
+              {showAnnotationsOnCharts ? 'Visible' : 'Hidden'}
+            </button>
+          </div>
+
           {/* Comparison Mode Toggle */}
           <button
             id="toggle-comparison-mode-btn"
@@ -845,6 +1760,122 @@ export const AnalyticsReportView: React.FC = () => {
             <span>Comparison Mode</span>
             <span className={`w-2 h-2 rounded-full ${comparisonMode ? 'bg-cyan-400 animate-pulse' : 'bg-neutral-600'}`} />
           </button>
+
+          {/* Predictive Trends Regression Forecast Toggle & Config Popover */}
+          <div className="relative">
+            <button
+              id="toggle-predictive-trends-btn"
+              onClick={() => {
+                hapticFeedback.triggerLightClickHaptic();
+                audioFeedback.playMicroTick();
+                setPredictiveConfig(prev => {
+                  const next = !prev.enabled;
+                  showToast(next ? `Predictive Regression Forecast active (${prev.scenario}, +${prev.horizonMonths}m)` : 'Predictive Forecast disabled');
+                  return { ...prev, enabled: next };
+                });
+              }}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                predictiveConfig.enabled
+                  ? 'bg-amber-950/90 border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                  : 'bg-[#0F1711] border-[#F5F5F0]/15 text-neutral-400 hover:text-white hover:border-[#F5F5F0]/30'
+              }`}
+              title="Toggle predictive OLS regression trend overlay on resource charts"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+              <span>Trends: {predictiveConfig.enabled ? `+${predictiveConfig.horizonMonths}m` : 'Off'}</span>
+              <span className={`w-2 h-2 rounded-full ${predictiveConfig.enabled ? 'bg-amber-400 animate-pulse' : 'bg-neutral-600'}`} />
+            </button>
+          </div>
+
+          {/* Threshold Alerts Manager Trigger */}
+          <button
+            id="open-alerts-manager-btn"
+            onClick={() => {
+              hapticFeedback.triggerLightClickHaptic();
+              audioFeedback.playMicroTick();
+              setIsAlertModalOpen(true);
+            }}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+              triggeredAlerts.length > 0
+                ? 'bg-red-950/90 border-red-500/70 text-red-300 shadow-[0_0_12px_rgba(239,68,68,0.35)] animate-pulse'
+                : 'bg-[#0F1711] border-[#F5F5F0]/15 text-neutral-300 hover:text-white hover:border-[#F5F5F0]/30'
+            }`}
+            title="Configure threshold alert triggers and notifications"
+          >
+            <Bell className={`w-3.5 h-3.5 ${triggeredAlerts.length > 0 ? 'text-red-400' : 'text-amber-400'}`} />
+            <span>Alerts</span>
+            {triggeredAlerts.length > 0 ? (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-red-600 text-white font-bold">
+                {triggeredAlerts.length}
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/10 text-neutral-400 font-mono">
+                {alertRules.filter(r => r.isEnabled).length}
+              </span>
+            )}
+          </button>
+
+          {/* Sync External API Trigger */}
+          <button
+            id="open-external-sync-btn"
+            onClick={() => {
+              hapticFeedback.triggerLightClickHaptic();
+              audioFeedback.playMicroTick();
+              setIsExternalSyncModalOpen(true);
+            }}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+              externalSyncFeed?.isEnabled
+                ? 'bg-cyan-950/80 border-cyan-500/60 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                : 'bg-[#0F1711] border-[#F5F5F0]/15 text-neutral-400 hover:text-white hover:border-[#F5F5F0]/30'
+            }`}
+            title="Sync external REST JSON endpoint for comparative metrics"
+          >
+            <Globe className="w-3.5 h-3.5 text-cyan-400" />
+            <span>API Sync</span>
+            <span className={`w-2 h-2 rounded-full ${externalSyncFeed?.isEnabled ? 'bg-cyan-400 animate-pulse' : 'bg-neutral-600'}`} />
+          </button>
+
+          {/* Saved Insights / Snapshot Drawer Trigger */}
+          <div className="flex items-center bg-[#0F1711] p-1 rounded-lg border border-[#F5F5F0]/15 text-xs font-mono">
+            <button
+              id="open-saved-insights-btn"
+              onClick={() => {
+                hapticFeedback.triggerLightClickHaptic();
+                audioFeedback.playMicroTick();
+                setIsSavedInsightsOpen(true);
+              }}
+              className="px-2.5 py-1.5 rounded text-neutral-300 hover:text-[#C5A059] flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Recall saved analytical insights and snapshots from sidebar"
+            >
+              <Bookmark className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Snapshots</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#C5A059]/20 text-[#C5A059] font-bold">
+                {savedInsights.length}
+              </span>
+            </button>
+            <button
+              id="quick-snapshot-btn"
+              onClick={() => {
+                hapticFeedback.triggerSuccessHaptic();
+                audioFeedback.playSuccess();
+                const newSnap: SavedInsightSnapshot = {
+                  id: `insight-${Date.now()}`,
+                  title: `${selectedBioregion.toUpperCase()} Snapshot (${timeRange.toUpperCase()})`,
+                  description: `Analytical snapshot taken on ${new Date().toLocaleTimeString()} capturing active filters, regression models, and annotations.`,
+                  createdAt: new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }),
+                  author: 'Senior Auditor',
+                  tags: [selectedBioregion, timeRange, 'Snapshot'],
+                  state: currentSnapshotState
+                };
+                handleSaveInsight(newSnap);
+                showToast(`Snapshot saved: "${newSnap.title}"`);
+              }}
+              className="px-2 py-1.5 text-neutral-400 hover:text-white rounded transition-colors cursor-pointer"
+              title="Quick Snapshot current view"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
+          </div>
 
           {/* Time Range Selector */}
           <div className="flex items-center bg-[#0F1711] p-1 rounded-lg border border-[#F5F5F0]/15 text-xs font-mono">
@@ -917,6 +1948,213 @@ export const AnalyticsReportView: React.FC = () => {
             <Download className="w-3.5 h-3.5" />
             <span>{isExportingJson ? 'Exporting...' : 'Export JSON'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* Annotations Drawer (when active) */}
+      <AnimatePresence>
+        {showAnnotationsDrawer && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="p-4 rounded-xl bg-[#0B120E] border border-[#C5A059]/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-[#C5A059]" />
+                  <span className="font-serif font-bold text-sm text-white">
+                    Custom Chart Annotations & Milestone Records ({annotations.length})
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleOpenAnnotateModal('activity')}
+                    className="px-2.5 py-1 rounded bg-[#C5A059]/20 hover:bg-[#C5A059]/30 text-[#C5A059] text-xs font-mono flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Annotation
+                  </button>
+                  <button
+                    onClick={() => setShowAnnotationsDrawer(false)}
+                    className="p-1 rounded text-neutral-400 hover:text-white cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {annotations.length === 0 ? (
+                <div className="text-center py-4 text-xs font-mono text-neutral-400">
+                  No annotations added yet. Click &quot;Add Annotation&quot; or drill down into any data point to mark a milestone or anomaly.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {annotations.map(anno => (
+                    <div
+                      key={anno.id}
+                      className="p-3 rounded-lg bg-[#070E0A] border border-white/10 space-y-1.5 text-xs font-mono relative group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          anno.category === 'anomaly'
+                            ? 'bg-red-950 text-red-300 border border-red-500/40'
+                            : anno.category === 'audit'
+                            ? 'bg-cyan-950 text-cyan-300 border border-cyan-500/40'
+                            : 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                        }`}>
+                          {anno.category}
+                        </span>
+                        <div className="flex items-center gap-1.5 text-neutral-400 text-[10px]">
+                          <span className="px-1.5 py-0.5 bg-white/5 rounded">{anno.chartId.toUpperCase()}</span>
+                          <span>@ {anno.dataPointX}</span>
+                          <button
+                            onClick={(e) => handleDeleteAnnotation(anno.id, e)}
+                            className="p-1 text-red-400 hover:text-red-200 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+                            title="Delete annotation"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="font-bold text-white text-xs">{anno.label}</div>
+                      <p className="text-[11px] text-neutral-400 line-clamp-2">{anno.description}</p>
+                      <div className="text-[10px] text-neutral-500 flex items-center justify-between pt-1 border-t border-white/5">
+                        <span>By {anno.author}</span>
+                        <span>{new Date(anno.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Auto-Calculated Summary Row (KPI Cards: YoY Growth & Resource Efficiency Variance) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs font-mono text-neutral-400 px-1">
+          <span className="flex items-center gap-1.5 text-[#C5A059] font-bold uppercase tracking-wider text-[11px]">
+            <Gauge className="w-3.5 h-3.5" /> Auto-Calculated Synthesis & Efficiency KPI Cards
+          </span>
+          <span className="text-[10px] text-neutral-500">
+            Active Filter: <strong className="text-neutral-300">{selectedBioregion.toUpperCase()}</strong> | Interval: <strong className="text-neutral-300">{timeRange.toUpperCase()}</strong> {isLiveData && `| Live Polled (${lastPolledTime})`}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Card 1: Year-over-Year Growth */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-[#0D1812] to-[#070D09] border border-emerald-500/30 hover:border-emerald-500/50 transition-all shadow-sm group">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-neutral-300 text-xs font-mono font-medium flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                Year-over-Year Growth
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-emerald-950/80 text-emerald-300 border border-emerald-500/40">
+                Active Selection
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 my-1">
+              <span className="text-2xl lg:text-3xl font-bold font-serif text-emerald-300">
+                +{autoCalculatedKpis.yoyGrowthRate}%
+              </span>
+              <span className="text-xs font-mono text-emerald-400/80">
+                (+{autoCalculatedKpis.deltaStewards.toLocaleString()} stewards)
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans line-clamp-1 mb-2">
+              Aggregated {autoCalculatedKpis.currentStewardsSum.toLocaleString()} stewards active across current {timeRange} cycle.
+            </div>
+            <div className="pt-2 border-t border-emerald-500/15 flex items-center justify-between text-[10px] font-mono text-neutral-500">
+              <span>Formula: Δ(Current - Baseline) / Baseline</span>
+              <span className="text-emerald-400 font-semibold">Verified Quorum</span>
+            </div>
+          </div>
+
+          {/* Card 2: Resource Efficiency Variance */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-[#1A150A] to-[#0D0B05] border border-amber-500/30 hover:border-amber-500/50 transition-all shadow-sm group">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-neutral-300 text-xs font-mono font-medium flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-amber-400" />
+                Resource Efficiency Variance
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-amber-950/80 text-amber-300 border border-amber-500/40">
+                Renewable Net
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 my-1">
+              <span className="text-2xl lg:text-3xl font-bold font-serif text-amber-300">
+                +{autoCalculatedKpis.resourceEfficiencyVariancePct}%
+              </span>
+              <span className="text-xs font-mono text-amber-400/80">
+                (+{autoCalculatedKpis.netSurplusKWh.toLocaleString()} kWh)
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans line-clamp-1 mb-2">
+              Clean solar generation exceeds compute load by {autoCalculatedKpis.netSurplusKWh.toLocaleString()} kWh net surplus.
+            </div>
+            <div className="pt-2 border-t border-amber-500/15 flex items-center justify-between text-[10px] font-mono text-neutral-500">
+              <span>Formula: (Solar - Compute) / Compute</span>
+              <span className="text-amber-400 font-semibold">{autoCalculatedKpis.efficiencyImprovementVsBaseline}% vs Baseline</span>
+            </div>
+          </div>
+
+          {/* Card 3: Biophysical Aquifer Infiltration Buffer */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-[#081519] to-[#040B0E] border border-cyan-500/30 hover:border-cyan-500/50 transition-all shadow-sm group">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-neutral-300 text-xs font-mono font-medium flex items-center gap-1.5">
+                <Droplets className="w-4 h-4 text-cyan-400" />
+                Aquifer Recharge Ratio
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-cyan-950/80 text-cyan-300 border border-cyan-500/40">
+                Catchment Net
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 my-1">
+              <span className="text-2xl lg:text-3xl font-bold font-serif text-cyan-300">
+                {autoCalculatedKpis.rechargeRatio}x
+              </span>
+              <span className="text-xs font-mono text-cyan-400/80">
+                (+{autoCalculatedKpis.netAquiferDelta.toLocaleString()} m³)
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans line-clamp-1 mb-2">
+              {autoCalculatedKpis.aquiferSurplusPct}% excess replenishment over total human extraction in active basin.
+            </div>
+            <div className="pt-2 border-t border-cyan-500/15 flex items-center justify-between text-[10px] font-mono text-neutral-500">
+              <span>Formula: Infiltration / Extraction</span>
+              <span className="text-cyan-400 font-semibold">Subsurface Balance</span>
+            </div>
+          </div>
+
+          {/* Card 4: Epistemic Quorum Velocity */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-[#150F1F] to-[#0B0810] border border-purple-500/30 hover:border-purple-500/50 transition-all shadow-sm group">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-neutral-300 text-xs font-mono font-medium flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-purple-400" />
+                Epistemic Quorum Velocity
+              </span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono uppercase bg-purple-950/80 text-purple-300 border border-purple-500/40">
+                ZK Merkle
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 my-1">
+              <span className="text-2xl lg:text-3xl font-bold font-serif text-purple-300">
+                {autoCalculatedKpis.quorumVelocityPct}%
+              </span>
+              <span className="text-xs font-mono text-purple-400/80">
+                ({autoCalculatedKpis.totalAudits.toLocaleString()} audits)
+              </span>
+            </div>
+            <div className="text-[11px] text-neutral-400 font-sans line-clamp-1 mb-2">
+              Zero-knowledge consensus verifications executed without divergence or proof failure.
+            </div>
+            <div className="pt-2 border-t border-purple-500/15 flex items-center justify-between text-[10px] font-mono text-neutral-500">
+              <span>Formula: Audits / (Audits + Query Load)</span>
+              <span className="text-purple-400 font-semibold">100% Attested</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1080,7 +2318,14 @@ export const AnalyticsReportView: React.FC = () => {
                 Real-time breakdown of active stewards, field operatives, epistemic audit verifications, and agentic queries.
               </p>
             </div>
-            <div className="flex items-center gap-2 self-start">
+            <div className="flex items-center gap-2 self-start flex-wrap">
+              <button
+                onClick={() => handleOpenAnnotateModal('activity')}
+                className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#C5A059]/15 hover:bg-[#C5A059]/30 text-[#C5A059] border border-[#C5A059]/40 flex items-center gap-1 transition-colors cursor-pointer"
+                title="Add annotation to this chart"
+              >
+                <Plus className="w-3 h-3" /> Annotate Point
+              </button>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                 <Sparkles className="w-3 h-3" /> Click point to drill down
               </span>
@@ -1091,7 +2336,7 @@ export const AnalyticsReportView: React.FC = () => {
           </div>
 
           <div className="h-[280px] w-full pt-2 cursor-pointer">
-            <ResponsiveContainer key={`activity-chart-${timeRange}-${comparisonMode}-${refreshKey}`} width="100%" height="100%">
+            <ResponsiveContainer key={`activity-chart-${timeRange}-${comparisonMode}-${colorPalette}-${refreshKey}`} width="100%" height="100%">
               <AreaChart
                 data={activityData}
                 margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
@@ -1103,23 +2348,23 @@ export const AnalyticsReportView: React.FC = () => {
               >
                 <defs>
                   <linearGradient id="colorStewards" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor={activePalette.stewards} stopOpacity={0.4} />
+                    <stop offset="95%" stopColor={activePalette.stewards} stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="colorOperatives" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#06B6D4" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor={activePalette.operatives} stopOpacity={0.4} />
+                    <stop offset="95%" stopColor={activePalette.operatives} stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="colorQueries" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#C5A059" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#C5A059" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor={activePalette.queries} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={activePalette.queries} stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#263429" opacity={0.5} />
                 <XAxis dataKey="time" stroke="#7E8B82" fontSize={11} fontFamily="monospace" />
                 <YAxis stroke="#7E8B82" fontSize={11} fontFamily="monospace" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0B120E', borderColor: '#10B981', borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
+                  contentStyle={{ backgroundColor: '#0B120E', borderColor: activePalette.stewards, borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
                   itemStyle={{ color: '#F5F5F0' }}
                   formatter={(value: any, name: any) => [
                     `${typeof value === 'number' ? value.toLocaleString() : value}`,
@@ -1128,13 +2373,13 @@ export const AnalyticsReportView: React.FC = () => {
                 />
                 <Legend wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace', paddingTop: '8px' }} />
                 
-                {/* Active Metric Series with smooth animation transitions */}
+                {/* Active Metric Series with palette colors & smooth animation transitions */}
                 <Area
                   type="monotone"
                   dataKey="stewards"
                   name="Active Stewards"
-                  stroke="#10B981"
-                  strokeWidth={2}
+                  stroke={activePalette.stewards}
+                  strokeWidth={isHighContrast ? 3 : 2}
                   fillOpacity={1}
                   fill="url(#colorStewards)"
                   isAnimationActive={true}
@@ -1146,8 +2391,8 @@ export const AnalyticsReportView: React.FC = () => {
                   type="monotone"
                   dataKey="fieldOperatives"
                   name="Field Operatives"
-                  stroke="#06B6D4"
-                  strokeWidth={1.8}
+                  stroke={activePalette.operatives}
+                  strokeWidth={isHighContrast ? 2.5 : 1.8}
                   fillOpacity={1}
                   fill="url(#colorOperatives)"
                   isAnimationActive={true}
@@ -1159,8 +2404,8 @@ export const AnalyticsReportView: React.FC = () => {
                   type="monotone"
                   dataKey="aiQueries"
                   name="System Queries"
-                  stroke="#C5A059"
-                  strokeWidth={1.5}
+                  stroke={activePalette.queries}
+                  strokeWidth={isHighContrast ? 2.2 : 1.5}
                   fillOpacity={1}
                   fill="url(#colorQueries)"
                   isAnimationActive={true}
@@ -1175,15 +2420,33 @@ export const AnalyticsReportView: React.FC = () => {
                     type="monotone"
                     dataKey="prevStewards"
                     name="Comparison Baseline Stewards"
-                    stroke="#6EE7B7"
+                    stroke={activePalette.comparisonBaseline}
                     strokeDasharray="4 4"
                     strokeWidth={2}
-                    dot={{ r: 3, fill: '#6EE7B7' }}
+                    dot={{ r: 3, fill: activePalette.comparisonBaseline }}
                     isAnimationActive={true}
                     animationDuration={800}
                     animationEasing="ease-out"
                   />
                 )}
+
+                {/* Custom User Text Annotations on Specific Data Points */}
+                {showAnnotationsOnCharts && annotations.filter(a => a.chartId === 'activity').map(anno => (
+                  <ReferenceLine
+                    key={anno.id}
+                    x={anno.dataPointX}
+                    stroke={anno.category === 'anomaly' ? '#EF4444' : anno.category === 'audit' ? '#06B6D4' : '#F59E0B'}
+                    strokeDasharray="3 3"
+                    strokeWidth={2}
+                    label={{
+                      value: `📍 ${anno.label}`,
+                      fill: '#F5F5F0',
+                      fontSize: 10,
+                      position: 'top',
+                      style: { fontWeight: 'bold' }
+                    }}
+                  />
+                ))}
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -1207,7 +2470,7 @@ export const AnalyticsReportView: React.FC = () => {
           </div>
 
           <div className="h-[200px] w-full relative flex items-center justify-center cursor-pointer">
-            <ResponsiveContainer key={`domain-pie-${refreshKey}`} width="100%" height="100%">
+            <ResponsiveContainer key={`domain-pie-${colorPalette}-${refreshKey}`} width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={DOMAIN_DISTRIBUTION}
@@ -1225,7 +2488,7 @@ export const AnalyticsReportView: React.FC = () => {
                   {DOMAIN_DISTRIBUTION.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
-                      fill={entry.color}
+                      fill={activePalette.domainColors[index % activePalette.domainColors.length] || entry.color}
                       stroke="#090D0A"
                       strokeWidth={2}
                       className="cursor-pointer hover:opacity-80 transition-opacity"
@@ -1234,7 +2497,7 @@ export const AnalyticsReportView: React.FC = () => {
                 </Pie>
                 <Tooltip
                   formatter={(val: any) => [`${val}%`, 'Engagement Share']}
-                  contentStyle={{ backgroundColor: '#0B120E', borderColor: '#C5A059', borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
+                  contentStyle={{ backgroundColor: '#0B120E', borderColor: activePalette.queries, borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -1245,22 +2508,25 @@ export const AnalyticsReportView: React.FC = () => {
           </div>
 
           <div className="space-y-1.5 pt-2 border-t border-white/10 text-[11px] font-mono">
-            {DOMAIN_DISTRIBUTION.map(item => (
-              <button
-                key={item.name}
-                onClick={() => handleDrilldownDomain(item)}
-                className="w-full flex items-center justify-between text-neutral-300 hover:text-white p-1 rounded hover:bg-white/5 transition-colors cursor-pointer text-left"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                  <span className="truncate max-w-[170px]">{item.name}</span>
-                </span>
-                <span className="font-bold text-white flex items-center gap-1">
-                  {item.value}%
-                  <ChevronRight className="w-3 h-3 text-neutral-500" />
-                </span>
-              </button>
-            ))}
+            {DOMAIN_DISTRIBUTION.map((item, index) => {
+              const color = activePalette.domainColors[index % activePalette.domainColors.length] || item.color;
+              return (
+                <button
+                  key={item.name}
+                  onClick={() => handleDrilldownDomain(item)}
+                  className="w-full flex items-center justify-between text-neutral-300 hover:text-white p-1 rounded hover:bg-white/5 transition-colors cursor-pointer text-left"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    <span className="truncate max-w-[170px]">{item.name}</span>
+                  </span>
+                  <span className="font-bold text-white flex items-center gap-1">
+                    {item.value}%
+                    <ChevronRight className="w-3 h-3 text-neutral-500" />
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1279,16 +2545,113 @@ export const AnalyticsReportView: React.FC = () => {
                 Compute & ZKP energy footprint (kWh) balanced against dedicated on-site solar & micro-hydro generation.
               </p>
             </div>
-            <div className="flex items-center gap-1.5 bg-amber-950/40 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] font-mono">
-              <Sparkles className="w-3 h-3" />
-              100% Carbon Negative Run
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => {
+                  hapticFeedback.triggerLightClickHaptic();
+                  setPredictiveConfig(prev => ({ ...prev, enabled: !prev.enabled }));
+                }}
+                className={`text-[10px] font-mono px-2 py-0.5 rounded border flex items-center gap-1 transition-colors cursor-pointer ${
+                  predictiveConfig.enabled
+                    ? 'bg-amber-950/80 border-amber-400 text-amber-300 shadow-sm'
+                    : 'bg-[#0F1711] border-white/15 text-neutral-400 hover:text-white'
+                }`}
+                title="Toggle OLS predictive trends regression overlay"
+              >
+                <TrendingUp className="w-3 h-3" />
+                <span>{predictiveConfig.enabled ? 'Trends: Active' : 'Enable Trends'}</span>
+              </button>
+              <button
+                onClick={() => handleOpenAnnotateModal('resource')}
+                className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#C5A059]/15 hover:bg-[#C5A059]/30 text-[#C5A059] border border-[#C5A059]/40 flex items-center gap-1 transition-colors cursor-pointer"
+                title="Add annotation to this chart"
+              >
+                <Plus className="w-3 h-3" /> Annotate Point
+              </button>
+              <div className="flex items-center gap-1.5 bg-amber-950/40 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] font-mono">
+                <Sparkles className="w-3 h-3" />
+                100% Carbon Negative Run
+              </div>
             </div>
           </div>
 
+          {/* Predictive Trends OLS Regression Ribbon */}
+          {predictiveConfig.enabled && (
+            <div className="p-3 bg-[#0C150E] rounded-xl border border-amber-500/30 text-xs font-mono flex flex-wrap items-center justify-between gap-3 shadow-inner">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold flex items-center gap-1 text-[11px]">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  OLS Regression
+                </span>
+                <span className="text-neutral-400 text-[11px]">
+                  Compute: <strong className="text-red-400">+{predictiveForecastResult.stats.computeGrowthPerMonth} kWh/mo</strong> (R²: {predictiveForecastResult.stats.rSquaredCompute})
+                </span>
+                <span className="text-neutral-400 text-[11px]">
+                  Solar: <strong className="text-emerald-400">+{predictiveForecastResult.stats.solarGrowthPerMonth} kWh/mo</strong> (R²: {predictiveForecastResult.stats.rSquaredSolar})
+                </span>
+                <span className="text-neutral-300 text-[11px]">
+                  End-Horizon Net Surplus: <strong className="text-amber-300">+{predictiveForecastResult.stats.forecastedNetSurplusEnd.toLocaleString()} kWh</strong>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Horizon pills */}
+                <span className="text-[10px] text-neutral-500">Horizon:</span>
+                {([1, 2, 3, 4] as const).map(h => (
+                  <button
+                    key={h}
+                    onClick={() => {
+                      hapticFeedback.triggerLightClickHaptic();
+                      setPredictiveConfig(prev => ({ ...prev, horizonMonths: h }));
+                    }}
+                    className={`px-1.5 py-0.5 rounded text-[10px] transition-colors cursor-pointer font-bold ${
+                      predictiveConfig.horizonMonths === h ? 'bg-amber-400 text-black' : 'bg-white/5 text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    +{h}m
+                  </button>
+                ))}
+
+                {/* Scenario pills */}
+                <span className="text-[10px] text-neutral-500 ml-1">Scenario:</span>
+                {(['baseline_ols', 'accelerated_adoption', 'conservation'] as const).map(sc => (
+                  <button
+                    key={sc}
+                    onClick={() => {
+                      hapticFeedback.triggerLightClickHaptic();
+                      setPredictiveConfig(prev => ({ ...prev, scenario: sc }));
+                    }}
+                    className={`px-2 py-0.5 rounded text-[10px] transition-colors cursor-pointer capitalize font-medium ${
+                      predictiveConfig.scenario === sc ? 'bg-[#C5A059] text-black font-bold' : 'bg-white/5 text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    {sc === 'baseline_ols' ? 'Baseline' : sc === 'accelerated_adoption' ? 'Accelerated' : 'Conservation'}
+                  </button>
+                ))}
+
+                {/* Confidence band toggle */}
+                <button
+                  onClick={() => {
+                    hapticFeedback.triggerLightClickHaptic();
+                    setPredictiveConfig(prev => ({ ...prev, showConfidenceInterval: !prev.showConfidenceInterval }));
+                  }}
+                  className={`px-2 py-0.5 rounded text-[10px] border transition-colors cursor-pointer ${
+                    predictiveConfig.showConfidenceInterval
+                      ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-300'
+                      : 'border-white/10 text-neutral-500'
+                  }`}
+                  title="Toggle ±8% confidence interval envelope"
+                >
+                  ±8% Band
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="h-[280px] w-full pt-2 cursor-pointer">
-            <ResponsiveContainer key={`composed-chart-${comparisonMode}-${comparisonPeriod}-${refreshKey}`} width="100%" height="100%">
+            <ResponsiveContainer key={`composed-chart-${comparisonMode}-${comparisonPeriod}-${colorPalette}-${predictiveConfig.enabled}-${predictiveConfig.scenario}-${predictiveConfig.horizonMonths}-${refreshKey}`} width="100%" height="100%">
               <ComposedChart
-                data={resourceConsumptionData}
+                data={(predictiveConfig.enabled ? predictiveForecastResult.combinedData : resourceConsumptionData) as any}
                 margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 onClick={(e: any) => {
                   if (e && e.activePayload && e.activePayload.length > 0) {
@@ -1300,7 +2663,7 @@ export const AnalyticsReportView: React.FC = () => {
                 <XAxis dataKey="epoch" stroke="#7E8B82" fontSize={11} fontFamily="monospace" />
                 <YAxis stroke="#7E8B82" fontSize={11} fontFamily="monospace" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0B120E', borderColor: '#F59E0B', borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
+                  contentStyle={{ backgroundColor: '#0B120E', borderColor: activePalette.netSurplus, borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
                   itemStyle={{ color: '#F5F5F0' }}
                   formatter={(value: any, name: any) => [
                     `${typeof value === 'number' ? value.toLocaleString() : value} kWh`,
@@ -1313,9 +2676,9 @@ export const AnalyticsReportView: React.FC = () => {
                 <Bar
                   dataKey="computeKWh"
                   name="Compute Consumption (kWh)"
-                  fill="#EF4444"
+                  fill={activePalette.compute}
                   radius={[4, 4, 0, 0]}
-                  opacity={0.8}
+                  opacity={isHighContrast ? 1 : 0.85}
                   isAnimationActive={true}
                   animationDuration={850}
                   animationEasing="ease-out"
@@ -1324,7 +2687,7 @@ export const AnalyticsReportView: React.FC = () => {
                 <Bar
                   dataKey="greenSolarKWh"
                   name="Solar / Renewable Gen (kWh)"
-                  fill="#10B981"
+                  fill={activePalette.solar}
                   radius={[4, 4, 0, 0]}
                   isAnimationActive={true}
                   animationDuration={850}
@@ -1335,13 +2698,93 @@ export const AnalyticsReportView: React.FC = () => {
                   type="monotone"
                   dataKey="netOffsetKWh"
                   name="Net Renewable Surplus (kWh)"
-                  stroke="#F59E0B"
-                  strokeWidth={2.5}
-                  dot={{ r: 4, fill: '#F59E0B' }}
+                  stroke={activePalette.netSurplus}
+                  strokeWidth={isHighContrast ? 3.5 : 2.5}
+                  dot={{ r: 4, fill: activePalette.netSurplus }}
                   isAnimationActive={true}
                   animationDuration={900}
                   animationEasing="ease-out"
                 />
+
+                {/* Predictive Trends OLS Regression Lines (Dashed) */}
+                {predictiveConfig.enabled && (
+                  <Line
+                    type="monotone"
+                    dataKey="projectedComputeKWh"
+                    name={`Projected Compute (${predictiveConfig.scenario === 'baseline_ols' ? 'OLS' : predictiveConfig.scenario === 'accelerated_adoption' ? 'Acc (+25%)' : 'Cons (-30%)'})`}
+                    stroke="#F87171"
+                    strokeDasharray="5 5"
+                    strokeWidth={2.5}
+                    dot={{ r: 3.5, fill: '#EF4444' }}
+                    isAnimationActive={true}
+                    animationDuration={850}
+                  />
+                )}
+                {predictiveConfig.enabled && (
+                  <Line
+                    type="monotone"
+                    dataKey="projectedSolarKWh"
+                    name="Projected Solar Generation"
+                    stroke="#34D399"
+                    strokeDasharray="5 5"
+                    strokeWidth={2.5}
+                    dot={{ r: 3.5, fill: '#10B981' }}
+                    isAnimationActive={true}
+                    animationDuration={850}
+                  />
+                )}
+                {predictiveConfig.enabled && (
+                  <Line
+                    type="monotone"
+                    dataKey="projectedNetSurplusKWh"
+                    name="Projected Net Surplus"
+                    stroke="#FBBF24"
+                    strokeDasharray="3 3"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: '#F59E0B' }}
+                    isAnimationActive={true}
+                    animationDuration={850}
+                  />
+                )}
+                {predictiveConfig.enabled && predictiveConfig.showConfidenceInterval && (
+                  <Line
+                    type="monotone"
+                    dataKey="solarConfidenceUpper"
+                    name="Forecast Solar Upper (+8%)"
+                    stroke="#10B981"
+                    strokeDasharray="2 2"
+                    strokeWidth={1}
+                    dot={false}
+                    opacity={0.5}
+                  />
+                )}
+                {predictiveConfig.enabled && predictiveConfig.showConfidenceInterval && (
+                  <Line
+                    type="monotone"
+                    dataKey="solarConfidenceLower"
+                    name="Forecast Solar Lower (-8%)"
+                    stroke="#10B981"
+                    strokeDasharray="2 2"
+                    strokeWidth={1}
+                    dot={false}
+                    opacity={0.5}
+                  />
+                )}
+
+                {/* External API Synced Telemetry Stream */}
+                {externalSyncFeed && externalSyncFeed.isEnabled && externalSyncFeed.targetChart === 'resource' && (
+                  <Line
+                    type="monotone"
+                    dataKey="externalMetricValue"
+                    name={`Ext: ${externalSyncFeed.metricName} (${externalSyncFeed.unit})`}
+                    stroke={externalSyncFeed.color}
+                    strokeDasharray="4 2"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: externalSyncFeed.color }}
+                    isAnimationActive={true}
+                    animationDuration={850}
+                  />
+                )}
 
                 {/* Comparative Overlays when Comparison Mode is Active */}
                 {comparisonMode && (
@@ -1349,7 +2792,7 @@ export const AnalyticsReportView: React.FC = () => {
                     type="monotone"
                     dataKey="comparisonComputeKWh"
                     name={`Baseline Compute (${comparisonPeriod === 'prior_period' ? 'Prior Cycle' : comparisonPeriod === 'historical_baseline' ? '2025' : 'Target'})`}
-                    stroke="#F87171"
+                    stroke={activePalette.comparisonCompute}
                     strokeDasharray="4 4"
                     strokeWidth={2}
                     dot={{ r: 3 }}
@@ -1363,7 +2806,7 @@ export const AnalyticsReportView: React.FC = () => {
                     type="monotone"
                     dataKey="comparisonSolarKWh"
                     name={`Baseline Solar (${comparisonPeriod === 'prior_period' ? 'Prior Cycle' : comparisonPeriod === 'historical_baseline' ? '2025' : 'Target'})`}
-                    stroke="#34D399"
+                    stroke={activePalette.comparisonSolar}
                     strokeDasharray="4 4"
                     strokeWidth={2}
                     dot={{ r: 3 }}
@@ -1372,6 +2815,24 @@ export const AnalyticsReportView: React.FC = () => {
                     animationEasing="ease-out"
                   />
                 )}
+
+                {/* Custom User Text Annotations on Specific Data Points */}
+                {showAnnotationsOnCharts && annotations.filter(a => a.chartId === 'resource').map(anno => (
+                  <ReferenceLine
+                    key={anno.id}
+                    x={anno.dataPointX}
+                    stroke={anno.category === 'anomaly' ? '#EF4444' : anno.category === 'audit' ? '#06B6D4' : '#F59E0B'}
+                    strokeDasharray="3 3"
+                    strokeWidth={2}
+                    label={{
+                      value: `📍 ${anno.label}`,
+                      fill: '#F5F5F0',
+                      fontSize: 10,
+                      position: 'top',
+                      style: { fontWeight: 'bold' }
+                    }}
+                  />
+                ))}
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -1389,15 +2850,24 @@ export const AnalyticsReportView: React.FC = () => {
                 Groundwater aquifer recharge (m³) vs. human community extraction.
               </p>
             </div>
-            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-500/30">
-              Click bar
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleOpenAnnotateModal('watershed')}
+                className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#C5A059]/15 hover:bg-[#C5A059]/30 text-[#C5A059] border border-[#C5A059]/40 flex items-center gap-1 transition-colors cursor-pointer"
+                title="Add annotation to this chart"
+              >
+                <Plus className="w-3 h-3" /> Annotate
+              </button>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-500/30">
+                Click bar
+              </span>
+            </div>
           </div>
 
           <div className="h-[280px] w-full pt-2 cursor-pointer">
-            <ResponsiveContainer key={`watershed-bar-${refreshKey}`} width="100%" height="100%">
+            <ResponsiveContainer key={`watershed-bar-${colorPalette}-${selectedBioregion}-${refreshKey}`} width="100%" height="100%">
               <BarChart
-                data={BIOPHYSICAL_RESOURCES_DATA}
+                data={filteredBiophysicalData}
                 layout="vertical"
                 margin={{ top: 10, right: 20, left: 30, bottom: 0 }}
                 onClick={(e: any) => {
@@ -1410,7 +2880,7 @@ export const AnalyticsReportView: React.FC = () => {
                 <XAxis type="number" stroke="#7E8B82" fontSize={10} fontFamily="monospace" />
                 <YAxis dataKey="watershed" type="category" stroke="#7E8B82" fontSize={10} fontFamily="monospace" width={80} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0B120E', borderColor: '#06B6D4', borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
+                  contentStyle={{ backgroundColor: '#0B120E', borderColor: activePalette.recharge, borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
                   itemStyle={{ color: '#F5F5F0' }}
                   formatter={(val: any, name: any) => [`${typeof val === 'number' ? val.toLocaleString() : val} m³`, name]}
                 />
@@ -1418,7 +2888,7 @@ export const AnalyticsReportView: React.FC = () => {
                 <Bar
                   dataKey="waterRechargeM3"
                   name="Aquifer Recharge (m³)"
-                  fill="#06B6D4"
+                  fill={activePalette.recharge}
                   radius={[0, 4, 4, 0]}
                   isAnimationActive={true}
                   animationDuration={900}
@@ -1428,13 +2898,31 @@ export const AnalyticsReportView: React.FC = () => {
                 <Bar
                   dataKey="waterExtractionM3"
                   name="Extraction (m³)"
-                  fill="#64748B"
+                  fill={activePalette.extraction}
                   radius={[0, 4, 4, 0]}
                   isAnimationActive={true}
                   animationDuration={900}
                   animationEasing="ease-out"
                   onClick={(entry) => handleDrilldownWatershed(entry)}
                 />
+
+                {/* Custom User Text Annotations on Specific Watersheds */}
+                {showAnnotationsOnCharts && annotations.filter(a => a.chartId === 'watershed').map(anno => (
+                  <ReferenceLine
+                    key={anno.id}
+                    y={anno.dataPointX}
+                    stroke={anno.category === 'anomaly' ? '#EF4444' : anno.category === 'audit' ? '#06B6D4' : '#F59E0B'}
+                    strokeDasharray="3 3"
+                    strokeWidth={2}
+                    label={{
+                      value: `📍 ${anno.label}`,
+                      fill: '#F5F5F0',
+                      fontSize: 10,
+                      position: 'right',
+                      style: { fontWeight: 'bold' }
+                    }}
+                  />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1445,7 +2933,7 @@ export const AnalyticsReportView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left 8 Cols: IoT Stream Throughput (LineChart) */}
         <div className="lg:col-span-8 p-4 sm:p-5 rounded-2xl bg-[#090D0A] border border-[#F5F5F0]/10 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="font-serif font-bold text-white text-base flex items-center gap-2">
                 <Radio className="w-4 h-4 text-[#C5A059]" />
@@ -1455,16 +2943,25 @@ export const AnalyticsReportView: React.FC = () => {
                 Real-time telemetry packet throughput across 4,200+ hardware piezometers and flux towers.
               </p>
             </div>
-            <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              Stream Synchronized
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => handleOpenAnnotateModal('telemetry')}
+                className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#C5A059]/15 hover:bg-[#C5A059]/30 text-[#C5A059] border border-[#C5A059]/40 flex items-center gap-1 transition-colors cursor-pointer"
+                title="Add annotation to this chart"
+              >
+                <Plus className="w-3 h-3" /> Annotate Point
+              </button>
+              <span className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+                <span className={`w-1.5 h-1.5 rounded-full ${isLiveData ? 'bg-emerald-400 animate-ping' : 'bg-emerald-400'}`} />
+                {isLiveData ? `Live Polling (${livePollInterval}s)` : 'Stream Synchronized'}
+              </span>
+            </div>
           </div>
 
           <div className="h-[220px] w-full cursor-pointer">
-            <ResponsiveContainer key={`telemetry-line-${refreshKey}`} width="100%" height="100%">
+            <ResponsiveContainer key={`telemetry-line-${colorPalette}-${mappedTelemetryStream.length}-${externalSyncFeed?.lastSynced || ''}-${refreshKey}`} width="100%" height="100%">
               <LineChart
-                data={TELEMETRY_STREAM_DATA}
+                data={mappedTelemetryStream}
                 margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
                 onClick={(e: any) => {
                   if (e && e.activePayload && e.activePayload.length > 0) {
@@ -1476,7 +2973,7 @@ export const AnalyticsReportView: React.FC = () => {
                 <XAxis dataKey="minute" stroke="#7E8B82" fontSize={11} fontFamily="monospace" />
                 <YAxis stroke="#7E8B82" fontSize={11} fontFamily="monospace" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0B120E', borderColor: '#C5A059', borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
+                  contentStyle={{ backgroundColor: '#0B120E', borderColor: activePalette.telemetryPacket, borderRadius: '8px', fontSize: '11px', fontFamily: 'monospace' }}
                   itemStyle={{ color: '#F5F5F0' }}
                 />
                 <Legend wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace', paddingTop: '6px' }} />
@@ -1484,9 +2981,9 @@ export const AnalyticsReportView: React.FC = () => {
                   type="monotone"
                   dataKey="packetRateKBs"
                   name="Ingress Rate (KB/s)"
-                  stroke="#C5A059"
-                  strokeWidth={2.5}
-                  dot={{ r: 3 }}
+                  stroke={activePalette.telemetryPacket}
+                  strokeWidth={isHighContrast ? 3.5 : 2.5}
+                  dot={{ r: 3, fill: activePalette.telemetryPacket }}
                   isAnimationActive={true}
                   animationDuration={850}
                   animationEasing="ease-out"
@@ -1495,13 +2992,46 @@ export const AnalyticsReportView: React.FC = () => {
                   type="monotone"
                   dataKey="latencyMs"
                   name="p95 Latency (ms)"
-                  stroke="#06B6D4"
-                  strokeWidth={1.8}
-                  dot={{ r: 3 }}
+                  stroke={activePalette.telemetryLatency}
+                  strokeWidth={isHighContrast ? 2.5 : 1.8}
+                  dot={{ r: 3, fill: activePalette.telemetryLatency }}
                   isAnimationActive={true}
                   animationDuration={850}
                   animationEasing="ease-out"
                 />
+
+                {/* External API Synced Telemetry Stream */}
+                {externalSyncFeed && externalSyncFeed.isEnabled && externalSyncFeed.targetChart === 'telemetry' && (
+                  <Line
+                    type="monotone"
+                    dataKey="externalMetricValue"
+                    name={`Ext: ${externalSyncFeed.metricName} (${externalSyncFeed.unit})`}
+                    stroke={externalSyncFeed.color}
+                    strokeDasharray="4 2"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: externalSyncFeed.color }}
+                    isAnimationActive={true}
+                    animationDuration={850}
+                  />
+                )}
+
+                {/* Custom User Text Annotations on Specific Ingress Timestamps */}
+                {showAnnotationsOnCharts && annotations.filter(a => a.chartId === 'telemetry').map(anno => (
+                  <ReferenceLine
+                    key={anno.id}
+                    x={anno.dataPointX}
+                    stroke={anno.category === 'anomaly' ? '#EF4444' : anno.category === 'audit' ? '#06B6D4' : '#F59E0B'}
+                    strokeDasharray="3 3"
+                    strokeWidth={2}
+                    label={{
+                      value: `📍 ${anno.label}`,
+                      fill: '#F5F5F0',
+                      fontSize: 10,
+                      position: 'top',
+                      style: { fontWeight: 'bold' }
+                    }}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -1705,17 +3235,251 @@ export const AnalyticsReportView: React.FC = () => {
                   </span>
                 </div>
 
-                <button
-                  onClick={() => setDrilldownData(null)}
-                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors cursor-pointer font-bold self-end sm:self-auto"
-                >
-                  Close Inspection
-                </button>
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <button
+                    onClick={handleOpenAnnotateFromDrilldown}
+                    className="px-3.5 py-2 bg-[#C5A059]/20 hover:bg-[#C5A059]/30 text-[#C5A059] border border-[#C5A059]/40 rounded-lg transition-colors cursor-pointer font-bold flex items-center gap-1.5"
+                    title="Add a custom text annotation to this point on the chart"
+                  >
+                    <Tag className="w-3.5 h-3.5" />
+                    <span>Annotate Point</span>
+                  </button>
+                  <button
+                    onClick={() => setDrilldownData(null)}
+                    className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors cursor-pointer font-bold"
+                  >
+                    Close Inspection
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* Custom Text Annotation Modal Dialog */}
+      <AnimatePresence>
+        {isAnnotationModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-lg bg-[#0D140F] border border-[#C5A059]/40 rounded-2xl shadow-2xl overflow-hidden text-[#F5F5F0]"
+            >
+              {/* Modal Header */}
+              <div className="p-5 border-b border-white/10 flex items-center justify-between bg-[#080E0A]">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/30">
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif font-bold text-base text-white">
+                      Add Custom Chart Annotation
+                    </h3>
+                    <p className="text-xs text-neutral-400 font-sans">
+                      Mark significant milestones, field anomalies, or audit verifications directly on Recharts graphs.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAnnotationModalOpen(false)}
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 space-y-4 text-xs font-mono">
+                {/* Target Chart & Data Point Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-neutral-400 mb-1 font-bold">
+                      Target Graph:
+                    </label>
+                    <select
+                      value={annotationForm.chartId}
+                      onChange={(e) => {
+                        const nextChart = e.target.value as 'activity' | 'resource' | 'watershed' | 'telemetry';
+                        const points = getAvailableDataPoints(nextChart);
+                        setAnnotationForm(prev => ({
+                          ...prev,
+                          chartId: nextChart,
+                          dataPointX: points[0] || ''
+                        }));
+                      }}
+                      className="w-full bg-[#070D09] border border-white/15 rounded-lg p-2 text-neutral-200 focus:outline-none focus:border-[#C5A059] cursor-pointer"
+                    >
+                      <option value="activity">User Activity & Stewards (AreaChart)</option>
+                      <option value="resource">Resource Consumption & Solar (ComposedChart)</option>
+                      <option value="watershed">Aquifer Water Recharge (BarChart)</option>
+                      <option value="telemetry">Live Sensor Telemetry Ingress (LineChart)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-neutral-400 mb-1 font-bold">
+                      Target Point (X-Axis / Category):
+                    </label>
+                    <select
+                      value={annotationForm.dataPointX}
+                      onChange={(e) => setAnnotationForm(prev => ({ ...prev, dataPointX: e.target.value }))}
+                      className="w-full bg-[#070D09] border border-white/15 rounded-lg p-2 text-neutral-200 focus:outline-none focus:border-[#C5A059] cursor-pointer"
+                    >
+                      {getAvailableDataPoints(annotationForm.chartId).map(pt => (
+                        <option key={pt} value={pt}>
+                          {pt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Category Picker */}
+                <div>
+                  <label className="block text-neutral-400 mb-1 font-bold">
+                    Annotation Classification:
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'milestone', label: 'Milestone', desc: 'Achievement / deployment', border: 'border-amber-500/50', bg: 'bg-amber-950/40 text-amber-300' },
+                      { id: 'anomaly', label: 'Anomaly', desc: 'Outlier / fluctuation', border: 'border-red-500/50', bg: 'bg-red-950/40 text-red-300' },
+                      { id: 'audit', label: 'Audit Proof', desc: 'ZKP consensus event', border: 'border-cyan-500/50', bg: 'bg-cyan-950/40 text-cyan-300' }
+                    ].map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setAnnotationForm(prev => ({ ...prev, category: cat.id as any }))}
+                        className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${
+                          annotationForm.category === cat.id
+                            ? `${cat.border} ${cat.bg} font-bold shadow-sm`
+                            : 'border-white/10 bg-black/30 text-neutral-400 hover:text-neutral-200'
+                        }`}
+                      >
+                        <div className="text-xs">{cat.label}</div>
+                        <div className="text-[9px] opacity-75">{cat.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Annotation Title / Milestone */}
+                <div>
+                  <label className="block text-neutral-400 mb-1 font-bold">
+                    Annotation Title / Milestone Name:
+                  </label>
+                  <input
+                    type="text"
+                    value={annotationForm.label}
+                    onChange={(e) => setAnnotationForm(prev => ({ ...prev, label: e.target.value }))}
+                    placeholder="e.g., Solar Array Commissioning, Drought Stress Spike"
+                    className="w-full bg-[#070D09] border border-white/15 rounded-lg p-2.5 text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-[#C5A059]"
+                  />
+                </div>
+
+                {/* Detailed Description */}
+                <div>
+                  <label className="block text-neutral-400 mb-1 font-bold">
+                    Field Description & Ecological Context:
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={annotationForm.description}
+                    onChange={(e) => setAnnotationForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Specify physical conditions, telemetry root causes, or operational actions..."
+                    className="w-full bg-[#070D09] border border-white/15 rounded-lg p-2.5 text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-[#C5A059] resize-none"
+                  />
+                </div>
+
+                {/* Author */}
+                <div>
+                  <label className="block text-neutral-400 mb-1 font-bold">
+                    Auditor / Steward Attribution:
+                  </label>
+                  <input
+                    type="text"
+                    value={annotationForm.author}
+                    onChange={(e) => setAnnotationForm(prev => ({ ...prev, author: e.target.value }))}
+                    placeholder="e.g., Mara Watershed Operative #4"
+                    className="w-full bg-[#070D09] border border-white/15 rounded-lg p-2 text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-[#C5A059]"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 bg-[#080E0A] border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                <span className="text-neutral-500 text-[10px]">
+                  Saved annotations are rendered as ReferenceLines on the graph.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAnnotationModalOpen(false)}
+                    className="px-3.5 py-2 bg-white/5 hover:bg-white/10 text-neutral-300 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveAnnotation}
+                    className="px-4 py-2 bg-[#C5A059] hover:bg-[#B38E46] text-black font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-md"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Save to Graph</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Alert Notification System Configuration Modal */}
+      <AlertManagerModal
+        isOpen={isAlertModalOpen}
+        onClose={() => setIsAlertModalOpen(false)}
+        rules={alertRules}
+        onSaveRules={(updatedRules) => {
+          setAlertRules(updatedRules);
+        }}
+        triggeredAlerts={triggeredAlerts}
+        onDismissAlert={handleDismissAlert}
+        onClearAllAlerts={() => setTriggeredAlerts([])}
+        onTestTriggerAlert={handleTestTriggerAlert}
+        onShowToast={(msg) => showToast(msg)}
+      />
+
+      {/* External API Sync Configuration Modal */}
+      <ExternalApiSyncModal
+        isOpen={isExternalSyncModalOpen}
+        onClose={() => setIsExternalSyncModalOpen(false)}
+        activeFeed={externalSyncFeed}
+        onSaveFeed={(feed) => {
+          setExternalSyncFeed(feed);
+          if (feed) {
+            showToast(`External API connected: ${feed.metricName} (${feed.dataPoints.length} points)`);
+          } else {
+            showToast('External API stream disconnected');
+          }
+        }}
+        onShowToast={(msg) => showToast(msg)}
+      />
+
+      {/* Saved Insights Snapshot Recall Sidebar */}
+      <SavedInsightsSidebar
+        isOpen={isSavedInsightsOpen}
+        onClose={() => setIsSavedInsightsOpen(false)}
+        savedInsights={savedInsights}
+        onSaveInsight={(newInsight) => {
+          handleSaveInsight(newInsight);
+          showToast(`Snapshot saved: "${newInsight.title}"`);
+        }}
+        onRecallInsight={handleRecallInsight}
+        onDeleteInsight={handleDeleteInsight}
+        currentState={currentSnapshotState}
+        onShowToast={(msg) => showToast(msg)}
+      />
     </div>
   );
 };

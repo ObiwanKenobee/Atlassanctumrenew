@@ -252,6 +252,18 @@ export const Navigation: React.FC<NavigationProps> = ({
           >
             Moral Simulator
           </button>
+          <span className="text-[#F5F5F0]/20 hidden md:inline">•</span>
+          <button 
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              window.dispatchEvent(new CustomEvent('open-google-sitelinks-enhancement'));
+            }}
+            className="hidden md:flex text-emerald-400 hover:text-emerald-300 items-center gap-1 cursor-pointer transition-colors text-[8px] sm:text-[9px] md:text-[10px] font-mono font-medium"
+            title="Preview Google Search Results Sitelinks & Search Enhancement"
+          >
+            <Globe2 className="w-2.5 h-2.5 text-emerald-400" />
+            <span>Google Sitelinks</span>
+          </button>
         </div>
       </div>
 
@@ -695,6 +707,21 @@ export const Navigation: React.FC<NavigationProps> = ({
             <kbd className="px-1.5 py-0.5 text-[9px] bg-[#0A0A0A] border border-[#F5F5F0]/20 rounded text-[#C5A059] font-mono">
               ⌘K
             </kbd>
+          </button>
+
+          {/* Google Sitelinks & SERP Simulator Trigger */}
+          <button
+            id="open-google-sitelinks-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              window.dispatchEvent(new CustomEvent('open-google-sitelinks-enhancement'));
+            }}
+            aria-label="Google Sitelinks & SERP Enhancement"
+            title="Google Search Results Sitelinks & Searchbox Simulation"
+            className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1C1C1C] border border-emerald-500/30 hover:border-emerald-400 transition-all text-xs font-mono text-emerald-400 cursor-pointer"
+          >
+            <Globe2 className="w-3.5 h-3.5" />
+            <span className="hidden 2xl:inline text-[11px] font-bold">Google Sitelinks</span>
           </button>
 
           {/* Moral Alignment Score Real-time HUD Indicator */}

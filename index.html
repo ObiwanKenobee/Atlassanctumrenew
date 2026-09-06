@@ -23,7 +23,7 @@
     <meta name="twitter:description" content="Atlas Sanctum builds ethical systems that connect intelligence, evidence, capital, communities, and physical infrastructure to create measurable human and ecological flourishing." />
     <meta name="twitter:image" content="https://atlassanctum.org/og-image.png" />
 
-    <!-- Structured Data (Schema.org JSON-LD) -->
+    <!-- Structured Data (Schema.org JSON-LD with Google Sitelinks Searchbox & Navigation Elements) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -48,11 +48,98 @@
         {
           "@type": "WebSite",
           "@id": "https://atlassanctum.org/#website",
-          "url": "https://atlassanctum.org",
+          "url": "https://atlassanctum.org/",
           "name": "Atlas Sanctum",
+          "alternateName": [
+            "Atlas Sanctum Regenerative Intelligence",
+            "Atlas Sanctum Platform",
+            "Atlas Sanctum OS"
+          ],
+          "description": "Atlas Sanctum builds ethical systems that connect intelligence, evidence, capital, communities, and physical infrastructure.",
           "publisher": {
             "@id": "https://atlassanctum.org/#organization"
+          },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://atlassanctum.org/?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
           }
+        },
+        {
+          "@type": "ItemList",
+          "@id": "https://atlassanctum.org/#sitelinks-navigation",
+          "name": "Atlas Sanctum Google Sitelinks Navigation",
+          "itemListElement": [
+            {
+              "@type": "SiteNavigationElement",
+              "position": 1,
+              "name": "Agent Mission Control",
+              "description": "Autonomous multi-agent execution orchestrator powered by Google ADK, Gemini, tool verification & memory.",
+              "url": "https://atlassanctum.org/?view=agent-mission-control"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 2,
+              "name": "Atlas Planetary Observatory",
+              "description": "Real-time macro-scale Earth telemetry, verified bioregional boundaries, and planetary civilization indicators.",
+              "url": "https://atlassanctum.org/?view=observatory"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 3,
+              "name": "Living Reality Matrix",
+              "description": "Multi-spectral ground-truthing observatory with SWAT hydrology, SMAP moisture, and Merkle cryptographic sensor proofs.",
+              "url": "https://atlassanctum.org/?view=living-reality"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 4,
+              "name": "Capital Engine (8-Forms)",
+              "description": "Non-extractive allocation engine directing financial, natural, social, human, and intellectual capital toward verified regeneration.",
+              "url": "https://atlassanctum.org/?view=capital-engine"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 5,
+              "name": "Failure Ledger & Post-Mortems",
+              "description": "Transparent public database of failed interventions, second-order distortions, and open-access epistemic lessons learned.",
+              "url": "https://atlassanctum.org/?view=failure-ledger"
+            },
+            {
+              "@type": "SiteNavigationElement",
+              "position": 6,
+              "name": "Moral Arbiter & Governance",
+              "description": "Real-time constitutional ethical audit engine applying universal moral axioms, Canon XXIII, and non-negotiable priority floors.",
+              "url": "https://atlassanctum.org/?view=moral-arbiter"
+            }
+          ]
+        },
+        {
+          "@type": "BreadcrumbList",
+          "@id": "https://atlassanctum.org/#breadcrumbs",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Atlas Sanctum",
+              "item": "https://atlassanctum.org/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Ecosystem",
+              "item": "https://atlassanctum.org/?view=observatory"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Regenerative Intelligence",
+              "item": "https://atlassanctum.org/?view=agent-mission-control"
+            }
+          ]
         },
         {
           "@type": "SoftwareApplication",

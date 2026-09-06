@@ -40,6 +40,7 @@ const GlobalEpistemicSearch = React.lazy(() => import('./components/GlobalEpiste
 const KeyboardShortcutsModal = React.lazy(() => import('./components/KeyboardShortcutsModal').then(m => ({ default: m.KeyboardShortcutsModal })));
 const TrustLayerModal = React.lazy(() => import('./components/trust/TrustLayerModal').then(m => ({ default: m.TrustLayerModal })));
 const PlatformTourOverlay = React.lazy(() => import('./components/navigation/PlatformTourOverlay').then(m => ({ default: m.PlatformTourOverlay })));
+const GoogleSitelinksEnhancementModal = React.lazy(() => import('./components/seo/GoogleSitelinksEnhancementModal').then(m => ({ default: m.GoogleSitelinksEnhancementModal })));
 
 // Lazy-Loaded Views for instant code-splitting and progressive delivery
 const AtlasStewardView = React.lazy(() => import('./components/steward/AtlasStewardView').then(m => ({ default: m.AtlasStewardView })));
@@ -97,9 +98,43 @@ export default function App() {
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false);
   const [voiceCommandOpen, setVoiceCommandOpen] = useState(false);
   const [platformTourOpen, setPlatformTourOpen] = useState(false);
+  const [googleSitelinksOpen, setGoogleSitelinksOpen] = useState(false);
+  const [searchInitialQuery, setSearchInitialQuery] = useState<string>('');
   const [commandCenterInitialQuery, setCommandCenterInitialQuery] = useState<string>('');
   const [provenanceModalData, setProvenanceModalData] = useState<DataProvenance | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Ingress handling for Google Search Results Sitelinks / Searchbox query parameters (?q=..., ?search=..., ?view=..., ?sitelink=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const searchParam = params.get('q') || params.get('search') || params.get('query');
+      const viewParam = params.get('view') || params.get('tab') || params.get('sitelink');
+      const openSitelinksParam = params.get('sitelinks_preview') || params.get('serp') || params.get('sitelinks');
+
+      if (viewParam) {
+        const validTab = viewParam as PageView;
+        setCurrentTab(validTab);
+        audioFeedback.playViewTransition();
+      }
+
+      if (searchParam) {
+        const cleanSearch = decodeURIComponent(searchParam).trim();
+        setSearchInitialQuery(cleanSearch);
+        setGlobalSearchOpen(true);
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('global-epistemic-search-query', { detail: { query: cleanSearch } }));
+        }, 80);
+      }
+
+      if (openSitelinksParam === 'true' || openSitelinksParam === '1') {
+        setGoogleSitelinksOpen(true);
+      }
+    } catch (err) {
+      console.error('Failed to parse incoming Google Search Sitelinks URL parameters:', err);
+    }
+  }, []);
 
   // Automatic first-visit platform tour check
   useEffect(() => {
@@ -192,7 +227,9 @@ export default function App() {
     window.addEventListener('atlas-reset-to-home', handleResetToHome);
     window.addEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
     const handleOpenTour = () => setPlatformTourOpen(true);
+    const handleOpenGoogleSitelinks = () => setGoogleSitelinksOpen(true);
     window.addEventListener('open-platform-tour', handleOpenTour);
+    window.addEventListener('open-google-sitelinks-enhancement', handleOpenGoogleSitelinks);
     window.addEventListener('inspect-data-provenance' as any, handleInspectCustomProvenance);
 
     // Proactively prefetch priority modules on idle
@@ -208,6 +245,7 @@ export default function App() {
       window.removeEventListener('open-global-search', handleOpenSearch);
       window.removeEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
       window.removeEventListener('open-platform-tour', handleOpenTour);
+      window.removeEventListener('open-google-sitelinks-enhancement', handleOpenGoogleSitelinks);
       window.removeEventListener('atlas-reset-to-home', handleResetToHome);
       window.removeEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
       window.removeEventListener('inspect-data-provenance' as any, handleInspectCustomProvenance);
@@ -667,6 +705,21 @@ export default function App() {
                 isOpen={globalSearchOpen}
                 onClose={() => setGlobalSearchOpen(false)}
                 onSelectTab={handleSelectTab}
+                initialQuery={searchInitialQuery}
+              />
+
+              {/* Google Search Results Sitelinks & SERP Enhancement Center */}
+              <GoogleSitelinksEnhancementModal
+                isOpen={googleSitelinksOpen}
+                onClose={() => setGoogleSitelinksOpen(false)}
+                onNavigateTab={handleSelectTab}
+                onExecuteSearch={(query) => {
+                  setSearchInitialQuery(query);
+                  setGlobalSearchOpen(true);
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('global-epistemic-search-query', { detail: { query } }));
+                  }, 60);
+                }}
               />
 
               {/* Global Keyboard Shortcuts Modal (Triggered by ?) */}

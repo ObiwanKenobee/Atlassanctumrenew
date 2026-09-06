@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Sparkles, X, ArrowRight, Layers, FileText, AlertTriangle, ShieldCheck, Database, Compass, Zap, Bot } from 'lucide-react';
+import { Search, Sparkles, X, ArrowRight, Layers, FileText, AlertTriangle, ShieldCheck, Database, Compass, Zap, Bot, Globe2, ExternalLink } from 'lucide-react';
 import { SearchableItem, fuzzySearch } from '../lib/fuzzySearch';
 import { PageView } from '../types';
 import { FAILURE_LEDGER_ENTRIES } from '../data/failureLedgerData';
 import { MISSION_ANALYTICS_DATA } from '../data/missionAnalyticsData';
+import { ATLAS_GOOGLE_SITELINKS } from '../data/googleSitelinksData';
 import { audioFeedback } from '../lib/audioFeedback';
 
 interface GlobalEpistemicSearchProps {
@@ -11,18 +12,39 @@ interface GlobalEpistemicSearchProps {
   onClose: () => void;
   onSelectTab: (tab: PageView) => void;
   onSelectProvenance?: (prov: any) => void;
+  initialQuery?: string;
 }
 
 export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
   isOpen,
   onClose,
   onSelectTab,
-  onSelectProvenance
+  onSelectProvenance,
+  initialQuery
 }) => {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery || '');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync initial query if updated
+  useEffect(() => {
+    if (initialQuery !== undefined) {
+      setQuery(initialQuery);
+    }
+  }, [initialQuery]);
+
+  // Listen for custom external query dispatches (e.g. from Google Sitelinks search simulation)
+  useEffect(() => {
+    const handleCustomQuery = (e: any) => {
+      if (e.detail?.query !== undefined) {
+        setQuery(e.detail.query);
+        setSelectedIndex(0);
+      }
+    };
+    window.addEventListener('global-epistemic-search-query' as any, handleCustomQuery);
+    return () => window.removeEventListener('global-epistemic-search-query' as any, handleCustomQuery);
+  }, []);
 
   // Build searchable index from all platform records
   const searchIndex: SearchableItem[] = useMemo(() => {
@@ -318,6 +340,17 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
               <X className="w-4 h-4" />
             </button>
           )}
+          <button
+            onClick={() => {
+              onClose();
+              window.dispatchEvent(new CustomEvent('open-google-sitelinks-enhancement'));
+            }}
+            className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 hover:bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/30 text-[10px] font-mono transition-colors shrink-0"
+            title="Preview Google Search Sitelinks & SERP Simulator"
+          >
+            <Globe2 className="w-3 h-3" />
+            <span>Google Sitelinks</span>
+          </button>
           <div className="hidden sm:flex items-center gap-1 text-[10px] font-mono text-[#F5F5F0]/40 border border-[#F5F5F0]/10 px-2 py-0.5 rounded">
             ESC to exit
           </div>
@@ -348,6 +381,50 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
             </button>
           ))}
         </div>
+
+        {/* Google Sitelinks Quick-Access Shelf (Shown when no search term is entered) */}
+        {!query && (
+          <div className="p-3 bg-gradient-to-b from-[#111111] to-[#0A0A0A] border-b border-white/10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#C5A059]">
+                <Globe2 className="w-3 h-3 text-[#C5A059]" />
+                <span className="font-bold">Google Sitelinks Priority Portals</span>
+              </div>
+              <button
+                onClick={() => {
+                  onClose();
+                  window.dispatchEvent(new CustomEvent('open-google-sitelinks-enhancement'));
+                }}
+                className="text-[10px] font-mono text-[#F5F5F0]/50 hover:text-[#C5A059] transition-colors flex items-center gap-1"
+              >
+                <span>SERP Simulator</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {ATLAS_GOOGLE_SITELINKS.slice(0, 6).map((sl) => (
+                <button
+                  key={sl.id}
+                  onClick={() => {
+                    audioFeedback.playViewTransition();
+                    onSelectTab(sl.targetTab);
+                    onClose();
+                  }}
+                  className="p-2 rounded bg-white/5 hover:bg-[#C5A059]/10 border border-white/10 hover:border-[#C5A059]/50 text-left transition-all group"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-[#F5F5F0] group-hover:text-[#C5A059] truncate">
+                    <span>{sl.name}</span>
+                    <ArrowRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#C5A059] shrink-0" />
+                  </div>
+                  <div className="text-[9px] font-mono text-[#F5F5F0]/40 truncate mt-0.5">
+                    {sl.displayUrl}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Search Results List */}
         <div className="max-h-[60vh] overflow-y-auto divide-y divide-white/5 p-2">
@@ -382,6 +459,14 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
                   </div>
 
                   <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#F5F5F0]/40 mb-0.5">
+                      <span>Atlas Sanctum</span>
+                      <span>›</span>
+                      <span className="capitalize">{item.category}</span>
+                      <span>›</span>
+                      <span className="truncate">{item.targetTab || 'view'}</span>
+                    </div>
+
                     <div className="flex items-center gap-2">
                       <h3 className="text-xs sm:text-sm font-semibold text-[#F5F5F0] truncate group-hover:text-[#C5A059] transition-colors">
                         {item.title}
@@ -415,7 +500,13 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
             <span><kbd className="bg-white/10 px-1.5 py-0.5 rounded">↑↓</kbd> navigate</span>
             <span><kbd className="bg-white/10 px-1.5 py-0.5 rounded">↵</kbd> select</span>
           </div>
-          <div>{filteredResults.length} records indexed</div>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Google SearchAction Enabled</span>
+            </div>
+            <div>{filteredResults.length} records indexed</div>
+          </div>
         </div>
       </div>
     </div>

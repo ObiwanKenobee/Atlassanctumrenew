@@ -3,6 +3,7 @@ import { TreeDeciduous, ArrowUpRight, Scale, Sparkles, ShieldCheck, Lock, Award,
 import { PageView } from '../types';
 import { EnvironmentStatusFooter } from './EnvironmentStatusFooter';
 import { useTrustLayer } from '../context/TrustLayerContext';
+import { audioFeedback } from '../lib/audioFeedback';
 
 interface FooterProps {
   onSelectTab: (tab: PageView) => void;
@@ -268,6 +269,17 @@ export const Footer: React.FC<FooterProps> = ({
               <li>
                 <button onClick={onOpenCommandCenter} className="hover:text-[#C5A059] transition-colors flex items-center gap-1.5">
                   AI Command Center (⌘K) <ArrowUpRight className="w-3 h-3 text-[#F5F5F0]/30" />
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => {
+                    audioFeedback.playSubtleClick();
+                    window.dispatchEvent(new CustomEvent('open-google-sitelinks-enhancement'));
+                  }} 
+                  className="hover:text-emerald-300 text-emerald-400 transition-colors flex items-center gap-1.5 font-bold"
+                >
+                  Google Sitelinks & SERP <ArrowUpRight className="w-3 h-3 text-emerald-400" />
                 </button>
               </li>
             </ul>
