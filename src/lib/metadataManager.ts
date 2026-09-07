@@ -634,11 +634,135 @@ export function updatePageMetadata(view: PageView, customOverrides?: Partial<Vie
 
     // Broadcast metadata update event for components / tools
     window.dispatchEvent(new CustomEvent('atlas-metadata-updated', { detail: { metadata: meta } }));
+
+    // Automatically record to sessionStorage version history if user supplied custom overrides
+    if (overrides) {
+      saveMetadataVersion(viewId, meta, 'manual_edit', `Updated SEO tags for ${meta.name}`);
+    }
   } catch (err) {
     console.warn('[MetadataManager] Error updating DOM meta tags:', err);
   }
 
   return meta;
+}
+
+export const METADATA_HISTORY_STORAGE_KEY = 'atlas_metadata_version_history';
+
+export interface MetadataVersionSnapshot {
+  id: string;
+  viewId: PageView;
+  timestamp: string; // ISO string
+  timeFormatted: string; // e.g. "01:54:20"
+  label: string;
+  metadata: ViewMetadata;
+  auditScore: number;
+  changedFields: string[];
+  trigger: 'manual_edit' | 'remediation' | 'import' | 'initial' | 'revert';
+}
+
+/**
+ * Retrieves all stored sessionStorage metadata versions, optionally filtered by viewId
+ */
+export function getMetadataHistory(viewId?: PageView): MetadataVersionSnapshot[] {
+  if (typeof window === 'undefined' || !window.sessionStorage) return [];
+  try {
+    const raw = window.sessionStorage.getItem(METADATA_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const list: MetadataVersionSnapshot[] = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    if (viewId) {
+      return list.filter(item => item.viewId === viewId);
+    }
+    return list;
+  } catch (err) {
+    console.warn('[MetadataManager] Error reading history from sessionStorage:', err);
+    return [];
+  }
+}
+
+/**
+ * Saves a new version snapshot to local sessionStorage
+ */
+export function saveMetadataVersion(
+  viewId: PageView, 
+  metadata: ViewMetadata, 
+  trigger: 'manual_edit' | 'remediation' | 'import' | 'initial' | 'revert' = 'manual_edit',
+  customLabel?: string
+): MetadataVersionSnapshot {
+  const audit = auditViewMetadataEfficacy(metadata);
+  const now = new Date();
+  
+  // Detect changed fields compared to current registry baseline
+  const baseline = MODULE_METADATA_REGISTRY[viewId] || MODULE_METADATA_REGISTRY['home'];
+  const changedFields: string[] = [];
+  if (metadata.metaTitle !== baseline.metaTitle) changedFields.push('Title');
+  if (metadata.metaDescription !== baseline.metaDescription) changedFields.push('Description');
+  if (metadata.canonicalUrl !== baseline.canonicalUrl) changedFields.push('Canonical');
+  if (metadata.priority !== baseline.priority) changedFields.push('Priority');
+  if (metadata.changefreq !== baseline.changefreq) changedFields.push('Changefreq');
+  if (metadata.ratingScore !== baseline.ratingScore) changedFields.push('Rating');
+  if (metadata.keywords.join(',') !== baseline.keywords.join(',')) changedFields.push('Keywords');
+
+  const snapshot: MetadataVersionSnapshot = {
+    id: `ver_${viewId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    viewId,
+    timestamp: now.toISOString(),
+    timeFormatted: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    label: customLabel || `${metadata.name} (${changedFields.length > 0 ? changedFields.join(', ') : 'Baseline'})`,
+    metadata: JSON.parse(JSON.stringify(metadata)),
+    auditScore: audit.score,
+    changedFields: changedFields.length > 0 ? changedFields : ['Initial State'],
+    trigger
+  };
+
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const existing = getMetadataHistory();
+      // Cap at most recent 40 revisions across views
+      const updated = [snapshot, ...existing].slice(0, 40);
+      window.sessionStorage.setItem(METADATA_HISTORY_STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('atlas-metadata-history-updated', { detail: { snapshot } }));
+    } catch (err) {
+      console.warn('[MetadataManager] Error saving history to sessionStorage:', err);
+    }
+  }
+
+  return snapshot;
+}
+
+/**
+ * Reverts a view's metadata configuration to a previous sessionStorage version
+ */
+export function revertMetadataVersion(historyId: string): ViewMetadata | null {
+  const history = getMetadataHistory();
+  const target = history.find(h => h.id === historyId);
+  if (!target) {
+    console.warn(`[MetadataManager] Historical version ${historyId} not found`);
+    return null;
+  }
+
+  const restoredMeta = JSON.parse(JSON.stringify(target.metadata));
+  // Apply restored metadata directly into memory and DOM
+  MODULE_METADATA_REGISTRY[target.viewId] = restoredMeta;
+  updatePageMetadata(target.viewId, restoredMeta);
+
+  // Record that a rollback occurred
+  saveMetadataVersion(target.viewId, restoredMeta, 'revert', `Reverted to ${target.timeFormatted} (${target.label})`);
+  return restoredMeta;
+}
+
+/**
+ * Clears sessionStorage metadata history
+ */
+export function clearMetadataHistory(viewId?: PageView): void {
+  if (typeof window === 'undefined' || !window.sessionStorage) return;
+  if (!viewId) {
+    window.sessionStorage.removeItem(METADATA_HISTORY_STORAGE_KEY);
+  } else {
+    const remaining = getMetadataHistory().filter(h => h.viewId !== viewId);
+    window.sessionStorage.setItem(METADATA_HISTORY_STORAGE_KEY, JSON.stringify(remaining));
+  }
+  window.dispatchEvent(new CustomEvent('atlas-metadata-history-updated'));
 }
 
 export interface CrawlabilityAuditResult {
