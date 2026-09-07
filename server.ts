@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
 import path from "path";
+import fs from "fs";
 import dotenv from "dotenv";
 import { WebSocketServer, WebSocket } from "ws";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
@@ -278,6 +279,140 @@ Connecting to live satellite telemetry and localized data trusts.`.split(" ");
     console.error("Gemini stream error:", error);
     res.write(`data: ${JSON.stringify({ type: "error", error: error.message || "Streaming failed" })}\n\n`);
     res.end();
+  }
+});
+
+// 1b-2. ADAPTIVE MODE COGNITIVE LOAD ASSESSMENT & UI DENSITY ENGINE (Gemini 3.8 Flash)
+app.post("/api/gemini/adaptive-ui", async (req, res) => {
+  try {
+    const { signals } = req.body || {};
+    const {
+      viewSwitchCount = 0,
+      activeView = 'home',
+      sessionDurationSec = 60,
+      activeAlertsCount = 0,
+      interactionVelocity = 20,
+      userReportedTiredness,
+    } = signals || {};
+
+    const ai = getGemini();
+
+    if (!ai) {
+      // Heuristic fallback
+      const cognitiveScore = Math.min(100, Math.max(10, Math.round(
+        (viewSwitchCount * 7) +
+        (activeAlertsCount * 14) +
+        (interactionVelocity > 45 ? 25 : interactionVelocity > 25 ? 15 : 5) +
+        (sessionDurationSec > 3600 ? 25 : sessionDurationSec > 1800 ? 15 : 5)
+      )));
+
+      let cognitiveLoadLevel: 'low' | 'moderate' | 'high' | 'overloaded' = 'low';
+      let uiDensity: 'compact' | 'comfortable' | 'spacious' = 'comfortable';
+      let hierarchyFocus: 'full_telemetry' | 'balanced' | 'primary_only' = 'balanced';
+
+      if (cognitiveScore >= 75) {
+        cognitiveLoadLevel = 'overloaded';
+        uiDensity = 'spacious';
+        hierarchyFocus = 'primary_only';
+      } else if (cognitiveScore >= 55) {
+        cognitiveLoadLevel = 'high';
+        uiDensity = 'spacious';
+        hierarchyFocus = 'primary_only';
+      } else if (cognitiveScore >= 30) {
+        cognitiveLoadLevel = 'moderate';
+        uiDensity = 'comfortable';
+        hierarchyFocus = 'balanced';
+      } else {
+        cognitiveLoadLevel = 'low';
+        uiDensity = 'compact';
+        hierarchyFocus = 'full_telemetry';
+      }
+
+      return res.json({
+        success: true,
+        assessment: {
+          cognitiveScore,
+          cognitiveLoadLevel,
+          uiDensity,
+          hierarchyFocus,
+          recommendedAdjustments: [
+            uiDensity === 'spacious' ? 'Streamline telemetry widgets to high-level summaries' : 'Display high-density multi-metric analytics and deep provenance',
+            uiDensity === 'spacious' ? 'Expand padding and breathing space between action modules' : 'Enable compact information packing for high-throughput exploration',
+            'Prioritize critical moral and ecological alerts over secondary background notifications'
+          ],
+          rationale: `Heuristic Cognitive Engine: Observed interaction velocity of ${interactionVelocity}/min across ${activeView} with ${activeAlertsCount} active alert triggers. UI density calibrated to ${uiDensity}.`,
+          modelUsed: 'offline-heuristic-engine',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+
+    const systemInstruction = `You are the ATLAS SANCTUM Cognitive Ergonomics & Adaptive Interface AI Engine.
+Your role is to evaluate the user's cognitive load based on session telemetry, task-switching frequency, active alert volume, and interaction velocity.
+Recommend the optimal UI density and information hierarchy:
+- Low cognitive load (0-29): The user is calm and analytical. Recommend uiDensity: 'compact', hierarchyFocus: 'full_telemetry'. Show rich multi-metric charts, detailed provenance logs, and dense information cards.
+- Moderate cognitive load (30-54): The user is active. Recommend uiDensity: 'comfortable', hierarchyFocus: 'balanced'. Standard padding, balanced summary cards with drill-downs.
+- High / Overloaded (55-100): The user is experiencing cognitive fatigue, high task switching, or alert barrage. Recommend uiDensity: 'spacious', hierarchyFocus: 'primary_only'. Generous whitespace, prominent essential alerts, suppress or fold secondary metrics, high legibility.
+
+Return ONLY a JSON object matching this schema:
+{
+  "cognitiveScore": number (0-100),
+  "cognitiveLoadLevel": "low" | "moderate" | "high" | "overloaded",
+  "uiDensity": "compact" | "comfortable" | "spacious",
+  "hierarchyFocus": "full_telemetry" | "balanced" | "primary_only",
+  "recommendedAdjustments": ["string", "string", "string"],
+  "rationale": "Clear 1-2 sentence explanation of why this density and hierarchy was selected based on user telemetry."
+}`;
+
+    const prompt = `Evaluate steward cognitive load:
+- Active Module: ${activeView}
+- View Switch Count in window: ${viewSwitchCount}
+- Active Session Duration: ${Math.round(sessionDurationSec / 60)} minutes
+- Active Bioregional & Sentinel Alerts: ${activeAlertsCount}
+- Interaction Velocity: ${interactionVelocity} interactions/minute
+- User Reported State: ${userReportedTiredness || 'Unspecified'}
+
+Generate ergonomic UI adaptation recommendation.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        systemInstruction,
+        temperature: 0.2,
+        responseMimeType: "application/json",
+      },
+    });
+
+    let assessment;
+    try {
+      assessment = JSON.parse(response.text || "{}");
+    } catch {
+      assessment = {
+        cognitiveScore: 40,
+        cognitiveLoadLevel: "moderate",
+        uiDensity: "comfortable",
+        hierarchyFocus: "balanced",
+        recommendedAdjustments: ["Balance card spacing", "Prioritize urgent alerts"],
+        rationale: "Default comfortable density selected.",
+      };
+    }
+
+    aiTelemetryState.totalRequests++;
+    aiTelemetryState.successfulRequests++;
+
+    return res.json({
+      success: true,
+      assessment: {
+        ...assessment,
+        modelUsed: "gemini-3.8-flash",
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error: any) {
+    aiTelemetryState.failedRequests++;
+    console.error("Adaptive UI error:", error);
+    return res.status(500).json({ error: error.message || "Failed to assess adaptive UI" });
   }
 });
 
@@ -1330,6 +1465,84 @@ async function startServer() {
         geminiWs.close();
       }
     });
+  });
+
+  // In-memory active sitemap cache
+  let runtimeSitemapCache: string | null = null;
+
+  // Real-time Sitemap Status & API
+  app.get("/api/sitemap", (req, res) => {
+    try {
+      const sitemapPath = path.join(process.cwd(), "public", "sitemap.xml");
+      const exists = fs.existsSync(sitemapPath);
+      let content = runtimeSitemapCache;
+      let mtime = new Date().toISOString();
+
+      if (exists && !content) {
+        content = fs.readFileSync(sitemapPath, "utf-8");
+        const stats = fs.statSync(sitemapPath);
+        mtime = stats.mtime.toISOString();
+      }
+
+      const urlMatches = content ? (content.match(/<loc>/g) || []).length : 0;
+      res.json({
+        status: "ok",
+        count: urlMatches,
+        lastGenerated: mtime,
+        canonicalOrigin: "https://atlassanctum.org",
+        xmlPreview: content ? content.slice(0, 500) + "..." : null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Real-time Sitemap Synchronization & Crawler Update Endpoint
+  app.post("/api/sitemap/sync", (req, res) => {
+    try {
+      const { xml, entries } = req.body;
+      if (!xml || typeof xml !== "string") {
+        return res.status(400).json({ error: "Missing valid 'xml' payload" });
+      }
+
+      const sitemapPath = path.join(process.cwd(), "public", "sitemap.xml");
+      fs.writeFileSync(sitemapPath, xml, "utf-8");
+      runtimeSitemapCache = xml;
+
+      const urlCount = (xml.match(/<loc>/g) || []).length;
+      console.log(`[SITEMAP] Successfully regenerated and hosted /sitemap.xml with ${urlCount} active paths`);
+
+      res.json({
+        success: true,
+        message: "Hosted /sitemap.xml updated successfully",
+        count: urlCount,
+        timestamp: new Date().toISOString(),
+        entriesCount: Array.isArray(entries) ? entries.length : urlCount,
+      });
+    } catch (err: any) {
+      console.error("[SITEMAP] Error writing sitemap.xml:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Explicit search engine indexing endpoints (robots.txt & sitemap.xml)
+  app.get("/robots.txt", (req, res) => {
+    res.type("text/plain");
+    res.sendFile(path.join(process.cwd(), "public", "robots.txt"));
+  });
+
+  app.get("/sitemap.xml", (req, res) => {
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    if (runtimeSitemapCache) {
+      return res.send(runtimeSitemapCache);
+    }
+    const sitemapPath = path.join(process.cwd(), "public", "sitemap.xml");
+    if (fs.existsSync(sitemapPath)) {
+      res.sendFile(sitemapPath);
+    } else {
+      res.status(404).type("text/plain").send("Sitemap not found");
+    }
   });
 
   // Vite middleware / SPA fallback

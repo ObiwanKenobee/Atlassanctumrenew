@@ -21,7 +21,8 @@ import {
   GitBranch,
   Globe2,
   Compass,
-  Leaf
+  Leaf,
+  Layers
 } from 'lucide-react';
 import { PageView } from '../types';
 import { PrimaryNavigationItem, BadgeColorVariant } from '../types/navigation';
@@ -35,6 +36,8 @@ import { MegaMenuDropdown } from './navigation/MegaMenuDropdown';
 import { NestedSubmenuDropdown } from './navigation/NestedSubmenuDropdown';
 import { MobileNavigationDrawer } from './navigation/MobileNavigationDrawer';
 import { UserSettingsDropdown } from './UserSettingsDropdown';
+import { ContextualNotificationHeader } from './navigation/ContextualNotificationHeader';
+import { CivilizationOSLogicFlowModal } from './CivilizationOSLogicFlowModal';
 import { useMissionAlerts } from '../context/MissionAlertContext';
 import { useAuth } from '../context/AuthContext';
 import { UncertaintyOverlayToggle } from '../context/UncertaintyOverlayContext';
@@ -42,6 +45,7 @@ import { OfflineModeToggle } from './navigation/OfflineModeToggle';
 import { SystemVitalityMonitor } from './navigation/SystemVitalityMonitor';
 import { SystemPulseIcon } from './diagnostics/SystemPulseIcon';
 import { BioregionalHazardBeacon } from './navigation/BioregionalHazardBeacon';
+import { HeaderHazardAlertBanner } from './navigation/HeaderHazardAlertBanner';
 import { MoralAlignmentHUD } from './MoralAlignmentHUD';
 import { audioFeedback, hapticFeedback } from '../lib/audioFeedback';
 import { prefetchView } from '../lib/viewPrefetch';
@@ -64,9 +68,16 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [innovationsDropdownOpen, setInnovationsDropdownOpen] = useState(false);
+  const [isLogicFlowOpen, setIsLogicFlowOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const { unreadCount, setIsDrawerOpen } = useMissionAlerts();
   const { userProfile, currentUser, updatePlatformSettings } = useAuth();
+
+  useEffect(() => {
+    const handleOpenFlow = () => setIsLogicFlowOpen(true);
+    window.addEventListener('open-civilization-logic-flow', handleOpenFlow);
+    return () => window.removeEventListener('open-civilization-logic-flow', handleOpenFlow);
+  }, []);
 
   // Theme preference state ('dark' | 'light' | 'system' | 'context_aware') persisted to localStorage
   const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'system' | 'context_aware'>(() => {
@@ -194,6 +205,12 @@ export const Navigation: React.FC<NavigationProps> = ({
       ref={headerRef}
       className="sticky top-0 z-40 w-full bg-[#0A0A0A]/95 backdrop-blur-md border-b border-[#F5F5F0]/10 text-[#F5F5F0] select-none transition-all"
     >
+      {/* Real-time Bioregional Hazard Alert Pushed Directly to Main Header */}
+      <HeaderHazardAlertBanner onSelectTab={onSelectTab} />
+
+      {/* Contextual Community Updates & Mission Changes Banner (Requires Confirmation to Clear) */}
+      <ContextualNotificationHeader onSelectTab={onSelectTab} />
+
       {/* Planetary Ticker Bar with Dynamic Responsive Spacing */}
       <div 
         className="w-full bg-[#080808] border-b border-[#F5F5F0]/10 py-1 sm:py-1.5 flex items-center justify-between text-[9px] sm:text-[10px] uppercase tracking-[0.12em] sm:tracking-[0.16em] text-[#F5F5F0]/60 font-mono overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:none [-ms-overflow-style:none] [scrollbar-width:none]"
@@ -251,6 +268,18 @@ export const Navigation: React.FC<NavigationProps> = ({
             className="text-[#F5F5F0]/70 hover:text-[#C5A059] underline tracking-wider cursor-pointer transition-colors text-[8px] sm:text-[9px] md:text-[10px] font-mono"
           >
             Moral Simulator
+          </button>
+          <span className="text-[#F5F5F0]/20 hidden md:inline">•</span>
+          <button 
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              setIsLogicFlowOpen(true);
+            }}
+            className="hidden md:flex text-[#C5A059] hover:text-amber-200 items-center gap-1 cursor-pointer transition-colors text-[8px] sm:text-[9px] md:text-[10px] font-mono font-medium"
+            title="Inspect Civilization OS Logic Flow Infographic"
+          >
+            <Layers className="w-2.5 h-2.5 text-[#C5A059]" />
+            <span>Logic Flow</span>
           </button>
           <span className="text-[#F5F5F0]/20 hidden md:inline">•</span>
           <button 
@@ -618,6 +647,28 @@ export const Navigation: React.FC<NavigationProps> = ({
                       <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Ground-Truth Sensory Placards</p>
                     </div>
                   </button>
+
+                  {/* Civilization OS Logic Flow Infographic Trigger */}
+                  <button
+                    onClick={() => {
+                      setIsLogicFlowOpen(true);
+                      setInnovationsDropdownOpen(false);
+                    }}
+                    className="w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all hover:bg-[#141414] border border-transparent text-[#F5F5F0]"
+                  >
+                    <div className="w-7 h-7 rounded-md bg-amber-500/20 text-[#C5A059] flex items-center justify-center shrink-0 mt-0.5">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-serif font-bold text-white">Civilization OS Flow</span>
+                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-amber-950/80 text-[#C5A059] border border-[#C5A059]/40 font-mono font-bold">
+                          Infographic
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Modular Interactions to Moral Arbiter</p>
+                    </div>
+                  </button>
                 </div>
               </div>
             )}
@@ -829,6 +880,12 @@ export const Navigation: React.FC<NavigationProps> = ({
           onOpenCommandments={onOpenCommandments}
         />
       )}
+      {/* Civilization OS Logic Flow Infographic Modal */}
+      <CivilizationOSLogicFlowModal
+        isOpen={isLogicFlowOpen}
+        onClose={() => setIsLogicFlowOpen(false)}
+        onSelectTab={onSelectTab}
+      />
     </header>
   );
 };

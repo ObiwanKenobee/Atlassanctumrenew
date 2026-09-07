@@ -48,7 +48,8 @@ export type PageView =
   | 'governance'
   | 'about'
   | 'economics-pricing'
-  | 'analytics-report';
+  | 'analytics-report'
+  | 'citizen-profile';
 
 // AI Engineering & Epistemic Insights Types
 export interface AIEpistemicAuditResult {

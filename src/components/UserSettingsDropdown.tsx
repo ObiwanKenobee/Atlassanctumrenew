@@ -16,10 +16,14 @@ import {
   KeyRound,
   Wallet,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Award,
+  Brain,
+  Layout
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWeb3Wallet } from '../context/Web3WalletContext';
+import { useAdaptiveMode } from '../context/AdaptiveModeContext';
 import { db } from '../lib/db';
 import { StewardshipTierProgression } from './StewardshipTierProgression';
 
@@ -35,6 +39,20 @@ export const UserSettingsDropdown: React.FC = () => {
     clearAuthError
   } = useAuth();
   const { address, isConnected, walletType, connectMetaMaskWallet, connectSovereignKeypair, disconnectWallet, error: walletError, clearError } = useWeb3Wallet();
+  const {
+    adaptiveModeEnabled,
+    toggleAdaptiveMode,
+    cognitiveLoadLevel,
+    cognitiveScore,
+    uiDensity,
+    hierarchyFocus,
+    isAnalyzing,
+    assessCognitiveLoad,
+    overrideDensity,
+    overrideHierarchy,
+    rationale,
+    lastAssessedAt
+  } = useAdaptiveMode();
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -197,6 +215,29 @@ export const UserSettingsDropdown: React.FC = () => {
               <StewardshipTierProgression compact={true} />
             </div>
 
+            {/* View Citizen Profile Button */}
+            <button
+              id="dropdown-open-citizen-profile-btn"
+              onClick={() => {
+                setIsOpen(false);
+                window.dispatchEvent(new CustomEvent('atlas-navigate-tab', { detail: { tab: 'citizen-profile' } }));
+              }}
+              className="w-full py-2 px-3 bg-gradient-to-r from-[#1B3022] to-[#122417] border border-[#C5A059]/40 hover:border-[#C5A059] rounded text-left flex items-center justify-between text-xs transition-all cursor-pointer group shadow-sm"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-[#C5A059]/20 text-[#C5A059] flex items-center justify-center">
+                  <Award className="w-3.5 h-3.5" />
+                </div>
+                <div className="font-mono text-[#F5F5F0]">
+                  <span className="font-bold group-hover:text-[#C5A059] transition-colors">Citizen Profile & Badges</span>
+                  <div className="text-[9px] text-[#F5F5F0]/50">3,450 Rep • 4 Badges • Impact Metrics</div>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono text-emerald-400 font-bold group-hover:translate-x-0.5 transition-transform">
+                →
+              </span>
+            </button>
+
             {/* Platform Settings (Synchronized to Firestore) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -313,6 +354,107 @@ export const UserSettingsDropdown: React.FC = () => {
                     ? 'Sabbath Active: Notifications muted, telemetry throttled, and visual stimuli simplified to foster contemplative rest.'
                     : 'Enable to reduce notification frequency, throttle telemetry streams, and encourage healthy periods of rest.'}
                 </p>
+              </div>
+
+              {/* Adaptive Mode Toggle (Gemini Cognitive Load Ergonomics) */}
+              <div className="pt-2 border-t border-[#F5F5F0]/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[11px] text-[#F5F5F0]/90 font-medium">
+                    <Brain className={`w-3.5 h-3.5 ${adaptiveModeEnabled ? 'text-[#C5A059] animate-pulse' : 'text-[#F5F5F0]/40'}`} />
+                    <span>Adaptive Mode (Gemini Ergonomics)</span>
+                  </div>
+                  <button
+                    onClick={() => toggleAdaptiveMode()}
+                    className={`px-2 py-0.5 text-[10px] font-mono rounded-full border transition-all cursor-pointer ${
+                      adaptiveModeEnabled
+                        ? 'bg-[#1B3022] border-[#C5A059] text-[#C5A059] font-bold shadow-sm'
+                        : 'bg-[#141414] border-[#F5F5F0]/20 text-[#F5F5F0]/50 hover:text-white'
+                    }`}
+                  >
+                    {adaptiveModeEnabled ? 'AI ADAPTIVE ON' : 'DISABLED'}
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#F5F5F0]/50 font-sans leading-tight">
+                  Uses Gemini to dynamically assess cognitive load, adjusting UI density and information hierarchy in real-time.
+                </p>
+
+                {adaptiveModeEnabled && (
+                  <div className="p-2.5 bg-[#121814] border border-[#C5A059]/30 rounded-lg space-y-2 mt-1">
+                    {/* Status Pill */}
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-[#F5F5F0]/70 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-[#C5A059]" />
+                        <span>Cognitive Load:</span>
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${
+                        cognitiveLoadLevel === 'low'
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'
+                          : cognitiveLoadLevel === 'moderate'
+                          ? 'bg-blue-950 text-blue-300 border border-blue-500/30'
+                          : 'bg-amber-950 text-amber-300 border border-amber-500/30'
+                      }`}>
+                        {cognitiveLoadLevel} ({cognitiveScore}/100)
+                      </span>
+                    </div>
+
+                    {/* Density Selector */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-[#F5F5F0]/60">
+                        <span>UI Density:</span>
+                        <span className="capitalize text-[#C5A059] font-semibold">{uiDensity}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1">
+                        {(['compact', 'comfortable', 'spacious'] as const).map((density) => (
+                          <button
+                            key={density}
+                            onClick={() => overrideDensity(density)}
+                            className={`py-1 text-[9px] font-mono rounded capitalize transition-all cursor-pointer ${
+                              uiDensity === density
+                                ? 'bg-[#1B3022] border border-[#C5A059] text-white font-bold'
+                                : 'bg-[#181818] border border-white/5 text-[#F5F5F0]/50 hover:text-white'
+                            }`}
+                          >
+                            {density}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Hierarchy Focus */}
+                    <div className="flex items-center justify-between text-[10px] font-mono text-[#F5F5F0]/70 pt-1 border-t border-white/5">
+                      <span>Hierarchy Focus:</span>
+                      <span className="text-white capitalize text-[9px] px-1.5 py-0.5 bg-black/40 rounded border border-white/10">
+                        {hierarchyFocus.replace('_', ' ')}
+                      </span>
+                    </div>
+
+                    {/* Gemini Rationale Quote */}
+                    {rationale && (
+                      <p className="text-[9px] text-[#C5A059]/90 italic font-mono bg-black/30 p-1.5 rounded border border-[#C5A059]/15">
+                        "{rationale}"
+                      </p>
+                    )}
+
+                    {/* Re-analyze Button */}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[9px] font-mono text-[#F5F5F0]/40">
+                        {lastAssessedAt ? `Assessed at ${lastAssessedAt}` : 'Real-time telemetry'}
+                      </span>
+                      <button
+                        onClick={() => assessCognitiveLoad()}
+                        disabled={isAnalyzing}
+                        className="flex items-center gap-1 px-2 py-1 text-[9px] font-mono text-[#C5A059] hover:text-amber-200 bg-black/40 hover:bg-black/60 border border-[#C5A059]/40 rounded transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {isAnalyzing ? (
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                        )}
+                        <span>{isAnalyzing ? 'Analyzing...' : 'Assess with Gemini'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Web3 & Sovereign Cryptographic Key Panel */}

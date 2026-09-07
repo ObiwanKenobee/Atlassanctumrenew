@@ -25,7 +25,9 @@ import {
   ShieldCheck,
   Zap,
   TrendingUp,
-  HelpCircle
+  HelpCircle,
+  Eye,
+  Tags
 } from 'lucide-react';
 import { PageView } from '../../types';
 import { 
@@ -35,21 +37,33 @@ import {
   GoogleSitelinkItem 
 } from '../../data/googleSitelinksData';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { SerpPreviewerTab } from './SerpPreviewerTab';
+import { MetadataManagerTab } from './MetadataManagerTab';
+import { SitemapGeneratorTab } from './SitemapGeneratorTab';
+import { RichResultsDiagnosticTab } from './RichResultsDiagnosticTab';
+import { SeoAuditDashboard } from './SeoAuditDashboard';
+import { SchemaValidationHud } from './SchemaValidationHud';
+import { SitemapTopologyMap } from './SitemapTopologyMap';
+import { SocialCardPreviewer } from './SocialCardPreviewer';
 
 interface GoogleSitelinksEnhancementModalProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigateTab: (tab: PageView) => void;
   onExecuteSearch?: (query: string) => void;
+  activeView?: PageView;
 }
 
 export const GoogleSitelinksEnhancementModal: React.FC<GoogleSitelinksEnhancementModalProps> = ({
   isOpen,
   onClose,
   onNavigateTab,
-  onExecuteSearch
+  onExecuteSearch,
+  activeView = 'home'
 }) => {
-  const [activeTab, setActiveTab] = useState<'serp_simulator' | 'configurator' | 'schema_viewer' | 'audit_readiness' | 'deep_link_test'>('serp_simulator');
+  const [activeTab, setActiveTab] = useState<
+    'seo_audit' | 'schema_hud' | 'social_preview' | 'sitemap_topology' | 'serp_previewer' | 'metadata_manager' | 'sitemap_generator' | 'rich_results_diagnostic' | 'serp_simulator' | 'configurator' | 'schema_viewer' | 'audit_readiness' | 'deep_link_test'
+  >('seo_audit');
   const [googleDevice, setGoogleDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [googleTheme, setGoogleTheme] = useState<'dark' | 'light'>('dark');
   const [simulatedSearchQuery, setSimulatedSearchQuery] = useState('atlas sanctum');
@@ -180,6 +194,102 @@ export const GoogleSitelinksEnhancementModal: React.FC<GoogleSitelinksEnhancemen
         {/* Modal Navigation Tabs */}
         <div className="flex items-center gap-1 px-4 sm:px-6 bg-[#090909] border-b border-[#F5F5F0]/10 overflow-x-auto text-xs font-mono scrollbar-none">
           <button
+            onClick={() => { audioFeedback.play('softClick'); setActiveTab('seo_audit'); }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'seo_audit'
+                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
+                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>SEO Audit Dashboard</span>
+          </button>
+
+          <button
+            onClick={() => { audioFeedback.play('softClick'); setActiveTab('schema_hud'); }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'schema_hud'
+                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
+                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+            }`}
+          >
+            <Code2 className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Schema Validation HUD</span>
+          </button>
+
+          <button
+            onClick={() => { audioFeedback.play('softClick'); setActiveTab('sitemap_topology'); }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'sitemap_topology'
+                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
+                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Sitemap Topology Map</span>
+          </button>
+
+          <button
+            onClick={() => { audioFeedback.play('softClick'); setActiveTab('social_preview'); }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'social_preview'
+                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
+                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+            }`}
+          >
+            <Share2 className="w-3.5 h-3.5 text-sky-400" />
+            <span>Social Card (OG/X)</span>
+          </button>
+
+          <button
+            onClick={() => { audioFeedback.play('softClick'); setActiveTab('serp_previewer'); }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'serp_previewer'
+                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
+                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>SERP Previewer (By View)</span>
+          </button>
+
+          <button
+            onClick={() => { audioFeedback.play('softClick'); setActiveTab('metadata_manager'); }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'metadata_manager'
+                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
+                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+            }`}
+          >
+            <Tags className="w-3.5 h-3.5" />
+            <span>Metadata Manager</span>
+          </button>
+
+          <button
+            onClick={() => { audioFeedback.play('softClick'); setActiveTab('sitemap_generator'); }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'sitemap_generator'
+                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
+                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+            }`}
+          >
+            <Globe2 className="w-3.5 h-3.5" />
+            <span>Sitemap Generator (/sitemap.xml)</span>
+          </button>
+
+          <button
+            onClick={() => { audioFeedback.play('softClick'); setActiveTab('rich_results_diagnostic'); }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'rich_results_diagnostic'
+                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
+                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Rich Results Diagnostic</span>
+          </button>
+
+          <button
             onClick={() => { audioFeedback.play('softClick'); setActiveTab('serp_simulator'); }}
             className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'serp_simulator'
@@ -188,7 +298,7 @@ export const GoogleSitelinksEnhancementModal: React.FC<GoogleSitelinksEnhancemen
             }`}
           >
             <Monitor className="w-3.5 h-3.5" />
-            <span>Google SERP Live Simulator</span>
+            <span>Root Sitelinks 6-Pack</span>
           </button>
 
           <button
@@ -204,30 +314,6 @@ export const GoogleSitelinksEnhancementModal: React.FC<GoogleSitelinksEnhancemen
           </button>
 
           <button
-            onClick={() => { audioFeedback.play('softClick'); setActiveTab('schema_viewer'); }}
-            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
-              activeTab === 'schema_viewer'
-                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
-                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
-            }`}
-          >
-            <FileJson className="w-3.5 h-3.5" />
-            <span>JSON-LD Structured Data</span>
-          </button>
-
-          <button
-            onClick={() => { audioFeedback.play('softClick'); setActiveTab('audit_readiness'); }}
-            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
-              activeTab === 'audit_readiness'
-                ? 'border-[#C5A059] text-[#C5A059] font-bold bg-[#C5A059]/5'
-                : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Googlebot Audit (100%)</span>
-          </button>
-
-          <button
             onClick={() => { audioFeedback.play('softClick'); setActiveTab('deep_link_test'); }}
             className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'deep_link_test'
@@ -236,12 +322,76 @@ export const GoogleSitelinksEnhancementModal: React.FC<GoogleSitelinksEnhancemen
             }`}
           >
             <Zap className="w-3.5 h-3.5" />
-            <span>Incoming Search Ingress Test</span>
+            <span>Ingress Inflow Test</span>
           </button>
         </div>
 
         {/* Tab Content Container */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+          {/* TAB 00A: SEO AUDIT DASHBOARD */}
+          {activeTab === 'seo_audit' && (
+            <SeoAuditDashboard
+              onNavigateTab={(view) => {
+                onClose();
+                onNavigateTab(view);
+              }}
+              onFixMeta={(view) => {
+                setActiveTab('metadata_manager');
+              }}
+            />
+          )}
+
+          {/* TAB 00B: SCHEMA VALIDATION HUD */}
+          {activeTab === 'schema_hud' && (
+            <SchemaValidationHud initialView={activeView} />
+          )}
+
+          {/* TAB 00C: SITEMAP TOPOLOGY MAP */}
+          {activeTab === 'sitemap_topology' && (
+            <SitemapTopologyMap
+              onNavigateTab={(view) => {
+                onClose();
+                onNavigateTab(view);
+              }}
+              onSelectViewForMeta={(view) => {
+                setActiveTab('metadata_manager');
+              }}
+            />
+          )}
+
+          {/* TAB 00D: SOCIAL CARD PREVIEWER (OG / X) */}
+          {activeTab === 'social_preview' && (
+            <SocialCardPreviewer initialView={activeView} />
+          )}
+
+          {/* TAB 0A: SERP PREVIEWER BY VIEW */}
+          {activeTab === 'serp_previewer' && (
+            <SerpPreviewerTab
+              initialView={activeView}
+              onNavigateTab={onNavigateTab}
+              onClose={onClose}
+            />
+          )}
+
+          {/* TAB 0B: METADATA MANAGER */}
+          {activeTab === 'metadata_manager' && (
+            <MetadataManagerTab
+              activeAppView={activeView}
+              onNavigateTab={onNavigateTab}
+            />
+          )}
+
+          {/* TAB 0C: REAL-TIME SITEMAP GENERATOR */}
+          {activeTab === 'sitemap_generator' && (
+            <SitemapGeneratorTab />
+          )}
+
+          {/* TAB 0D: RICH RESULTS DIAGNOSTIC (OBSERVATORY & AGENT MISSION CONTROL) */}
+          {activeTab === 'rich_results_diagnostic' && (
+            <RichResultsDiagnosticTab
+              initialTarget={activeView === 'agent-mission-control' ? 'agent-mission-control' : 'observatory'}
+            />
+          )}
           {/* TAB 1: SERP LIVE SIMULATOR & SITELINKS SEARCH BOX */}
           {activeTab === 'serp_simulator' && (
             <div className="space-y-6">

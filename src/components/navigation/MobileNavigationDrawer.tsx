@@ -23,7 +23,9 @@ import {
   Cpu,
   GitBranch,
   Globe2,
-  Terminal
+  Terminal,
+  User,
+  Award
 } from 'lucide-react';
 import { isNavigationItemActive, trackNavigationEvent, getNavLabel } from '../../lib/navigationHelpers';
 import { UncertaintyOverlayToggle } from '../../context/UncertaintyOverlayContext';
@@ -187,6 +189,48 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
       ) : (
         /* Hierarchical Category Menus */
         <div className="space-y-4">
+          {/* Citizen Profile & Stewardship Reputation Card */}
+          <div 
+            id="mobile-drawer-citizen-profile-card"
+            className={`p-3 rounded-sm border transition-all ${
+              currentTab === 'citizen-profile'
+                ? 'bg-[#1B3022] border-[#C5A059] shadow-lg'
+                : 'bg-gradient-to-r from-[#121B14] to-[#0A0A0A] border-[#C5A059]/30 hover:border-[#C5A059]'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-[#1B3022] border border-[#C5A059] flex items-center justify-center text-[#C5A059] shrink-0">
+                  <User className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-serif font-bold text-white truncate">Eugene Ochako</span>
+                    <span className="text-[8px] font-mono uppercase px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40">
+                      Tier 3
+                    </span>
+                  </div>
+                  <div className="text-[10px] font-mono text-[#C5A059]">
+                    3,450 Rep Pts • 4 Badges Earned
+                  </div>
+                </div>
+              </div>
+
+              <button
+                id="open-citizen-profile-drawer-btn"
+                onClick={() => {
+                  audioFeedback.playSubtleClick();
+                  onSelectTab('citizen-profile');
+                  onClose();
+                }}
+                className="px-3 py-1.5 bg-[#C5A059] hover:bg-[#D4AF37] text-black rounded font-mono text-[10px] uppercase font-bold tracking-wider shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <Award className="w-3.5 h-3.5" />
+                <span>Profile</span>
+              </button>
+            </div>
+          </div>
+
           {/* Atlas Innovations & Hackathons 2026 Spotlight Accordion */}
           <div className="border border-amber-500/40 rounded-sm bg-gradient-to-b from-[#141005] to-[#0E0E0E] overflow-hidden">
             <button

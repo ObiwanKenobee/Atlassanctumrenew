@@ -15,6 +15,9 @@ import { ViewLoadingSkeleton } from './components/ViewLoadingSkeleton';
 import { ThemeAndAccessSyncListener } from './components/ThemeAndAccessSyncListener';
 import { ConfirmationProvider } from './context/ConfirmationDialogContext';
 import { ContextAwareThemeProvider } from './context/ContextAwareThemeContext';
+import { AdaptiveModeProvider } from './context/AdaptiveModeContext';
+import { ContextualNotificationProvider } from './context/ContextualNotificationContext';
+import { ContextualNotificationClearConfirmModal } from './components/navigation/ContextualNotificationClearConfirmModal';
 import { MoralCompassCursor } from './components/MoralCompassCursor';
 import { TrustLayerBanner } from './components/trust/TrustLayerBanner';
 import { VerificationToastProvider } from './context/VerificationToastContext';
@@ -24,6 +27,7 @@ import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
 import { PerformanceMonitorOverlay } from './components/performance/PerformanceMonitorOverlay';
+import { useMetadataManager } from './hooks/useMetadataManager';
 
 // Dynamic imports for secondary modals and utility widgets to reduce initial bundle size
 const CommandmentsModal = React.lazy(() => import('./components/CommandmentsModal').then(m => ({ default: m.CommandmentsModal })));
@@ -86,9 +90,13 @@ const ResourcesView = React.lazy(() => import('./components/views/ResourcesView'
 const GovernanceHubView = React.lazy(() => import('./components/views/GovernanceHubView').then(m => ({ default: m.GovernanceHubView })));
 const EconomicsPricingView = React.lazy(() => import('./components/views/EconomicsPricingView').then(m => ({ default: m.EconomicsPricingView })));
 const AnalyticsReportView = React.lazy(() => import('./components/views/AnalyticsReportView').then(m => ({ default: m.AnalyticsReportView })));
+const CitizenProfileView = React.lazy(() => import('./components/views/CitizenProfileView').then(m => ({ default: m.CitizenProfileView })));
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<PageView>('home');
+  // Dynamic page-level metadata manager for search engine crawling & rich snippets
+  useMetadataManager(currentTab);
+
   const [commandCenterOpen, setCommandCenterOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
@@ -228,8 +236,14 @@ export default function App() {
     window.addEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
     const handleOpenTour = () => setPlatformTourOpen(true);
     const handleOpenGoogleSitelinks = () => setGoogleSitelinksOpen(true);
+    const handleNavigateTab = (e: any) => {
+      if (e.detail?.tab) {
+        handleSelectTab(e.detail.tab);
+      }
+    };
     window.addEventListener('open-platform-tour', handleOpenTour);
     window.addEventListener('open-google-sitelinks-enhancement', handleOpenGoogleSitelinks);
+    window.addEventListener('atlas-navigate-tab' as any, handleNavigateTab);
     window.addEventListener('inspect-data-provenance' as any, handleInspectCustomProvenance);
 
     // Proactively prefetch priority modules on idle
@@ -246,6 +260,7 @@ export default function App() {
       window.removeEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
       window.removeEventListener('open-platform-tour', handleOpenTour);
       window.removeEventListener('open-google-sitelinks-enhancement', handleOpenGoogleSitelinks);
+      window.removeEventListener('atlas-navigate-tab' as any, handleNavigateTab);
       window.removeEventListener('atlas-reset-to-home', handleResetToHome);
       window.removeEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
       window.removeEventListener('inspect-data-provenance' as any, handleInspectCustomProvenance);
@@ -256,6 +271,22 @@ export default function App() {
     if (tab === currentTab) return;
     audioFeedback.playViewTransition();
     setIsTransitioning(true);
+
+    // Maintain canonical URL parameters for Google Sitelinks & search engine indexing
+    try {
+      const url = new URL(window.location.href);
+      if (tab === 'home') {
+        url.searchParams.delete('view');
+        url.searchParams.delete('tab');
+      } else {
+        url.searchParams.set('view', tab);
+      }
+      window.history.pushState({ tab }, '', url.toString());
+      (window as any).__atlas_current_view = tab;
+    } catch {
+      // Ignore in sandboxed environments
+    }
+
     startTransition(() => {
       setCurrentTab(tab);
     });
@@ -283,7 +314,9 @@ export default function App() {
                     <VerificationToastProvider>
                       <ConfirmationProvider>
                         <BioregionalHazardProvider>
-                          <ThemeAndAccessSyncListener>
+                          <AdaptiveModeProvider>
+                            <ContextualNotificationProvider>
+                              <ThemeAndAccessSyncListener>
                             <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
             {/* Moral Compass Dynamic Cursor Trail */}
             <MoralCompassCursor 
@@ -588,6 +621,14 @@ export default function App() {
                     />
                   )}
 
+                  {currentTab === 'citizen-profile' && (
+                    <CitizenProfileView
+                      onSelectTab={handleSelectTab}
+                      onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
+                      onOpenCommandCenter={() => setCommandCenterOpen(true)}
+                    />
+                  )}
+
                   {currentTab === 'events' && (
                     <EventsView
                       onSelectTab={handleSelectTab}
@@ -713,6 +754,7 @@ export default function App() {
                 isOpen={googleSitelinksOpen}
                 onClose={() => setGoogleSitelinksOpen(false)}
                 onNavigateTab={handleSelectTab}
+                activeView={currentTab}
                 onExecuteSearch={(query) => {
                   setSearchInitialQuery(query);
                   setGlobalSearchOpen(true);
@@ -744,6 +786,9 @@ export default function App() {
                 onSelectTab={handleSelectTab}
               />
 
+              {/* Contextual Notification Clear Confirmation Modal (Steward Gate) */}
+              <ContextualNotificationClearConfirmModal />
+
               {/* Central Master 12-Pillar Trust Layer Modal */}
               <TrustLayerModal />
             </Suspense>
@@ -755,6 +800,8 @@ export default function App() {
             <VerificationNotificationContainer />
           </div>
         </ThemeAndAccessSyncListener>
+        </ContextualNotificationProvider>
+        </AdaptiveModeProvider>
         </BioregionalHazardProvider>
         </ConfirmationProvider>
         </VerificationToastProvider>

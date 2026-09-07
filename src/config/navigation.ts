@@ -783,6 +783,14 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
           targetTab: 'regenerative-mission',
           requiredPermission: 'steward',
           badge: { text: 'Sovereign', variant: 'gold' }
+        },
+        {
+          id: 'citizen-profile-nav',
+          label: 'Citizen Profile & Badges',
+          description: 'Verified contributions, stewardship reputation, impact metrics & earn regenerative badges',
+          icon: Award,
+          targetTab: 'citizen-profile',
+          badge: { text: 'Impact Pass', variant: 'gold' }
         }
       ]
     },

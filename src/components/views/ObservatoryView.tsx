@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { LIVING_REALITY_LAYERS, GLOBAL_PROJECTS, SAMPLE_PROVENANCE } from '../../data/mockCivilizationData';
 import { ProjectLocation } from '../../types';
+import { EpistemicHeatmapLayer } from './observatory/EpistemicHeatmapLayer';
+import { audioFeedback } from '../../lib/audioFeedback';
 
 interface ObservatoryViewProps {
   onInspectProvenance: (prov: any) => void;
@@ -32,6 +34,7 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
   onOpenCommandCenter
 }) => {
   const [selectedLayerId, setSelectedLayerId] = useState<string>(LIVING_REALITY_LAYERS[0].id);
+  const [isEpistemicHeatmapMode, setIsEpistemicHeatmapMode] = useState<boolean>(false);
   const [selectedProject, setSelectedProject] = useState<ProjectLocation>(GLOBAL_PROJECTS[0]);
   const [zoomLevel, setZoomLevel] = useState<'Regional' | 'Continental' | 'Global'>('Regional');
 
@@ -72,37 +75,99 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
         </div>
       </div>
 
-      {/* Layer Selection Carousel */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between text-[10px] text-[#C5A059] uppercase font-bold tracking-[0.2em]">
-          <span className="flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-[#8FB8DE]" />
-            Select Planetary Observation Layer
-          </span>
-          <span className="text-[#F5F5F0]/40 font-mono">{LIVING_REALITY_LAYERS.length} Multimodal Telemetry Layers Active</span>
+      {/* Observatory Mode Selector: Biophysical Matrix vs Epistemic Heatmap Layer */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-[#0D0D0D] border border-[#F5F5F0]/15 rounded-sm">
+        <div className="flex items-center gap-2">
+          <button
+            id="observatory-biophysical-mode-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              setIsEpistemicHeatmapMode(false);
+            }}
+            className={`px-3 sm:px-4 py-2 rounded-sm text-xs font-mono uppercase font-bold tracking-wider transition-all cursor-pointer ${
+              !isEpistemicHeatmapMode
+                ? 'bg-[#1B3022] text-[#F5F5F0] border border-[#C5A059] shadow-sm'
+                : 'text-[#F5F5F0]/60 hover:text-white hover:bg-[#151515]'
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5 text-[#8FB8DE]" />
+              Biophysical Multispectral Matrix
+            </span>
+          </button>
+
+          <button
+            id="observatory-epistemic-heatmap-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              setIsEpistemicHeatmapMode(true);
+            }}
+            className={`px-3 sm:px-4 py-2 rounded-sm text-xs font-mono uppercase font-bold tracking-wider transition-all cursor-pointer ${
+              isEpistemicHeatmapMode
+                ? 'bg-emerald-950 text-emerald-300 border border-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.35)]'
+                : 'text-[#F5F5F0]/60 hover:text-emerald-300 hover:bg-[#151515]'
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Epistemic Heatmap Layer (Topographical Provenance)
+            </span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-          {LIVING_REALITY_LAYERS.map((layer) => {
-            const isSelected = layer.id === selectedLayerId;
-            return (
-              <button
-                key={layer.id}
-                onClick={() => setSelectedLayerId(layer.id)}
-                className={`p-3 rounded-sm border text-left transition-all ${
-                  isSelected
-                    ? 'bg-[#1B3022] border-[#C5A059] text-[#F5F5F0] shadow-md'
-                    : 'bg-[#0D0D0D] border-[#F5F5F0]/10 text-[#F5F5F0]/60 hover:border-[#C5A059]/40'
-                }`}
-              >
-                <div className="text-[9px] font-mono uppercase text-[#8FB8DE]">{layer.category}</div>
-                <div className="text-xs font-bold text-[#F5F5F0] mt-0.5 line-clamp-1">{layer.name}</div>
-                <div className="text-[10px] text-[#F5F5F0]/40 font-mono mt-1">{layer.activeSensorCount.toLocaleString()} nodes</div>
-              </button>
-            );
-          })}
+        <div className="text-[11px] font-mono text-[#F5F5F0]/40 pr-2 hidden sm:block">
+          {isEpistemicHeatmapMode ? 'Color-coded topography active (ZKP Merkle-Attested)' : '42,900 Active Sensor Telemetry Mesh'}
         </div>
       </div>
+
+      {/* Conditionally Render Epistemic Heatmap Layer vs Standard Biophysical Carousel & Map */}
+      {isEpistemicHeatmapMode ? (
+        <EpistemicHeatmapLayer
+          onInspectProvenance={onInspectProvenance}
+          onOpenCommandCenter={onOpenCommandCenter}
+        />
+      ) : (
+        <>
+          {/* Layer Selection Carousel */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between text-[10px] text-[#C5A059] uppercase font-bold tracking-[0.2em]">
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-[#8FB8DE]" />
+                Select Planetary Observation Layer
+              </span>
+              <button
+                onClick={() => {
+                  audioFeedback.playSubtleClick();
+                  setIsEpistemicHeatmapMode(true);
+                }}
+                className="text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
+              >
+                <span>Switch to Epistemic Heatmap Layer</span>
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              {LIVING_REALITY_LAYERS.map((layer) => {
+                const isSelected = layer.id === selectedLayerId;
+                return (
+                  <button
+                    key={layer.id}
+                    onClick={() => setSelectedLayerId(layer.id)}
+                    className={`p-3 rounded-sm border text-left transition-all ${
+                      isSelected
+                        ? 'bg-[#1B3022] border-[#C5A059] text-[#F5F5F0] shadow-md'
+                        : 'bg-[#0D0D0D] border-[#F5F5F0]/10 text-[#F5F5F0]/60 hover:border-[#C5A059]/40'
+                    }`}
+                  >
+                    <div className="text-[9px] font-mono uppercase text-[#8FB8DE]">{layer.category}</div>
+                    <div className="text-xs font-bold text-[#F5F5F0] mt-0.5 line-clamp-1">{layer.name}</div>
+                    <div className="text-[10px] text-[#F5F5F0]/40 font-mono mt-1">{layer.activeSensorCount.toLocaleString()} nodes</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
       {/* Main Map & Intelligence Console Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -296,6 +361,8 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
