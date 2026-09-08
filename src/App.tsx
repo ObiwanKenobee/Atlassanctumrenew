@@ -28,6 +28,14 @@ import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
 import { PerformanceMonitorOverlay } from './components/performance/PerformanceMonitorOverlay';
 import { useMetadataManager } from './hooks/useMetadataManager';
+import {
+  checkViewAccess,
+  getCurrentSubscription,
+  SubscriptionTier,
+  ActiveSubscriptionState
+} from './lib/subscriptionManager';
+import { TierRestrictionGate } from './components/subscription/TierRestrictionGate';
+import { PaymentCheckoutModal } from './components/subscription/PaymentCheckoutModal';
 
 // Dynamic imports for secondary modals and utility widgets to reduce initial bundle size
 const CommandmentsModal = React.lazy(() => import('./components/CommandmentsModal').then(m => ({ default: m.CommandmentsModal })));
@@ -111,6 +119,22 @@ export default function App() {
   const [commandCenterInitialQuery, setCommandCenterInitialQuery] = useState<string>('');
   const [provenanceModalData, setProvenanceModalData] = useState<DataProvenance | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Active economic capacity tier & checkout modal orchestration
+  const [subscriptionState, setSubscriptionState] = useState<ActiveSubscriptionState>(() => getCurrentSubscription());
+  const [checkoutModalState, setCheckoutModalState] = useState<{ isOpen: boolean; tier: SubscriptionTier }>({
+    isOpen: false,
+    tier: 'studio'
+  });
+
+  useEffect(() => {
+    const handleSubChange = (e: Event) => {
+      const customEvent = e as CustomEvent<ActiveSubscriptionState>;
+      setSubscriptionState(customEvent.detail || getCurrentSubscription());
+    };
+    window.addEventListener('atlas-subscription-changed', handleSubChange);
+    return () => window.removeEventListener('atlas-subscription-changed', handleSubChange);
+  }, []);
 
   // Ingress handling for Google Search Results Sitelinks / Searchbox query parameters (?q=..., ?search=..., ?view=..., ?sitelink=...)
   useEffect(() => {
@@ -346,20 +370,44 @@ export default function App() {
 
             {/* Main View Router */}
             <main className="flex-1 w-full relative">
-              {isTransitioning ? (
-                <ViewLoadingSkeleton 
-                  title={`Accessing ${currentTab.replace('-', ' ').toUpperCase()} Module...`}
-                  subtitle="Synchronizing verified multi-scale planetary data, causal models, and epistemic ledgers"
-                />
-              ) : (
-                <Suspense 
-                  fallback={
+              {(() => {
+                const accessCheck = checkViewAccess(currentTab, subscriptionState.currentTier);
+
+                if (!accessCheck.allowed) {
+                  return (
+                    <TierRestrictionGate
+                      targetView={currentTab}
+                      requiredTier={accessCheck.requiredTier}
+                      onOpenCheckout={(tier) => {
+                        setCheckoutModalState({ isOpen: true, tier });
+                      }}
+                      onNavigateToPricing={() => handleSelectTab('economics-pricing')}
+                      onNavigateToCommons={() => handleSelectTab('commons')}
+                      onUnlockSuccess={() => {
+                        setSubscriptionState(getCurrentSubscription());
+                      }}
+                    />
+                  );
+                }
+
+                if (isTransitioning) {
+                  return (
                     <ViewLoadingSkeleton 
                       title={`Accessing ${currentTab.replace('-', ' ').toUpperCase()} Module...`}
                       subtitle="Synchronizing verified multi-scale planetary data, causal models, and epistemic ledgers"
                     />
-                  }
-                >
+                  );
+                }
+
+                return (
+                  <Suspense 
+                    fallback={
+                      <ViewLoadingSkeleton 
+                        title={`Accessing ${currentTab.replace('-', ' ').toUpperCase()} Module...`}
+                        subtitle="Synchronizing verified multi-scale planetary data, causal models, and epistemic ledgers"
+                      />
+                    }
+                  >
                   {currentTab === 'steward' && (
                     <AtlasStewardView onSelectTab={handleSelectTab} />
                   )}
@@ -657,8 +705,9 @@ export default function App() {
                     />
                   )}
                 </Suspense>
-              )}
-            </main>
+              );
+            })()}
+          </main>
 
             {/* Global Comprehensive Civilization Footer */}
             <Footer
@@ -791,10 +840,20 @@ export default function App() {
 
               {/* Central Master 12-Pillar Trust Layer Modal */}
               <TrustLayerModal />
+
+              {/* Global Subscription Checkout & Multiple Payment Methods Modal */}
+              <PaymentCheckoutModal
+                isOpen={checkoutModalState.isOpen}
+                onClose={() => setCheckoutModalState(prev => ({ ...prev, isOpen: false }))}
+                initialTier={checkoutModalState.tier}
+                onSuccess={() => {
+                  setSubscriptionState(getCurrentSubscription());
+                }}
+              />
             </Suspense>
 
             {/* Real-time Render & Performance Telemetry HUD */}
-            <PerformanceMonitorOverlay />
+            <PerformanceMonitorOverlay onSelectTab={handleSelectTab} />
 
             {/* Blockchain-backed Epistemic Ledger Verification Notification Toasts */}
             <VerificationNotificationContainer />

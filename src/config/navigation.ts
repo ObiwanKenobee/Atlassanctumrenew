@@ -158,31 +158,7 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
       ]
     },
 
-    // 0b. DIRECT SPOTLIGHT: ATLAS STEWARD
-    {
-      id: 'steward',
-      label: 'Atlas Steward',
-      labelKey: 'nav.steward',
-      type: 'link',
-      icon: Droplets,
-      targetTab: 'steward',
-      badge: { text: 'AWS Hackathon 2026', variant: 'emerald', pulse: true },
-      analytics: { category: 'Navigation', action: 'navigate_steward' }
-    },
-
-    // 1. DIRECT SPOTLIGHT: ATLAS SENTINEL
-    {
-      id: 'sentinel',
-      label: 'Atlas Sentinel',
-      labelKey: 'nav.sentinel',
-      type: 'link',
-      icon: ShieldCheck,
-      targetTab: 'sentinel',
-      badge: { text: 'TechJam 2026', variant: 'gold', pulse: true },
-      analytics: { category: 'Navigation', action: 'navigate_sentinel' }
-    },
-
-    // 1b. Home / Overview
+    // 1. Home / Overview
     {
       id: 'home',
       label: 'Atlas',

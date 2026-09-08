@@ -26,10 +26,235 @@ import {
   Activity,
   Award,
   RefreshCw,
-  MessageSquare
+  MessageSquare,
+  CreditCard,
+  QrCode,
+  Key,
+  Download,
+  Check,
+  Receipt,
+  FileCheck,
+  Search,
+  SlidersHorizontal,
+  Filter
 } from 'lucide-react';
 import { PageView } from '../../types';
 import { audioFeedback } from '../../lib/audioFeedback';
+import {
+  SubscriptionTier,
+  ATLAS_TIERS,
+  getCurrentSubscription,
+  cancelSubscription,
+  applyVoucherCode,
+  earnRegenerativeCredits,
+  getRegenerativeMultiplier,
+  ActiveSubscriptionState,
+  PaymentRecord
+} from '../../lib/subscriptionManager';
+import { PaymentCheckoutModal } from '../subscription/PaymentCheckoutModal';
+import { FeatureComparisonTable } from '../subscription/FeatureComparisonTable';
+import { ManageSubscriptionView } from '../subscription/ManageSubscriptionView';
+
+export interface PlatformCapability {
+  id: string;
+  name: string;
+  category: 'Bioregional Operations' | 'Frontier AI & Deliberation' | 'Capital & Sovereign Governance' | 'Epistemic Commons';
+  requiredTier: SubscriptionTier;
+  targetView: PageView;
+  description: string;
+  level: number;
+  tierName: string;
+  price: string;
+  highlight?: boolean;
+}
+
+export const PLATFORM_CAPABILITIES: PlatformCapability[] = [
+  // ATLAS STUDIO (Level 1)
+  {
+    id: 'feat-project-os',
+    name: 'Project Operating System (Project-OS)',
+    category: 'Bioregional Operations',
+    requiredTier: 'studio',
+    targetView: 'project-os',
+    description: 'Capital budgeting, milestone tracking, and field mission operations cockpit.',
+    level: 1,
+    tierName: 'Atlas Studio',
+    price: '$500/mo',
+    highlight: true
+  },
+  {
+    id: 'feat-asset-mgmt',
+    name: 'Physical Asset Management & Verifiable QR',
+    category: 'Bioregional Operations',
+    requiredTier: 'studio',
+    targetView: 'project-os',
+    description: 'Cryptographic asset tag generator for hardware sensors, biochar kilns, and solar arrays.',
+    level: 1,
+    tierName: 'Atlas Studio',
+    price: '$500/mo'
+  },
+  {
+    id: 'feat-iot-telemetry',
+    name: 'High-Frequency IoT Monitoring Ingest',
+    category: 'Bioregional Operations',
+    requiredTier: 'studio',
+    targetView: 'project-os',
+    description: 'Real-time telemetry ingestion pipelines for soil moisture, sap flow, and micro-climate nodes.',
+    level: 1,
+    tierName: 'Atlas Studio',
+    price: '$500/mo'
+  },
+  {
+    id: 'feat-multimodal-studio',
+    name: 'Multimodal Simulation Studio',
+    category: 'Bioregional Operations',
+    requiredTier: 'studio',
+    targetView: 'multimodal-studio',
+    description: 'Interactive visual scenario builder for capital allocation and ecological recovery trajectories.',
+    level: 1,
+    tierName: 'Atlas Studio',
+    price: '$500/mo'
+  },
+  {
+    id: 'feat-evidence-ledger',
+    name: 'Evidence Ledger & Proof Generation',
+    category: 'Bioregional Operations',
+    requiredTier: 'studio',
+    targetView: 'evidence-ledger',
+    description: 'Issue Merkle-attested verification receipts for carbon, biodiversity, and community metrics.',
+    level: 1,
+    tierName: 'Atlas Studio',
+    price: '$500/mo'
+  },
+  {
+    id: 'feat-evidence-mapping',
+    name: 'Evidence Spatial Mapping & Ground-Truthing',
+    category: 'Bioregional Operations',
+    requiredTier: 'studio',
+    targetView: 'evidence-mapping',
+    description: 'Geospatial multi-layer visualization with interactive terrain models and sensor coordinates.',
+    level: 1,
+    tierName: 'Atlas Studio',
+    price: '$500/mo'
+  },
+
+  // ATLAS INTELLIGENCE (Level 2)
+  {
+    id: 'feat-ai-agents',
+    name: '10 Autonomous Epistemic AI Agents',
+    category: 'Frontier AI & Deliberation',
+    requiredTier: 'intelligence',
+    targetView: 'agent-mission-control',
+    description: 'Deploy Sentinel, Hydrologist, Pedologist, Ethicist, and Causal Arbiter into 24/7 mission telemetry.',
+    level: 2,
+    tierName: 'Atlas Intelligence',
+    price: '$2,500/mo',
+    highlight: true
+  },
+  {
+    id: 'feat-decision-room',
+    name: 'Decision Room Deliberation Engine',
+    category: 'Frontier AI & Deliberation',
+    requiredTier: 'intelligence',
+    targetView: 'decision-room',
+    description: 'High-consequence multi-stakeholder debate simulator with moral scoring and unintended consequence radar.',
+    level: 2,
+    tierName: 'Atlas Intelligence',
+    price: '$2,500/mo',
+    highlight: true
+  },
+  {
+    id: 'feat-causal-dags',
+    name: 'Predictive Causal Intelligence & DAGs',
+    category: 'Frontier AI & Deliberation',
+    requiredTier: 'intelligence',
+    targetView: 'decision-room',
+    description: 'Do-calculus causal graphs testing policy interventions and climate tipping points before physical deployment.',
+    level: 2,
+    tierName: 'Atlas Intelligence',
+    price: '$2,500/mo'
+  },
+  {
+    id: 'feat-system-dynamics',
+    name: 'Living Systems Dynamics Modeler',
+    category: 'Frontier AI & Deliberation',
+    requiredTier: 'intelligence',
+    targetView: 'system-model-studio',
+    description: 'System dynamic stock-flow simulation modeling compounding feedback loops and delay dynamics.',
+    level: 2,
+    tierName: 'Atlas Intelligence',
+    price: '$2,500/mo'
+  },
+  {
+    id: 'feat-mission-control',
+    name: 'Agent Mission Control & Telemetry APIs',
+    category: 'Frontier AI & Deliberation',
+    requiredTier: 'intelligence',
+    targetView: 'agent-mission-control',
+    description: 'Continuous autonomous monitoring, real-time reasoning traces, and emergency trigger dispatch.',
+    level: 2,
+    tierName: 'Atlas Intelligence',
+    price: '$2,500/mo'
+  },
+  {
+    id: 'feat-moral-arbiter',
+    name: 'Moral Arbiter & Ethical Boundary Scanner',
+    category: 'Frontier AI & Deliberation',
+    requiredTier: 'intelligence',
+    targetView: 'moral-arbiter',
+    description: 'Multi-stakeholder ethical alignment engine detecting non-linear externalities and governance friction.',
+    level: 2,
+    tierName: 'Atlas Intelligence',
+    price: '$2,500/mo'
+  },
+
+  // ATLAS ENTERPRISE (Level 3)
+  {
+    id: 'feat-capital-engine',
+    name: 'The Sovereign Capital Engine',
+    category: 'Capital & Sovereign Governance',
+    requiredTier: 'enterprise',
+    targetView: 'capital-engine',
+    description: 'Direct institutional balance sheets and municipal bonds via verified multi-capital milestone triggers.',
+    level: 3,
+    tierName: 'Atlas Enterprise',
+    price: 'Custom',
+    highlight: true
+  },
+  {
+    id: 'feat-opportunity-matchmaker',
+    name: 'Opportunity Matchmaker & Capital Graph',
+    category: 'Capital & Sovereign Governance',
+    requiredTier: 'enterprise',
+    targetView: 'opportunity-matchmaker',
+    description: 'Algorithmic matching of verified restoration projects with sovereign capital syndicates.',
+    level: 3,
+    tierName: 'Atlas Enterprise',
+    price: 'Custom'
+  },
+  {
+    id: 'feat-sovereign-mesh',
+    name: 'Sovereign Institutional Mesh Deployment',
+    category: 'Capital & Sovereign Governance',
+    requiredTier: 'enterprise',
+    targetView: 'bioregional-twin',
+    description: 'Private VPC or on-premise air-gapped deployment with sovereign data sovereignty.',
+    level: 3,
+    tierName: 'Atlas Enterprise',
+    price: 'Custom'
+  },
+  {
+    id: 'feat-dedicated-ai',
+    name: 'Dedicated Fine-Tuned AI Models & 24/7 SLA',
+    category: 'Capital & Sovereign Governance',
+    requiredTier: 'enterprise',
+    targetView: 'ai-engineering',
+    description: 'Proprietary weights trained exclusively on your ecological datasets with 99.99% uptime guarantee.',
+    level: 3,
+    tierName: 'Atlas Enterprise',
+    price: 'Custom'
+  }
+];
 
 interface EconomicsPricingViewProps {
   onSelectTab: (tab: PageView) => void;
@@ -42,6 +267,74 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
   onOpenCommandCenter,
   onOpenMoralSimulator
 }) => {
+  // Subscription state & Checkout Modal state
+  const [subState, setSubState] = useState<ActiveSubscriptionState>(() => getCurrentSubscription());
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState<boolean>(false);
+  const [checkoutTier, setCheckoutTier] = useState<SubscriptionTier>('studio');
+  const [voucherCodeInput, setVoucherCodeInput] = useState('');
+  const [voucherResult, setVoucherResult] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [showInvoicesDrawer, setShowInvoicesDrawer] = useState(false);
+  const [subscriptionSubViewTab, setSubscriptionSubViewTab] = useState<'plans' | 'comparison' | 'manage'>('plans');
+  const [creditEarnNotice, setCreditEarnNotice] = useState<string | null>(null);
+
+  // Dynamic Feature-Set Matrix filters
+  const [featureFilter, setFeatureFilter] = useState<'all' | 'unlocked' | 'upgrades'>('all');
+  const [featureCategoryFilter, setFeatureCategoryFilter] = useState<string>('all');
+  const [featureSearchQuery, setFeatureSearchQuery] = useState<string>('');
+
+  React.useEffect(() => {
+    const handleSubChanged = (e: any) => {
+      setSubState(e.detail || getCurrentSubscription());
+    };
+    window.addEventListener('atlas-subscription-changed', handleSubChanged);
+    return () => window.removeEventListener('atlas-subscription-changed', handleSubChanged);
+  }, []);
+
+  const handleOpenCheckout = (tier: SubscriptionTier) => {
+    audioFeedback.play('softClick');
+    setCheckoutTier(tier);
+    setCheckoutModalOpen(true);
+  };
+
+  const handleApplyVoucher = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!voucherCodeInput.trim()) return;
+    const res = applyVoucherCode(voucherCodeInput);
+    setVoucherResult(res);
+    if (res.success) {
+      audioFeedback.play('success');
+      setSubState(getCurrentSubscription());
+    } else {
+      audioFeedback.play('warning');
+    }
+  };
+
+  const handleDemoVoucher = (code: string) => {
+    setVoucherCodeInput(code);
+    const res = applyVoucherCode(code);
+    setVoucherResult(res);
+    if (res.success) {
+      audioFeedback.play('success');
+      setSubState(getCurrentSubscription());
+    }
+  };
+
+  const handleResetToCommons = () => {
+    audioFeedback.play('softClick');
+    cancelSubscription();
+    setSubState(getCurrentSubscription());
+    setVoucherResult({ success: true, message: 'Active tier reset to The Foundation (Commons).' });
+  };
+
+  const handleSimulateWidgetEarn = () => {
+    audioFeedback.play('commandOpen');
+    const res = earnRegenerativeCredits('Verified catchment water & carbon telemetry logging', 50);
+    audioFeedback.play('success');
+    setSubState(getCurrentSubscription());
+    setCreditEarnNotice(`+${res.earned} RGC loyalty points earned via ${subState.creditMultiplier || 1.0}x tier multiplier!`);
+    setTimeout(() => setCreditEarnNotice(null), 3500);
+  };
+
   // Scenario simulation state for Compounding Value (Section 10)
   const [scenarioYear, setScenarioYear] = useState<number>(5);
   // Value Capture Model interactive step (Section 4)
@@ -679,23 +972,314 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
         <section id="pricing-stack" className="space-y-10">
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <span className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#C5A059] font-bold">
-              MULTI-TIERED CAPACITY
+              MULTI-TIERED CAPACITY & ECONOMIC ACCESS
             </span>
             <h2 className="text-3xl sm:text-5xl font-serif text-[#F5F5F0]">
               The Atlas Economic Stack
             </h2>
             <p className="text-sm text-[#F5F5F0]/70 font-light">
-              Structured institutional capacity scaled to your operational scope—from grassroots community stewards to sovereign infrastructure operators.
+              Structured institutional capacity scaled to your operational scope—from grassroots community stewards to sovereign infrastructure operators. High-frequency tools and autonomous reasoning layers are protected and provisioned via multi-method economic settlement.
             </p>
           </div>
 
+          {/* SUB-NAVIGATION TABS: PLANS, COMPARISON MATRIX, MANAGE SUBSCRIPTION */}
+          <div className="flex flex-wrap items-center justify-center gap-2 p-1.5 bg-[#0C0F0D] border border-white/10 rounded-sm max-w-3xl mx-auto shadow-xl">
+            <button
+              onClick={() => {
+                audioFeedback.play('softClick');
+                setSubscriptionSubViewTab('plans');
+              }}
+              className={`px-5 py-2.5 rounded-sm text-xs font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                subscriptionSubViewTab === 'plans'
+                  ? 'bg-[#C5A059] text-black font-bold shadow-md'
+                  : 'text-[#F5F5F0]/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>Subscription Tiers</span>
+            </button>
+
+            <button
+              onClick={() => {
+                audioFeedback.play('softClick');
+                setSubscriptionSubViewTab('comparison');
+              }}
+              className={`px-5 py-2.5 rounded-sm text-xs font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                subscriptionSubViewTab === 'comparison'
+                  ? 'bg-[#C5A059] text-black font-bold shadow-md'
+                  : 'text-[#F5F5F0]/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>Feature Comparison Table</span>
+            </button>
+
+            <button
+              onClick={() => {
+                audioFeedback.play('softClick');
+                setSubscriptionSubViewTab('manage');
+              }}
+              className={`px-5 py-2.5 rounded-sm text-xs font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                subscriptionSubViewTab === 'manage'
+                  ? 'bg-[#C5A059] text-black font-bold shadow-md'
+                  : 'text-[#F5F5F0]/70 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>Manage Subscription</span>
+              {subState.currentTier !== 'foundation' && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </button>
+          </div>
+
+          {/* RENDER VIEW ACCORDING TO ACTIVE TAB */}
+          {subscriptionSubViewTab === 'comparison' ? (
+            <FeatureComparisonTable
+              subState={subState}
+              onOpenCheckout={handleOpenCheckout}
+              onSelectTab={onSelectTab}
+            />
+          ) : subscriptionSubViewTab === 'manage' ? (
+            <ManageSubscriptionView
+              subState={subState}
+              onOpenCheckout={handleOpenCheckout}
+              onSelectTab={onSelectTab}
+              onBackToPlans={() => setSubscriptionSubViewTab('plans')}
+            />
+          ) : (
+            <>
+              {/* ACTIVE SUBSCRIPTION & ENTITLEMENTS STATUS COCKPIT */}
+              <div className="p-5 sm:p-6 rounded-sm bg-[#0E1511] border border-[#C5A059]/40 shadow-lg space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-sm bg-[#1B3022] border border-[#C5A059] flex items-center justify-center text-[#C5A059]">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-[#C5A059] font-bold">
+                          YOUR ACTIVE CAPACITY TIER
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold">
+                          {subState.currentTier === 'foundation' ? 'Open Commons' : 'Licensed Operator'}
+                        </span>
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-serif text-[#F5F5F0]">
+                        {ATLAS_TIERS[subState.currentTier].name}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
+                    {subState.currentTier !== 'foundation' && (
+                      <div className="px-3 py-1.5 rounded bg-black/60 border border-white/10 text-right">
+                        <span className="text-[9px] text-[#F5F5F0]/40 block uppercase">License Key</span>
+                        <span className="text-[#C5A059] font-bold text-[11px]">{subState.activeLicenseKey || subState.licenseKey || 'ACTIVE'}</span>
+                      </div>
+                    )}
+                    <div className="px-3 py-1.5 rounded bg-black/60 border border-white/10 text-right">
+                      <span className="text-[9px] text-[#F5F5F0]/40 block uppercase">Billing Cycle</span>
+                      <span className="text-[#F5F5F0] font-bold uppercase text-[11px]">{subState.billingCycle}</span>
+                    </div>
+                    {subState.currentTier !== 'foundation' && (
+                      <button
+                        onClick={handleResetToCommons}
+                        className="px-3 py-2 rounded bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-300 text-[10px] cursor-pointer transition-colors"
+                      >
+                        Reset to Commons
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Testing & Voucher Activation Bar */}
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 text-xs font-mono pt-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] text-[#F5F5F0]/50 uppercase tracking-wider flex items-center gap-1">
+                      <Key className="w-3 h-3 text-[#C5A059]" />
+                      <span>Instant Evaluator Unlocks:</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDemoVoucher('ATLAS-STUDIO-DEMO')}
+                      className="px-2.5 py-1 rounded bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#C5A059] text-[10px] cursor-pointer"
+                    >
+                      Demo Studio ($500)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDemoVoucher('ATLAS-INTELLIGENCE-DEMO')}
+                      className="px-2.5 py-1 rounded bg-[#C5A059]/20 hover:bg-[#C5A059]/30 border border-[#C5A059] text-[#C5A059] text-[10px] cursor-pointer font-bold"
+                    >
+                      Demo Intelligence ($2,500)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDemoVoucher('ATLAS-ENTERPRISE-DEMO')}
+                      className="px-2.5 py-1 rounded bg-purple-950/40 hover:bg-purple-900/40 border border-purple-500/40 text-purple-300 text-[10px] cursor-pointer"
+                    >
+                      Demo Enterprise
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleApplyVoucher} className="flex items-center gap-2 w-full lg:w-auto">
+                    <input
+                      type="text"
+                      value={voucherCodeInput}
+                      onChange={(e) => setVoucherCodeInput(e.target.value)}
+                      placeholder="Enter License Voucher"
+                      className="px-2.5 py-1 text-xs bg-black/60 border border-white/10 rounded text-[#F5F5F0] focus:border-[#C5A059] focus:outline-none flex-1 lg:w-48"
+                    />
+                    <button
+                      type="submit"
+                      className="px-3 py-1 bg-white/10 hover:bg-white/20 text-[#F5F5F0] text-xs font-bold rounded cursor-pointer transition-colors"
+                    >
+                      Apply
+                    </button>
+                  </form>
+                </div>
+
+                {voucherResult && (
+                  <div className={`p-2 rounded text-[11px] font-mono ${voucherResult.success ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30' : 'bg-rose-950 text-rose-300 border border-rose-500/30'}`}>
+                    {voucherResult.message}
+                  </div>
+                )}
+              </div>
+
+              {/* REGENERATIVE CREDITS LOYALTY POINTS TRACKER WIDGET */}
+              <div className="p-5 sm:p-6 rounded-sm bg-gradient-to-r from-[#0C1710] via-[#101F15] to-[#0A140E] border border-emerald-500/30 shadow-lg space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-sm bg-emerald-950/80 border border-emerald-500/50 flex items-center justify-center text-emerald-400">
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold">
+                          REGENERATIVE LOYALTY SYSTEM
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-mono bg-emerald-900/60 text-emerald-200 border border-emerald-400/30">
+                          {subState.creditMultiplier || 1.0}x Active Velocity
+                        </span>
+                      </div>
+                      <h3 className="text-base sm:text-lg font-serif text-[#F5F5F0]">
+                        Regenerative Credits (RGC) Tracker
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="px-3 py-2 rounded bg-black/60 border border-white/10 text-right">
+                      <span className="text-[9px] text-[#F5F5F0]/50 block font-mono uppercase">Earned Balance</span>
+                      <span className="text-lg font-mono font-bold text-emerald-400">
+                        {(subState.regenerativeCredits || 0).toLocaleString()} <span className="text-xs text-emerald-300/70 font-normal">RGC</span>
+                      </span>
+                    </div>
+
+                    <div className="px-3 py-2 rounded bg-black/60 border border-white/10 text-right">
+                      <span className="text-[9px] text-[#F5F5F0]/50 block font-mono uppercase">Reinvestment Value</span>
+                      <span className="text-lg font-mono font-bold text-[#C5A059]">
+                        ${Math.round(((subState.regenerativeCredits || 0) / 100) * 10)}.00
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tier Multipliers Progression Comparison */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 text-xs font-mono">
+                  <div className={`p-2.5 rounded border ${
+                    subState.currentTier === 'foundation'
+                      ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
+                      : 'bg-black/40 border-white/5 text-[#F5F5F0]/60'
+                  }`}>
+                    <div className="text-[9px] uppercase tracking-wider text-[#F5F5F0]/50">Commons</div>
+                    <div className="font-bold text-xs mt-0.5">1.0x Rate</div>
+                    <div className="text-[10px] text-[#F5F5F0]/40 mt-1">Foundational entry</div>
+                  </div>
+
+                  <div className={`p-2.5 rounded border ${
+                    subState.currentTier === 'studio'
+                      ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
+                      : 'bg-black/40 border-white/5 text-[#F5F5F0]/60'
+                  }`}>
+                    <div className="text-[9px] uppercase tracking-wider text-[#C5A059]">Studio</div>
+                    <div className="font-bold text-xs mt-0.5 text-[#C5A059]">1.5x Rate</div>
+                    <div className="text-[10px] text-[#F5F5F0]/40 mt-1">+500 RGC bonus</div>
+                  </div>
+
+                  <div className={`p-2.5 rounded border ${
+                    subState.currentTier === 'intelligence'
+                      ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
+                      : 'bg-black/40 border-white/5 text-[#F5F5F0]/60'
+                  }`}>
+                    <div className="text-[9px] uppercase tracking-wider text-[#C5A059]">Intelligence</div>
+                    <div className="font-bold text-xs mt-0.5 text-[#C5A059]">3.0x Rate</div>
+                    <div className="text-[10px] text-[#F5F5F0]/40 mt-1">+1,500 RGC bonus</div>
+                  </div>
+
+                  <div className={`p-2.5 rounded border ${
+                    subState.currentTier === 'enterprise'
+                      ? 'bg-purple-950/40 border-purple-500/50 text-purple-300'
+                      : 'bg-black/40 border-white/5 text-[#F5F5F0]/60'
+                  }`}>
+                    <div className="text-[9px] uppercase tracking-wider text-purple-400">Enterprise</div>
+                    <div className="font-bold text-xs mt-0.5 text-purple-300">10.0x Rate</div>
+                    <div className="text-[10px] text-[#F5F5F0]/40 mt-1">+5,000 RGC bonus</div>
+                  </div>
+                </div>
+
+                {/* Interactive Simulation & Navigation Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/10 text-xs">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSimulateWidgetEarn}
+                      className="px-3 py-1.5 rounded bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Simulate Telemetry Ingest (+{Math.round(50 * (subState.creditMultiplier || 1.0))} RGC)</span>
+                    </button>
+
+                    <button
+                      onClick={() => setSubscriptionSubViewTab('manage')}
+                      className="px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[#F5F5F0] font-mono text-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>Redeem & Manage in Billing</span>
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-[#F5F5F0]/60 font-light flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Upgrading tiers boosts credit velocity up to 10.0x for real-world stewardship.</span>
+                  </div>
+                </div>
+
+                {creditEarnNotice && (
+                  <div className="p-2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-mono text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>{creditEarnNotice}</span>
+                  </div>
+                )}
+              </div>
+
+          {/* THE 4 TIERS GRID */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            
             {/* TIER 1: COMMONS */}
-            <div className="p-6 sm:p-8 rounded-sm bg-[#0D0D0D] border border-[#F5F5F0]/10 flex flex-col justify-between space-y-6 hover:border-[#C5A059]/40 transition-all">
+            <div className={`p-6 sm:p-8 rounded-sm bg-[#0D0D0D] border flex flex-col justify-between space-y-6 transition-all ${
+              subState.currentTier === 'foundation' ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)]' : 'border-[#F5F5F0]/10 hover:border-[#C5A059]/40'
+            }`}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-[#C5A059] font-bold">FOUNDATION</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/30">Open Access</span>
+                  {subState.currentTier === 'foundation' ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/40 font-bold">
+                      Active Plan
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/30">Open Access</span>
+                  )}
                 </div>
                 <div>
                   <h3 className="text-2xl font-serif text-[#F5F5F0]">Commons</h3>
@@ -728,7 +1312,7 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
               <div className="space-y-2 pt-4">
                 <button
                   onClick={() => {
-                    audioFeedback.playSubtleClick();
+                    audioFeedback.play('softClick');
                     onSelectTab('commons');
                   }}
                   className="w-full py-3 bg-[#1A1A1A] hover:bg-[#252525] border border-[#F5F5F0]/20 text-[#F5F5F0] text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer"
@@ -740,11 +1324,25 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
             </div>
 
             {/* TIER 2: ATLAS STUDIO */}
-            <div className="p-6 sm:p-8 rounded-sm bg-[#121212] border border-[#C5A059]/30 flex flex-col justify-between space-y-6 hover:border-[#C5A059] transition-all relative">
+            <div className={`p-6 sm:p-8 rounded-sm bg-[#121212] border flex flex-col justify-between space-y-6 transition-all relative ${
+              subState.currentTier === 'studio' ? 'border-[#C5A059] ring-2 ring-[#C5A059]/40 shadow-[0_0_25px_rgba(197,160,89,0.2)]' : 'border-[#C5A059]/30 hover:border-[#C5A059]'
+            }`}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-[#C5A059] font-bold">BUILD</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/40">Operator Tier</span>
+                  {subState.currentTier === 'studio' ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#C5A059] text-black font-bold">
+                      Active Plan
+                    </span>
+                  ) : ['intelligence', 'enterprise'].includes(subState.currentTier) ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/40">
+                      Included
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/40">
+                      Operator Tier
+                    </span>
+                  )}
                 </div>
                 <div>
                   <h3 className="text-2xl font-serif text-[#F5F5F0]">Atlas Studio</h3>
@@ -756,45 +1354,88 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
                   <p className="text-xs text-[#F5F5F0]/60 mt-1 font-light">
                     For organizations designing, funding, and operating real-world projects through Atlas.
                   </p>
+                  <div className="mt-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 font-mono text-[10px]">
+                    <Award className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>+500 RGC Bonus • 1.5x Credit Velocity</span>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-[#F5F5F0]/10 space-y-2.5">
-                  <p className="text-[11px] font-mono uppercase tracking-wider text-[#F5F5F0]/40 font-bold">Operating Environment:</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-[#F5F5F0]/40 font-bold">Operating Environment:</p>
+                    {(ATLAS_TIERS[subState.currentTier]?.level ?? 0) >= 1 && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">
+                        Active in your Plan
+                      </span>
+                    )}
+                  </div>
                   {[
                     'Project intelligence engine',
-                    'Operational dashboards',
+                    'Operational dashboards (Project-OS)',
                     'Multi-stakeholder collaboration',
-                    'Physical asset management',
-                    'High-frequency IoT monitoring',
+                    'Physical asset management & telemetry',
+                    'High-frequency IoT monitoring & alerts',
                     'Evidence collection workflows',
                     'AI strategy & scenario tools',
                     'Project analytics & reporting',
                     'Team workspaces & permissions'
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-[#F5F5F0]/80">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#C5A059] shrink-0 mt-0.5" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
+                  ].map((item, idx) => {
+                    const isUnlocked = (ATLAS_TIERS[subState.currentTier]?.level ?? 0) >= 1;
+                    return (
+                      <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-start gap-2 text-[#F5F5F0]/90">
+                          {isUnlocked ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                          ) : (
+                            <Lock className="w-3.5 h-3.5 text-[#C5A059]/60 shrink-0 mt-0.5" />
+                          )}
+                          <span className={isUnlocked ? 'text-[#F5F5F0]' : 'text-[#F5F5F0]/60'}>{item}</span>
+                        </div>
+                        {!isUnlocked && (
+                          <button
+                            onClick={() => handleOpenCheckout('studio')}
+                            className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 hover:bg-[#C5A059]/20 transition-colors cursor-pointer shrink-0"
+                          >
+                            Upgrade
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="space-y-2 pt-4">
-                <button
-                  onClick={() => {
-                    audioFeedback.playSubtleClick();
-                    onSelectTab('project-os');
-                  }}
-                  className="w-full py-3 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/50 text-[#C5A059] text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer"
-                >
-                  Build with Atlas
-                </button>
-                <p className="text-[10px] text-center font-mono text-[#F5F5F0]/50">Professional operating environment.</p>
+                {['studio', 'intelligence', 'enterprise'].includes(subState.currentTier) ? (
+                  <button
+                    onClick={() => {
+                      audioFeedback.play('commandOpen');
+                      onSelectTab('project-os');
+                    }}
+                    className="w-full py-3 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059] text-[#C5A059] text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <span>Launch Project-OS</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenCheckout('studio')}
+                    className="w-full py-3 bg-[#C5A059] hover:bg-[#D4AF37] text-black text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer shadow-md flex items-center justify-center gap-2"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Unlock Atlas Studio ($500/mo)</span>
+                  </button>
+                )}
+                <p className="text-[10px] text-center font-mono text-[#F5F5F0]/50">
+                  Multiple payment methods: Card, Crypto, Net-30 Wire.
+                </p>
               </div>
             </div>
 
             {/* TIER 3: ATLAS INTELLIGENCE */}
-            <div className="p-6 sm:p-8 rounded-sm bg-[#121A15] border-2 border-[#C5A059] flex flex-col justify-between space-y-6 shadow-[0_0_30px_rgba(197,160,89,0.15)] relative">
+            <div className={`p-6 sm:p-8 rounded-sm bg-[#121A15] border-2 flex flex-col justify-between space-y-6 shadow-[0_0_30px_rgba(197,160,89,0.15)] relative ${
+              subState.currentTier === 'intelligence' ? 'border-[#C5A059] ring-2 ring-[#C5A059]' : 'border-[#C5A059]'
+            }`}>
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[#C5A059] text-black font-mono text-[9px] font-bold uppercase tracking-widest">
                 DECISION LAYER
               </div>
@@ -802,7 +1443,19 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-[#C5A059] font-bold">INTELLIGENCE</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#C5A059] text-black font-bold">Deep Reasoning</span>
+                  {subState.currentTier === 'intelligence' ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#C5A059] text-black font-bold">
+                      Active Plan
+                    </span>
+                  ) : subState.currentTier === 'enterprise' ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/40 font-bold">
+                      Included
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#C5A059] text-black font-bold">
+                      Deep Reasoning
+                    </span>
+                  )}
                 </div>
                 <div>
                   <h3 className="text-2xl font-serif text-[#F5F5F0]">Atlas Intelligence</h3>
@@ -814,10 +1467,21 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
                   <p className="text-xs text-[#F5F5F0]/70 mt-1 font-light">
                     For institutions requiring deeper intelligence, prediction, integration, and decision support.
                   </p>
+                  <div className="mt-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#C5A059]/20 border border-[#C5A059] text-[#C5A059] font-mono text-[10px] font-bold">
+                    <Award className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
+                    <span>+1,500 RGC Bonus • 3.0x Credit Velocity</span>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-[#F5F5F0]/10 space-y-2.5">
-                  <p className="text-[11px] font-mono uppercase tracking-wider text-[#C5A059] font-bold">Decision Infrastructure:</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-[#C5A059] font-bold">Decision Infrastructure:</p>
+                    {(ATLAS_TIERS[subState.currentTier]?.level ?? 0) >= 2 && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">
+                        Active in your Plan
+                      </span>
+                    )}
+                  </div>
                   {[
                     '10 Autonomous specialized AI agents',
                     'Predictive causal intelligence',
@@ -828,35 +1492,71 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
                     'Custom fine-tuned intelligence models',
                     'Enterprise API access & streaming',
                     'Decision room deliberation engine'
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-[#F5F5F0]">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#C5A059] shrink-0 mt-0.5" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
+                  ].map((item, idx) => {
+                    const isUnlocked = (ATLAS_TIERS[subState.currentTier]?.level ?? 0) >= 2;
+                    return (
+                      <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-start gap-2 text-[#F5F5F0]">
+                          {isUnlocked ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                          ) : (
+                            <Lock className="w-3.5 h-3.5 text-[#C5A059]/60 shrink-0 mt-0.5" />
+                          )}
+                          <span className={isUnlocked ? 'text-[#F5F5F0]' : 'text-[#F5F5F0]/60'}>{item}</span>
+                        </div>
+                        {!isUnlocked && (
+                          <button
+                            onClick={() => handleOpenCheckout('intelligence')}
+                            className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 hover:bg-[#C5A059]/20 transition-colors cursor-pointer shrink-0"
+                          >
+                            Upgrade
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="space-y-2 pt-4">
-                <button
-                  onClick={() => {
-                    audioFeedback.playSubtleClick();
-                    onSelectTab('decision-room');
-                  }}
-                  className="w-full py-3 bg-[#C5A059] hover:bg-[#D4AF37] text-black text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer shadow-md"
-                >
-                  Unlock Intelligence
-                </button>
+                {['intelligence', 'enterprise'].includes(subState.currentTier) ? (
+                  <button
+                    onClick={() => {
+                      audioFeedback.play('commandOpen');
+                      onSelectTab('decision-room');
+                    }}
+                    className="w-full py-3 bg-[#C5A059] hover:bg-[#D4AF37] text-black text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer shadow-md flex items-center justify-center gap-2"
+                  >
+                    <span>Launch Decision Room</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenCheckout('intelligence')}
+                    className="w-full py-3 bg-[#C5A059] hover:bg-[#D4AF37] text-black text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer shadow-md flex items-center justify-center gap-2"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Unlock Intelligence ($2,500/mo)</span>
+                  </button>
+                )}
                 <p className="text-[10px] text-center font-mono text-[#C5A059]">For consequential decision-making.</p>
               </div>
             </div>
 
             {/* TIER 4: ATLAS ENTERPRISE */}
-            <div className="p-6 sm:p-8 rounded-sm bg-[#0D0D0D] border border-[#F5F5F0]/10 flex flex-col justify-between space-y-6 hover:border-[#C5A059]/40 transition-all">
+            <div className={`p-6 sm:p-8 rounded-sm bg-[#0D0D0D] border flex flex-col justify-between space-y-6 transition-all ${
+              subState.currentTier === 'enterprise' ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-[#F5F5F0]/10 hover:border-[#C5A059]/40'
+            }`}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-[#C5A059] font-bold">INSTITUTIONAL</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#1A1A1A] text-[#F5F5F0]/70 border border-[#F5F5F0]/20">Ecosystem Scale</span>
+                  {subState.currentTier === 'enterprise' ? (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-950 text-purple-300 border border-purple-500/50 font-bold">
+                      Active Plan
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#1A1A1A] text-[#F5F5F0]/70 border border-[#F5F5F0]/20">Ecosystem Scale</span>
+                  )}
                 </div>
                 <div>
                   <h3 className="text-2xl font-serif text-[#F5F5F0]">Atlas Enterprise</h3>
@@ -864,10 +1564,21 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
                   <p className="text-xs text-[#F5F5F0]/60 mt-1 font-light">
                     For governments, financial institutions, infrastructure operators, and multinational funds.
                   </p>
+                  <div className="mt-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded bg-purple-950/60 border border-purple-500/40 text-purple-300 font-mono text-[10px] font-bold">
+                    <Award className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span>+5,000 RGC Bonus • 10.0x Sovereign Multiplier</span>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-[#F5F5F0]/10 space-y-2.5">
-                  <p className="text-[11px] font-mono uppercase tracking-wider text-[#F5F5F0]/40 font-bold">Institutional Scale:</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-mono uppercase tracking-wider text-[#F5F5F0]/40 font-bold">Institutional Scale:</p>
+                    {(ATLAS_TIERS[subState.currentTier]?.level ?? 0) >= 3 && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-500/30">
+                        Active in your Plan
+                      </span>
+                    )}
+                  </div>
                   {[
                     'Sovereign institutional deployment',
                     'Custom hardware mesh architecture',
@@ -878,26 +1589,311 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
                     'Capital coordination & disbursement',
                     'Large-scale territorial monitoring',
                     'Dedicated strategic architects'
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs text-[#F5F5F0]/80">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#C5A059] shrink-0 mt-0.5" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
+                  ].map((item, idx) => {
+                    const isUnlocked = (ATLAS_TIERS[subState.currentTier]?.level ?? 0) >= 3;
+                    return (
+                      <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-start gap-2 text-[#F5F5F0]/80">
+                          {isUnlocked ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
+                          ) : (
+                            <Lock className="w-3.5 h-3.5 text-[#C5A059]/60 shrink-0 mt-0.5" />
+                          )}
+                          <span className={isUnlocked ? 'text-[#F5F5F0]' : 'text-[#F5F5F0]/60'}>{item}</span>
+                        </div>
+                        {!isUnlocked && (
+                          <button
+                            onClick={() => handleOpenCheckout('enterprise')}
+                            className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 hover:bg-[#C5A059]/20 transition-colors cursor-pointer shrink-0"
+                          >
+                            Custom SLA
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="space-y-2 pt-4">
-                <button
-                  onClick={() => handleOpenInquiry('Atlas Enterprise')}
-                  className="w-full py-3 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#F5F5F0] text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer"
-                >
-                  Build an Institutional Atlas
-                </button>
-                <p className="text-[10px] text-center font-mono text-[#F5F5F0]/50">Custom SLA & Governance.</p>
+                {subState.currentTier === 'enterprise' ? (
+                  <button
+                    onClick={() => {
+                      audioFeedback.play('commandOpen');
+                      onSelectTab('capital-engine');
+                    }}
+                    className="w-full py-3 bg-purple-950 hover:bg-purple-900 border border-purple-500/50 text-purple-200 text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <span>Launch Sovereign Suite</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenCheckout('enterprise')}
+                    className="w-full py-3 bg-[#1B3022] hover:bg-[#254530] border border-[#C5A059]/40 text-[#F5F5F0] text-xs font-bold uppercase tracking-wider rounded-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>Provision Institutional Tier</span>
+                  </button>
+                )}
+                <p className="text-[10px] text-center font-mono text-[#F5F5F0]/50">Custom SLA, FedWire, or Crypto.</p>
               </div>
             </div>
           </div>
+
+          {/* ========================================================================= */}
+          {/* DYNAMIC FEATURE-SET MATRIX & INTERACTIVE ENTITLEMENTS COCKPIT */}
+          {/* ========================================================================= */}
+          <div className="p-6 sm:p-8 rounded-sm bg-[#0C0F0D] border border-[#C5A059]/40 space-y-6 shadow-2xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-5">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-widest bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/40 font-bold">
+                    Dynamic Entitlements Matrix
+                  </span>
+                  <span className="text-xs font-mono text-[#F5F5F0]/50">
+                    Live Active Plan: <strong className="text-[#C5A059]">{ATLAS_TIERS[subState.currentTier]?.name}</strong>
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-serif text-[#F5F5F0]">
+                  Dynamic Feature-Set Breakdown by Tier
+                </h3>
+                <p className="text-xs text-[#F5F5F0]/60 max-w-2xl font-light">
+                  Compare offerings across Atlas Studio, Atlas Intelligence, and Atlas Enterprise. Entitlement states update instantly in real-time based on your authenticated protocol subscription.
+                </p>
+              </div>
+
+              {/* Status counter & Quick Action */}
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-2 rounded bg-black/50 border border-white/10 text-right">
+                  <div className="text-[10px] font-mono text-[#F5F5F0]/50 uppercase">Your Access Level</div>
+                  <div className="text-sm font-mono font-bold text-[#C5A059]">
+                    Level {ATLAS_TIERS[subState.currentTier]?.level ?? 0} / 3
+                  </div>
+                </div>
+                {subState.currentTier !== 'enterprise' && (
+                  <button
+                    onClick={() => handleOpenCheckout(subState.currentTier === 'foundation' ? 'studio' : subState.currentTier === 'studio' ? 'intelligence' : 'enterprise')}
+                    className="px-4 py-2.5 bg-[#C5A059] hover:bg-[#D4AF37] text-black text-xs font-bold uppercase tracking-wider rounded-sm transition-all cursor-pointer flex items-center gap-2 shadow-lg"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Upgrade Plan</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Matrix Filters & Search */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+              {/* Entitlement Status Filters */}
+              <div className="flex items-center gap-1.5 p-1 bg-black/60 rounded border border-white/10 text-xs">
+                <button
+                  onClick={() => {
+                    audioFeedback.play('softClick');
+                    setFeatureFilter('all');
+                  }}
+                  className={`px-3 py-1.5 rounded text-xs font-mono transition-colors cursor-pointer ${
+                    featureFilter === 'all'
+                      ? 'bg-[#C5A059] text-black font-bold'
+                      : 'text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+                  }`}
+                >
+                  All Capabilities ({PLATFORM_CAPABILITIES.length})
+                </button>
+                <button
+                  onClick={() => {
+                    audioFeedback.play('softClick');
+                    setFeatureFilter('unlocked');
+                  }}
+                  className={`px-3 py-1.5 rounded text-xs font-mono transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    featureFilter === 'unlocked'
+                      ? 'bg-emerald-500 text-black font-bold'
+                      : 'text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Unlocked ({PLATFORM_CAPABILITIES.filter(c => (ATLAS_TIERS[subState.currentTier]?.level ?? 0) >= c.level).length})</span>
+                </button>
+                <button
+                  onClick={() => {
+                    audioFeedback.play('softClick');
+                    setFeatureFilter('upgrades');
+                  }}
+                  className={`px-3 py-1.5 rounded text-xs font-mono transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    featureFilter === 'upgrades'
+                      ? 'bg-amber-500 text-black font-bold'
+                      : 'text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+                  }`}
+                >
+                  <Lock className="w-3 h-3" />
+                  <span>Upgrades ({PLATFORM_CAPABILITIES.filter(c => (ATLAS_TIERS[subState.currentTier]?.level ?? 0) < c.level).length})</span>
+                </button>
+              </div>
+
+              {/* Search input */}
+              <div className="relative min-w-[220px]">
+                <Search className="w-3.5 h-3.5 text-[#F5F5F0]/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter feature or view..."
+                  value={featureSearchQuery}
+                  onChange={(e) => setFeatureSearchQuery(e.target.value)}
+                  className="w-full bg-black/60 border border-white/10 rounded pl-8 pr-3 py-1.5 text-xs text-[#F5F5F0] placeholder-[#F5F5F0]/40 focus:outline-none focus:border-[#C5A059]"
+                />
+              </div>
+            </div>
+
+            {/* Category selection tabs */}
+            <div className="flex flex-wrap gap-2 pt-1 border-t border-white/5">
+              {[
+                { id: 'all', label: 'All Domains' },
+                { id: 'Bioregional Operations', label: 'Bioregional Operations (Studio)' },
+                { id: 'Frontier AI & Deliberation', label: 'Frontier AI & Deliberation (Intelligence)' },
+                { id: 'Capital & Sovereign Governance', label: 'Capital & Sovereign Mesh (Enterprise)' }
+              ].map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    audioFeedback.play('softClick');
+                    setFeatureCategoryFilter(cat.id);
+                  }}
+                  className={`px-2.5 py-1 rounded text-[11px] font-mono transition-colors cursor-pointer ${
+                    featureCategoryFilter === cat.id
+                      ? 'bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/60 font-bold'
+                      : 'bg-black/30 text-[#F5F5F0]/50 border border-white/5 hover:text-[#F5F5F0]'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Capabilities Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {PLATFORM_CAPABILITIES.filter(cap => {
+                const currentLevel = ATLAS_TIERS[subState.currentTier]?.level ?? 0;
+                const isUnlocked = currentLevel >= cap.level;
+                if (featureFilter === 'unlocked' && !isUnlocked) return false;
+                if (featureFilter === 'upgrades' && isUnlocked) return false;
+                if (featureCategoryFilter !== 'all' && cap.category !== featureCategoryFilter) return false;
+                if (featureSearchQuery.trim()) {
+                  const q = featureSearchQuery.toLowerCase();
+                  return cap.name.toLowerCase().includes(q) || cap.description.toLowerCase().includes(q) || cap.category.toLowerCase().includes(q);
+                }
+                return true;
+              }).map(cap => {
+                const currentLevel = ATLAS_TIERS[subState.currentTier]?.level ?? 0;
+                const isUnlocked = currentLevel >= cap.level;
+
+                return (
+                  <div
+                    key={cap.id}
+                    className={`p-4 rounded-sm border flex flex-col justify-between space-y-3 transition-all ${
+                      isUnlocked
+                        ? 'bg-[#111914] border-emerald-500/30 hover:border-emerald-500/60'
+                        : 'bg-[#101010] border-white/10 hover:border-[#C5A059]/40'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#F5F5F0]/50">
+                          {cap.category}
+                        </span>
+                        {isUnlocked ? (
+                          <span className="px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            <span>Unlocked</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold bg-[#C5A059]/10 text-[#C5A059] border border-[#C5A059]/30 flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5" />
+                            <span>{cap.tierName}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 className="text-sm font-semibold text-[#F5F5F0] flex items-center gap-2">
+                        {cap.name}
+                      </h4>
+
+                      <p className="text-xs text-[#F5F5F0]/60 font-light leading-relaxed">
+                        {cap.description}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-white/5 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-mono text-[#F5F5F0]/40">
+                        {cap.tierName} ({cap.price})
+                      </span>
+
+                      {isUnlocked ? (
+                        <button
+                          onClick={() => {
+                            audioFeedback.play('commandOpen');
+                            onSelectTab(cap.targetView);
+                          }}
+                          className="px-3 py-1.5 rounded text-xs font-mono uppercase tracking-wider bg-[#1B3022] hover:bg-[#254530] text-[#C5A059] border border-[#C5A059]/40 transition-colors cursor-pointer flex items-center gap-1.5 font-bold"
+                        >
+                          <span>Launch</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleOpenCheckout(cap.requiredTier)}
+                          className="px-3 py-1.5 rounded text-xs font-mono uppercase tracking-wider bg-[#C5A059] hover:bg-[#D4AF37] text-black transition-colors cursor-pointer flex items-center gap-1.5 font-bold shadow"
+                        >
+                          <Lock className="w-3 h-3" />
+                          <span>Unlock</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* MULTI-PAYMENT ARCHITECTURE EXPLANATION PANEL */}
+          <div className="p-6 rounded-sm bg-[#0E0E0E] border border-[#F5F5F0]/10 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-[#C5A059] font-bold flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-[#C5A059]" />
+                <span>Non-Extractive Multi-Method Settlement Gateway</span>
+              </span>
+              <span className="text-[10px] text-[#F5F5F0]/50 font-mono">
+                100% of network fees flow into community-governed sensor subsidies
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              <div className="p-3.5 rounded bg-black/40 border border-white/5 space-y-1">
+                <span className="font-bold text-[#F5F5F0] block">1. Credit / Debit Card</span>
+                <p className="text-[11px] text-[#F5F5F0]/60 font-light">
+                  Instant automated licensing with PCI-DSS TLS 1.3 tokenization. Supports Visa, MasterCard, and Amex corporate purchasing cards.
+                </p>
+              </div>
+              <div className="p-3.5 rounded bg-black/40 border border-white/5 space-y-1">
+                <span className="font-bold text-[#F5F5F0] block">2. Multi-Chain Web3 (ReFi)</span>
+                <p className="text-[11px] text-[#F5F5F0]/60 font-light">
+                  USDC, USDT, ETH, Celo, and Solana. Direct escrow contract deposit with verifiable cryptographic attestation.
+                </p>
+              </div>
+              <div className="p-3.5 rounded bg-black/40 border border-white/5 space-y-1">
+                <span className="font-bold text-[#F5F5F0] block">3. Institutional Net-30 Wire</span>
+                <p className="text-[11px] text-[#F5F5F0]/60 font-light">
+                  Direct FedWire, Swift, and SEPA invoicing. Instant license key issued with net-30 terms for municipal and university procurement.
+                </p>
+              </div>
+              <div className="p-3.5 rounded bg-black/40 border border-white/5 space-y-1">
+                <span className="font-bold text-[#F5F5F0] block">4. Ecological Impact Offset</span>
+                <p className="text-[11px] text-[#F5F5F0]/60 font-light">
+                  100% in-kind settlement via verified carbon removal (biochar, soil carbon, agroforestry credits) on the Evidence Ledger.
+                </p>
+              </div>
+            </div>
+          </div>
+            </>
+          )}
         </section>
 
         {/* ========================================================================= */}
@@ -1578,6 +2574,16 @@ export const EconomicsPricingView: React.FC<EconomicsPricingViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Global Payment Checkout Modal with Multi-Method Support */}
+      <PaymentCheckoutModal
+        isOpen={checkoutModalOpen}
+        onClose={() => setCheckoutModalOpen(false)}
+        initialTier={checkoutTier}
+        onSuccess={(record) => {
+          setSubState(getCurrentSubscription());
+        }}
+      />
     </div>
   );
 };

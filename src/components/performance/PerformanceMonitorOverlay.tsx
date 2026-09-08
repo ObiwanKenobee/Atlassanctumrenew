@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Gauge, 
   Activity, 
@@ -14,16 +14,73 @@ import {
   Sparkles,
   Maximize2,
   Minimize2,
-  Layers
+  Layers,
+  Clock,
+  ArrowRight,
+  Calendar
 } from 'lucide-react';
 import { performanceTracker, PerformanceSnapshot, ComponentRenderMetric } from '../../lib/performanceTracker';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { getCurrentSubscription, ActiveSubscriptionState, ATLAS_TIERS } from '../../lib/subscriptionManager';
+import { PageView } from '../../types';
 
-export const PerformanceMonitorOverlay: React.FC = () => {
+interface PerformanceMonitorOverlayProps {
+  onSelectTab?: (tab: PageView) => void;
+}
+
+export const PerformanceMonitorOverlay: React.FC<PerformanceMonitorOverlayProps> = ({
+  onSelectTab
+}) => {
   const [snapshot, setSnapshot] = useState<PerformanceSnapshot>(() => performanceTracker.getSnapshot());
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [copiedToast, setCopiedToast] = useState<string | null>(null);
   const [isDismissed, setIsDismissed] = useState<boolean>(false);
+  const [subState, setSubState] = useState<ActiveSubscriptionState>(() => getCurrentSubscription());
+
+  useEffect(() => {
+    const handleSubUpdate = () => {
+      setSubState(getCurrentSubscription());
+    };
+    window.addEventListener('atlas-subscription-changed', handleSubUpdate);
+    window.addEventListener('atlas-tier-transition', handleSubUpdate);
+    window.addEventListener('atlas-tier-upgraded', handleSubUpdate);
+    window.addEventListener('storage', handleSubUpdate);
+    return () => {
+      window.removeEventListener('atlas-subscription-changed', handleSubUpdate);
+      window.removeEventListener('atlas-tier-transition', handleSubUpdate);
+      window.removeEventListener('atlas-tier-upgraded', handleSubUpdate);
+      window.removeEventListener('storage', handleSubUpdate);
+    };
+  }, []);
+
+  // 7-day subscription expiry HUD alert detection
+  const expiryAlert = useMemo(() => {
+    if (subState.currentTier === 'foundation' || !subState.renewsAt) {
+      return null;
+    }
+    const renewsTimestamp = new Date(subState.renewsAt).getTime();
+    if (isNaN(renewsTimestamp)) return null;
+
+    const msRemaining = renewsTimestamp - Date.now();
+    const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+
+    // Triggers 7 days before billing cycle end
+    if (daysRemaining <= 7) {
+      return {
+        daysRemaining: Math.max(0, daysRemaining),
+        isExpired: daysRemaining <= 0,
+        tierName: ATLAS_TIERS[subState.currentTier]?.name || subState.currentTier,
+        tierBadge: ATLAS_TIERS[subState.currentTier]?.badge || '',
+        renewsAtFormatted: new Date(subState.renewsAt).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        }),
+        autoRenew: subState.autoRenew
+      };
+    }
+    return null;
+  }, [subState]);
 
   useEffect(() => {
     const unsubscribe = performanceTracker.subscribe((data) => {
@@ -158,6 +215,25 @@ export const PerformanceMonitorOverlay: React.FC = () => {
             </span>
           </div>
 
+          {/* Subtle Subscription Expiry Alert in Minimized Dock */}
+          {expiryAlert && (
+            <>
+              <span className="text-white/20 hidden sm:inline">•</span>
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  audioFeedback.playMicroTick();
+                  setIsExpanded(true);
+                }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[10px] font-bold hover:bg-amber-500/30 transition-all shadow-[0_0_8px_rgba(245,158,11,0.2)]"
+                title={`Subscription Expiry Alert: ${expiryAlert.daysRemaining} days remaining in billing cycle. Click to view capacity options.`}
+              >
+                <Clock className="w-3 h-3 text-amber-400 animate-pulse" />
+                <span>Cycle: {expiryAlert.daysRemaining}d left</span>
+              </div>
+            </>
+          )}
+
           <ChevronUp className="w-3.5 h-3.5 text-neutral-400 group-hover:text-cyan-400 ml-1 transition-colors" />
         </div>
       ) : (
@@ -199,6 +275,49 @@ export const PerformanceMonitorOverlay: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Dedicated Subtle Subscription Expiry Alert Card */}
+          {expiryAlert && (
+            <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-950/40 via-[#181F17] to-amber-950/20 border border-amber-500/50 shadow-lg space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  <span className="font-bold text-amber-300 text-xs flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                    Subscription Expiry Alert
+                  </span>
+                </div>
+                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/40 font-bold">
+                  {expiryAlert.daysRemaining === 0 ? 'Expires Today' : `${expiryAlert.daysRemaining} Days Left`}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-[#F5F5F0]/80 font-sans leading-relaxed">
+                Your <strong className="text-amber-200">{expiryAlert.tierName}</strong> capacity cycle concludes on <strong className="text-white font-mono">{expiryAlert.renewsAtFormatted}</strong>. {expiryAlert.autoRenew ? 'Automatic renewal is active; verify payment method to prevent high-frequency telemetry throttling.' : 'Auto-renew is OFF. Review tier or extend before cycle end to prevent workflow interruptions.'}
+              </p>
+
+              <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                <span className="text-[9px] text-[#F5F5F0]/50 font-mono">
+                  Mode: {expiryAlert.autoRenew ? 'Automatic Renewal' : 'Manual Action Needed'}
+                </span>
+                <button
+                  onClick={() => {
+                    audioFeedback.playSubtleClick();
+                    if (onSelectTab) {
+                      onSelectTab('economics-pricing');
+                    } else {
+                      window.dispatchEvent(new CustomEvent('atlas-navigate-tab', { detail: { tab: 'economics-pricing' } }));
+                    }
+                    setIsExpanded(false);
+                  }}
+                  className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 text-[10px] font-mono font-bold hover:text-white transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <span>Manage Subscription</span>
+                  <ArrowRight className="w-3 h-3 text-amber-400" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Quick Metrics Ribbon (FPS, Heap Memory, Overall Status) */}
           <div className="grid grid-cols-3 gap-2 text-center font-mono">

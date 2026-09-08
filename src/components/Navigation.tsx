@@ -293,6 +293,18 @@ export const Navigation: React.FC<NavigationProps> = ({
             <Globe2 className="w-2.5 h-2.5 text-emerald-400" />
             <span>Google Sitelinks</span>
           </button>
+          <span className="text-[#F5F5F0]/20 hidden lg:inline">•</span>
+          <button 
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              onSelectTab('economics-pricing');
+            }}
+            className="hidden lg:flex text-[#C5A059] hover:text-amber-200 items-center gap-1 cursor-pointer transition-colors text-[8px] sm:text-[9px] md:text-[10px] font-mono font-medium"
+            title="Economics, Pricing Tiers & Capacity Access"
+          >
+            <Sparkles className="w-2.5 h-2.5 text-[#C5A059]" />
+            <span>Pricing & Tiers</span>
+          </button>
         </div>
       </div>
 

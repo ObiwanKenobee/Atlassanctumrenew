@@ -636,8 +636,8 @@ export function updatePageMetadata(view: PageView, customOverrides?: Partial<Vie
     window.dispatchEvent(new CustomEvent('atlas-metadata-updated', { detail: { metadata: meta } }));
 
     // Automatically record to sessionStorage version history if user supplied custom overrides
-    if (overrides) {
-      saveMetadataVersion(viewId, meta, 'manual_edit', `Updated SEO tags for ${meta.name}`);
+    if (customOverrides) {
+      saveMetadataVersion(view, meta, 'manual_edit', `Updated SEO tags for ${meta.name}`);
     }
   } catch (err) {
     console.warn('[MetadataManager] Error updating DOM meta tags:', err);
