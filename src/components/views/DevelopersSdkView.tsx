@@ -18,10 +18,11 @@ import {
 import { GovernanceSdkPlayground } from '../GovernanceSdkPlayground';
 import { AtlasApiInteractiveSandbox } from '../developers/AtlasApiInteractiveSandbox';
 import { VerifiableCredentialsExport } from '../developers/VerifiableCredentialsExport';
+import { CyberPhysicalOperationsCockpit } from '../systemsDynamics/CyberPhysicalOperationsCockpit';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 export const DevelopersSdkView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'governance' | 'telemetry' | 'rve_assets'>('governance');
+  const [activeTab, setActiveTab] = useState<'cyber_physical' | 'governance' | 'telemetry' | 'rve_assets'>('cyber_physical');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, key: string) => {
@@ -95,13 +96,27 @@ if (evaluation.status === 'APPROVED_WITH_GUARDRAILS') {
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex border-b border-[#F5F5F0]/10 gap-2">
+      <div className="flex border-b border-[#F5F5F0]/10 gap-2 overflow-x-auto">
+        <button
+          onClick={() => {
+            setActiveTab('cyber_physical');
+            audioFeedback.playSubtleClick();
+          }}
+          className={`pb-3 px-4 text-xs font-mono font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-2 shrink-0 ${
+            activeTab === 'cyber_physical'
+              ? 'border-[#C5A059] text-[#C5A059]'
+              : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
+          }`}
+        >
+          <Cpu className="w-3.5 h-3.5" />
+          <span>Cyber-Physical OS Cockpit</span>
+        </button>
         <button
           onClick={() => {
             setActiveTab('governance');
             audioFeedback.playSubtleClick();
           }}
-          className={`pb-3 px-4 text-xs font-mono font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-2 ${
+          className={`pb-3 px-4 text-xs font-mono font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-2 shrink-0 ${
             activeTab === 'governance'
               ? 'border-[#C5A059] text-[#C5A059]'
               : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
@@ -115,7 +130,7 @@ if (evaluation.status === 'APPROVED_WITH_GUARDRAILS') {
             setActiveTab('telemetry');
             audioFeedback.playSubtleClick();
           }}
-          className={`pb-3 px-4 text-xs font-mono font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-2 ${
+          className={`pb-3 px-4 text-xs font-mono font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-2 shrink-0 ${
             activeTab === 'telemetry'
               ? 'border-[#C5A059] text-[#C5A059]'
               : 'border-transparent text-[#F5F5F0]/60 hover:text-[#F5F5F0]'
@@ -125,6 +140,12 @@ if (evaluation.status === 'APPROVED_WITH_GUARDRAILS') {
           <span>Living Reality Mesh APIs</span>
         </button>
       </div>
+
+      {activeTab === 'cyber_physical' && (
+        <div className="space-y-10">
+          <CyberPhysicalOperationsCockpit />
+        </div>
+      )}
 
       {activeTab === 'governance' && (
         <div className="space-y-10">

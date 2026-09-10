@@ -440,6 +440,26 @@ export const AgentMissionControlView: React.FC<AgentMissionControlViewProps> = (
   const [newRegion, setNewRegion] = useState<string>('');
   const [newCapital, setNewCapital] = useState<string>('$145,000 Risk Mitigation Pool');
 
+  // Check for injected mission from Opportunity Intelligence or Decision Room
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('atlas_injected_mission');
+      if (stored) {
+        sessionStorage.removeItem('atlas_injected_mission');
+        const data = JSON.parse(stored);
+        if (data.objective || data.title) {
+          setNewObjective(data.objective || data.title);
+          setNewRegion(data.region || 'Bioregional Corridor');
+          setNewCapital(data.capital || '$450,000 Risk Mitigation Pool');
+          setIsCreatingMission(true);
+          audioFeedback.play('softClick');
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse injected mission:', e);
+    }
+  }, []);
+
   useEffect(() => {
     const unsubMissions = subscribeMissions((updated) => {
       setMissions(updated);

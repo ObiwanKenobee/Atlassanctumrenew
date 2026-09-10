@@ -1105,30 +1105,32 @@ export interface OpportunityBrief {
   provenance: DataProvenance;
 }
 
+export interface DecisionRoomOption {
+  id: string;
+  name: string;
+  tagline: string;
+  capitalNeeded: string;
+  timeToImpact: string;
+  benefits: string[];
+  costs: string[];
+  risks: string[];
+  environmentalImpact: string;
+  uncertaintyAssessment: string;
+  tradeOffScores: {
+    cost: number;       // 1 (low cost/good) to 5 (high cost)
+    impact: number;     // 1 to 5
+    speed: number;      // 1 to 5
+    equity: number;     // 1 to 5
+    resilience: number; // 1 to 5
+  };
+}
+
 export interface DecisionRoomScenario {
   id: string;
   title: string;
   location: string;
   problemContext: string;
-  options: {
-    id: string;
-    name: string;
-    tagline: string;
-    capitalNeeded: string;
-    timeToImpact: string;
-    benefits: string[];
-    costs: string[];
-    risks: string[];
-    environmentalImpact: string;
-    uncertaintyAssessment: string;
-    tradeOffScores: {
-      cost: number;       // 1 (low cost/good) to 5 (high cost)
-      impact: number;     // 1 to 5
-      speed: number;      // 1 to 5
-      equity: number;     // 1 to 5
-      resilience: number; // 1 to 5
-    };
-  }[];
+  options: DecisionRoomOption[];
 }
 
 export interface AgentToolDefinition {

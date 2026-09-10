@@ -349,5 +349,195 @@ export const SAMPLE_DECISION_SCENARIOS: Record<string, DecisionRoomScenario> = {
         }
       }
     ]
+  },
+  uluguru_watershed: {
+    id: 'dec-tz-02',
+    title: 'Uluguru Mountain Watershed Agroforestry & Water Security',
+    location: 'Morogoro & Dar es Salaam Catchment, Tanzania',
+    problemContext: 'How should the Ruvu-Wami Basin Water Board and smallholder farmer unions deploy $850,000 to halt steep-slope erosion, restore downstream drinking water for 6 million people, and increase smallholder cash revenues?',
+    options: [
+      {
+        id: 'opt-tz-a',
+        name: 'Option A: Syntropic Agroforestry, Perennial Macadamia & Vetiver Belts',
+        tagline: 'Deep ecological slope stabilization + high-margin perennial tree crops',
+        capitalNeeded: '$480,000',
+        timeToImpact: '18–24 Months',
+        benefits: [
+          '3.2x moisture retention during drought pulses',
+          '+85% smallholder cash revenue from macadamia, vanilla & specialty coffee',
+          'Avoids 42,000 tonnes of siltation entering the Mindu municipal reservoir annually'
+        ],
+        costs: [
+          'Requires 18-month seedling maturation with intermediate cash-crop subsidies',
+          'Higher initial farmer agronomic training overhead'
+        ],
+        risks: [
+          'Initial seedling mortality if severe unpredicted drought occurs in month 2',
+          'Wildfire risk during dry season requiring firebreaks'
+        ],
+        environmentalImpact: 'Maximum positive: Rebuilds indigenous Eastern Arc biodiversity buffer and soil microbiome.',
+        uncertaintyAssessment: 'Empirical data verified by Sokoine University trials across 24 paired catchment parcels.',
+        tradeOffScores: {
+          cost: 3,
+          impact: 5,
+          speed: 3,
+          equity: 5,
+          resilience: 5
+        }
+      },
+      {
+        id: 'opt-tz-b',
+        name: 'Option B: Rapid Contour Bunds & Quick Cash Cover Crops',
+        tagline: 'High-speed soil terracing with annual legume cover crops',
+        capitalNeeded: '$290,000',
+        timeToImpact: '4–6 Months',
+        benefits: [
+          'Immediate physical earthwork runoff attenuation within 90 days',
+          'Fast food security boost from pigeon pea and lablab beans',
+          'Lower total capital requirement'
+        ],
+        costs: [
+          'Lower long-term perennial canopy shade and microclimate cooling',
+          'Contour trenches require annual manual re-digging after monsoons'
+        ],
+        risks: [
+          'Trenches can overflow and breach in 100-year storm events',
+          'Farmers may abandon labor-intensive bund maintenance if prices drop'
+        ],
+        environmentalImpact: 'Moderate positive: Prevents topsoil loss but lacks permanent multi-strata canopy.',
+        uncertaintyAssessment: 'Standard agricultural extension estimates, 82% modeled confidence.',
+        tradeOffScores: {
+          cost: 2,
+          impact: 3,
+          speed: 5,
+          equity: 4,
+          resilience: 3
+        }
+      },
+      {
+        id: 'opt-tz-c',
+        name: 'Option C: Downstream Mechanical Dredging & Chemical Flocculation',
+        tagline: 'End-of-pipe municipal reservoir dredging (Conventional approach)',
+        capitalNeeded: '$780,000',
+        timeToImpact: '12 Months',
+        benefits: [
+          'Direct removal of silt from municipal reservoir intake',
+          'Zero requirement to coordinate with 4,000+ upstream rural smallholders'
+        ],
+        costs: [
+          'Massive recurring capital expense every 3–4 years',
+          'Zero root-cause erosion remediation on mountain slopes',
+          'Disposal problem for dredged toxic silt'
+        ],
+        risks: [
+          'Reservoir capacity permanently collapses if upstream erosion accelerates',
+          'Leaves mountain farmers in chronic poverty and vulnerability'
+        ],
+        environmentalImpact: 'Net Negative: High diesel consumption, chemical flocculants damage river fauna.',
+        uncertaintyAssessment: 'Contractor engineering quotes verified, but proven to fail ecologically over 10-year horizon.',
+        tradeOffScores: {
+          cost: 5,
+          impact: 2,
+          speed: 3,
+          equity: 1,
+          resilience: 1
+        }
+      }
+    ]
+  },
+  turkana_aquifer: {
+    id: 'dec-ke-03',
+    title: 'Turkana Deep Aquifer Desalination & Pastoralist Resilience Hub',
+    location: 'Turkana County, Northern Kenya',
+    problemContext: 'How should the Northern Rangelands Trust and Turkana County Assembly invest $2.1M in solar infrastructure to provide permanent potable water, stop livestock loss during severe multi-year droughts, and prevent resource conflict?',
+    options: [
+      {
+        id: 'opt-turk-a',
+        name: 'Option A: Solar-Powered Reverse Osmosis & Halophyte Agro-Pastoral Hubs',
+        tagline: 'Clean drinking water + fodder production utilizing brackish brine rejection',
+        capitalNeeded: '$1,350,000',
+        timeToImpact: '10–14 Months',
+        benefits: [
+          'Produces 250,000 liters/day of medical-grade drinking water for 32,000 pastoralists',
+          'Zero brine waste: uses mineral reject water to irrigate protein-rich halophyte fodder (Salicornia & Atriplex)',
+          '100% solar microgrid powered with 480 kWh vanadium redox flow battery storage'
+        ],
+        costs: [
+          'Membrane replacement schedule requires local technical training',
+          'Higher initial capital expenditure'
+        ],
+        risks: [
+          'Membrane fouling if sand pre-filtration maintenance is neglected',
+          'Dust storm abrasion requiring automated wiper arrays'
+        ],
+        environmentalImpact: 'High positive: Solves water scarcity and creates green oasis corridors in arid rangeland.',
+        uncertaintyAssessment: 'Lotikipi aquifer salinity verified at 4,200 ppm; pilot RO test completed at Lodwar Station.',
+        tradeOffScores: {
+          cost: 3,
+          impact: 5,
+          speed: 4,
+          equity: 5,
+          resilience: 5
+        }
+      },
+      {
+        id: 'opt-turk-b',
+        name: 'Option B: Decentralized Sand Dams & Sub-Surface Aquifer Storage',
+        tagline: 'Traditional passive ecological rainwater harvesting along seasonal Luggas',
+        capitalNeeded: '$620,000',
+        timeToImpact: '12–18 Months',
+        benefits: [
+          'Zero operational energy cost or mechanical moving parts',
+          'Community-built using local stone and sand masonry',
+          'Naturally filters water through clean sand beds'
+        ],
+        costs: [
+          'Requires 2–3 rainy seasons to fully silt up sand volume',
+          'Fails during prolonged multi-year rain failures'
+        ],
+        risks: [
+          'No recharge if monsoon rains fail entirely for consecutive years',
+          'Seasonal water availability variance'
+        ],
+        environmentalImpact: 'Maximum positive: Recharges shallow groundwater table and supports riparian acacia woodlands.',
+        uncertaintyAssessment: 'Observed track record across Kitui and Turkana; 91% operational success when sited correctly.',
+        tradeOffScores: {
+          cost: 2,
+          impact: 4,
+          speed: 3,
+          equity: 5,
+          resilience: 4
+        }
+      },
+      {
+        id: 'opt-turk-c',
+        name: 'Option C: Emergency Diesel Water Trucking (Status Quo / Relief)',
+        tagline: 'Continuous subsidized emergency water bowser distribution',
+        capitalNeeded: '$1,800,000',
+        timeToImpact: 'Immediate (2 Weeks)',
+        benefits: [
+          'Immediate water delivery to dispersed nomadic settlements',
+          'No fixed infrastructure assets vulnerable to disputes'
+        ],
+        costs: [
+          'Exorbitant recurring operational cost burning diesel fuel',
+          'Leaves pastoralists 100% dependent on continuous donor handouts',
+          'Truck breakdowns leave communities stranded without water'
+        ],
+        risks: [
+          'Fuel price spikes or supply line disruptions cause immediate humanitarian crisis',
+          'Zero compounding civilizational capacity or resilience built'
+        ],
+        environmentalImpact: 'Negative: High carbon emissions and zero ecological regeneration.',
+        uncertaintyAssessment: 'Logistical costs known, but completely unsustainable past 12-month grant cycles.',
+        tradeOffScores: {
+          cost: 5,
+          impact: 2,
+          speed: 5,
+          equity: 2,
+          resilience: 1
+        }
+      }
+    ]
   }
 };

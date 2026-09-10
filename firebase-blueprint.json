@@ -129,6 +129,10 @@
     "/bioregional_custom_tags/{tagId}": {
       "schema": "BioregionalCustomTag",
       "description": "User and steward custom annotations and color-coded tags on bioregional knowledge graph nodes"
+    },
+    "/assets/{assetId}": {
+      "schema": "Asset",
+      "description": "Cyber-physical asset registry and live digital twin state documents"
     }
   }
 }

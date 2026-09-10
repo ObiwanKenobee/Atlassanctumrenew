@@ -61,15 +61,37 @@ export const OpportunityIntelligenceView: React.FC<OpportunityIntelligenceViewPr
     }
   };
 
-  const handleSynthesizeCustom = (e: React.FormEvent) => {
+  const handleSynthesizeCustom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customLocation.trim()) return;
 
     setIsGenerating(true);
-    audioFeedback.playSyncComplete();
+    audioFeedback.playSubtleClick();
 
+    try {
+      const res = await fetch('/api/intelligence/synthesize-opportunity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: customLocation,
+          problem: customProblem,
+          category: 'water_drainage'
+        })
+      });
+      const json = await res.json();
+      if (json && json.data && json.data.problem) {
+        setBrief(json.data);
+        setSelectedInterventionId(json.data.interventions?.[0]?.id || '');
+        audioFeedback.playSyncComplete();
+        setIsGenerating(false);
+        return;
+      }
+    } catch (err) {
+      console.warn('Backend opportunity synthesis fallback triggered:', err);
+    }
+
+    // Local fallback synthesis
     setTimeout(() => {
-      // Synthesize new brief
       const newBrief: OpportunityBrief = {
         id: `opp-${Date.now()}`,
         generatedAt: new Date().toISOString(),
@@ -612,21 +634,56 @@ export const OpportunityIntelligenceView: React.FC<OpportunityIntelligenceViewPr
                   audioFeedback.playSyncComplete();
                   onSelectTab('project-os');
                 }}
-                className="w-full py-3 bg-[#C5A059] hover:bg-[#b08e4c] text-black font-bold text-xs uppercase tracking-widest rounded-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer font-mono"
+                className="w-full py-2.5 bg-[#C5A059] hover:bg-[#b08e4c] text-black font-bold text-xs uppercase tracking-widest rounded-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer font-mono"
               >
                 <Layers className="w-4 h-4" />
                 <span>Convert to Active Project</span>
               </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    audioFeedback.playSubtleClick();
+                    sessionStorage.setItem('atlas_active_opportunity_brief', JSON.stringify(brief));
+                    window.dispatchEvent(new CustomEvent('atlas-injected-decision', { detail: brief }));
+                    onSelectTab('decision-room');
+                  }}
+                  className="py-2 bg-[#1B3022] hover:bg-[#254530] border border-emerald-500/40 text-emerald-300 rounded-sm text-[11px] font-mono flex items-center justify-center gap-1.5 transition-all"
+                  title="Deliberate this challenge and compare trade-offs in Decision Room"
+                >
+                  <Scale className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Decision Room</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    audioFeedback.playSubtleClick();
+                    sessionStorage.setItem('atlas_injected_mission', JSON.stringify({
+                      title: `${brief.location}: ${brief.problem.title}`,
+                      region: brief.location,
+                      objective: brief.problem.summary,
+                      capital: `$${brief.totalCapitalRequiredRange.min.toLocaleString()} - $${brief.totalCapitalRequiredRange.max.toLocaleString()} USD`
+                    }));
+                    window.dispatchEvent(new CustomEvent('atlas-navigate-tab', { detail: { tab: 'agent-mission-control' } }));
+                    onSelectTab('agent-mission-control');
+                  }}
+                  className="py-2 bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/20 text-[#F5F5F0]/90 rounded-sm text-[11px] font-mono flex items-center justify-center gap-1.5 transition-all"
+                  title="Dispatch autonomous agent swarm to plan and coordinate this mission"
+                >
+                  <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Agent Swarm</span>
+                </button>
+              </div>
 
               <button
                 onClick={() => {
                   audioFeedback.playSubtleClick();
                   onSelectTab('capital-engine');
                 }}
-                className="w-full py-2 bg-[#121212] hover:bg-[#1C1C1C] border border-[#F5F5F0]/20 text-[#F5F5F0]/80 rounded-sm text-xs font-mono flex items-center justify-center gap-1.5 transition-all"
+                className="w-full py-1.5 bg-[#0D0D0D] hover:bg-[#141414] border border-[#F5F5F0]/10 text-[#F5F5F0]/60 hover:text-[#F5F5F0]/90 rounded-sm text-[10px] font-mono flex items-center justify-center gap-1.5 transition-all"
               >
-                <Coins className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Simulate Capital Allocation</span>
+                <Coins className="w-3 h-3 text-[#C5A059]" />
+                <span>Simulate Capital Tranches</span>
               </button>
             </div>
           </div>
