@@ -47,6 +47,7 @@ import { SystemPulseIcon } from './diagnostics/SystemPulseIcon';
 import { BioregionalHazardBeacon } from './navigation/BioregionalHazardBeacon';
 import { HeaderHazardAlertBanner } from './navigation/HeaderHazardAlertBanner';
 import { MoralAlignmentHUD } from './MoralAlignmentHUD';
+import { AcousticCommandToggle } from './navigation/AcousticCommandToggle';
 import { audioFeedback, hapticFeedback } from '../lib/audioFeedback';
 import { prefetchView } from '../lib/viewPrefetch';
 
@@ -721,24 +722,12 @@ export const Navigation: React.FC<NavigationProps> = ({
             <span className="hidden md:inline">AI Sanctum</span>
           </button>
 
-          {/* Voice Command Natural Language Navigator (V) */}
-          <button
-            id="open-voice-command-btn"
-            onClick={() => {
-              audioFeedback.playSubtleClick();
-              const event = new CustomEvent('open-gemini-live');
-              window.dispatchEvent(event);
-            }}
-            aria-label="Open Voice Commands (Press V)"
-            title="Voice Commands: Speak to navigate views & trigger actions (Press V)"
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] sm:min-h-[38px] border border-[#C5A059]/40 hover:border-[#C5A059] bg-[#0D0D0D] hover:bg-[#1B3022] rounded-full text-xs font-mono text-[#C5A059] transition-all cursor-pointer shadow-xs"
-          >
-            <Mic className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span className="hidden xl:inline text-[11px] font-bold">Voice</span>
-            <kbd className="hidden lg:inline px-1 py-0.2 text-[9px] bg-black/50 border border-[#C5A059]/30 rounded text-neutral-300 font-mono">
-              V
-            </kbd>
-          </button>
+          {/* Acoustic Command Toggle (Natural Voice Navigation & Acoustic HUD) */}
+          <AcousticCommandToggle
+            currentTab={currentTab}
+            onSelectTab={onSelectTab}
+            onOpenCommandCenter={onOpenCommandCenter}
+          />
 
           {/* Mobile Fast Search Trigger */}
           <button

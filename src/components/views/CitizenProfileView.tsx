@@ -24,8 +24,14 @@ import {
   Globe2,
   Lock,
   ArrowRight,
-  Filter
+  Filter,
+  Trophy,
+  Calendar,
+  Users
 } from 'lucide-react';
+import { AnnualImpactSummaryCard } from './AnnualImpactSummaryCard';
+import { ImpactStoryGenerator } from '../profile/ImpactStoryGenerator';
+import { CollaborativeStewardshipTeams } from '../profile/CollaborativeStewardshipTeams';
 import { PageView } from '../../types';
 import { 
   CURRENT_STEWARD_PROFILE, 
@@ -138,7 +144,7 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
     return INITIAL_QUESTS;
   });
 
-  const [activeTab, setActiveTab] = useState<'badges' | 'actions' | 'contributions' | 'impact'>('badges');
+  const [activeTab, setActiveTab] = useState<'badges' | 'actions' | 'contributions' | 'impact' | 'story' | 'teams'>('badges');
   const [contributionFilter, setContributionFilter] = useState<'all' | 'audits' | 'knowledge' | 'forensics'>('all');
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
   const [justEarnedBadge, setJustEarnedBadge] = useState<string | null>(null);
@@ -291,6 +297,19 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
                 {Math.max(0, nextTierPoints - profile.reputationPoints)} pts remaining to Tier 4
               </div>
             </div>
+
+            {/* Achievement Milestones Trigger */}
+            <button
+              id="citizen-profile-open-achievements-btn"
+              onClick={() => {
+                audioFeedback.playMicroTick();
+                window.dispatchEvent(new CustomEvent('open-achievements-drawer'));
+              }}
+              className="w-full py-1.5 px-2.5 bg-[#1B3022] hover:bg-[#254530] text-amber-300 border border-amber-500/40 rounded text-[11px] font-mono flex items-center justify-center gap-1.5 transition-all cursor-pointer font-bold"
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>View Milestone Achievements</span>
+            </button>
           </div>
         </div>
       </div>
@@ -376,8 +395,11 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
         </div>
       </div>
 
+      {/* Annual Impact Summary Card: Tangible Cumulative Bioregional Regeneration */}
+      <AnnualImpactSummaryCard />
+
       {/* Profile Section Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#F5F5F0]/15 pb-2 text-xs font-mono">
+      <div className="flex items-center gap-2 border-b border-[#F5F5F0]/15 pb-2 text-xs font-mono flex-wrap">
         <button
           id="profile-tab-badges"
           onClick={() => {
@@ -429,6 +451,42 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
           <span className="flex items-center gap-1.5">
             <BookOpen className="w-4 h-4 text-[#8FB8DE]" />
             Verified Contribution Log
+          </span>
+        </button>
+
+        <button
+          id="profile-tab-story"
+          onClick={() => {
+            audioFeedback.playSubtleClick();
+            setActiveTab('story');
+          }}
+          className={`px-4 py-2 rounded-sm uppercase font-bold tracking-wider transition-all cursor-pointer ${
+            activeTab === 'story'
+              ? 'bg-emerald-950 text-emerald-300 border border-emerald-500 shadow-sm'
+              : 'text-[#F5F5F0]/50 hover:text-emerald-300 hover:bg-[#141414]'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-emerald-400" />
+            Impact Story Generator
+          </span>
+        </button>
+
+        <button
+          id="profile-tab-teams"
+          onClick={() => {
+            audioFeedback.playSubtleClick();
+            setActiveTab('teams');
+          }}
+          className={`px-4 py-2 rounded-sm uppercase font-bold tracking-wider transition-all cursor-pointer ${
+            activeTab === 'teams'
+              ? 'bg-cyan-950 text-cyan-300 border border-cyan-500 shadow-sm'
+              : 'text-[#F5F5F0]/50 hover:text-cyan-300 hover:bg-[#141414]'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Users className="w-4 h-4 text-cyan-400" />
+            Stewardship Teams
           </span>
         </button>
       </div>
@@ -631,6 +689,25 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Tab 4: Automated Impact Story Generator */}
+      {activeTab === 'story' && (
+        <ImpactStoryGenerator 
+          stewardName={CURRENT_STEWARD_PROFILE.name}
+          reputationPoints={profile.reputationPoints}
+          verifiedAuditsSigned={profile.verifiedAuditsSigned}
+          earnedBadgeCount={profile.earnedBadgeCount}
+          hectaresRestored={profile.hectaresRestored}
+          litersProtectedMillions={profile.litersProtectedMillions}
+          carbonSequesteredTons={profile.carbonSequesteredTons}
+          streakDays={14}
+        />
+      )}
+
+      {/* Tab 5: Collaborative Stewardship Teams */}
+      {activeTab === 'teams' && (
+        <CollaborativeStewardshipTeams />
       )}
     </div>
   );

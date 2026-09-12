@@ -112,7 +112,7 @@ export interface MoralAuditLog {
   userId: string;
   userEmail?: string | null;
   action: string;
-  feature: 'moral_intelligence' | 'simulator' | 'live_voice' | 'multimodal_generation' | 'asset_tokenization' | 'telemetry_calibration' | 'governance_vote';
+  feature: 'moral_intelligence' | 'simulator' | 'live_voice' | 'multimodal_generation' | 'asset_tokenization' | 'telemetry_calibration' | 'governance_vote' | 'bioregional_hazard_monitor' | 'epistemic_achievements' | 'community_impact_feed';
   impactTier: 'low' | 'moderate' | 'high' | 'civilizational_critical';
   moralAlignmentScore?: number;
   parameters: Record<string, any>;

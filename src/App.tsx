@@ -16,6 +16,7 @@ import { ThemeAndAccessSyncListener } from './components/ThemeAndAccessSyncListe
 import { ConfirmationProvider } from './context/ConfirmationDialogContext';
 import { ContextAwareThemeProvider } from './context/ContextAwareThemeContext';
 import { AdaptiveModeProvider } from './context/AdaptiveModeContext';
+import { AdaptiveLightingProvider } from './context/AdaptiveLightingContext';
 import { ContextualNotificationProvider } from './context/ContextualNotificationContext';
 import { ContextualNotificationClearConfirmModal } from './components/navigation/ContextualNotificationClearConfirmModal';
 import { MoralCompassCursor } from './components/MoralCompassCursor';
@@ -53,6 +54,8 @@ const KeyboardShortcutsModal = React.lazy(() => import('./components/KeyboardSho
 const TrustLayerModal = React.lazy(() => import('./components/trust/TrustLayerModal').then(m => ({ default: m.TrustLayerModal })));
 const PlatformTourOverlay = React.lazy(() => import('./components/navigation/PlatformTourOverlay').then(m => ({ default: m.PlatformTourOverlay })));
 const GoogleSitelinksEnhancementModal = React.lazy(() => import('./components/seo/GoogleSitelinksEnhancementModal').then(m => ({ default: m.GoogleSitelinksEnhancementModal })));
+const StartupErrorOverlay = React.lazy(() => import('./components/diagnostics/StartupErrorOverlay').then(m => ({ default: m.StartupErrorOverlay })));
+const AchievementCelebrationModal = React.lazy(() => import('./components/achievements/AchievementCelebrationModal').then(m => ({ default: m.AchievementCelebrationModal })));
 
 // Lazy-Loaded Views for instant code-splitting and progressive delivery
 const AtlasStewardView = React.lazy(() => import('./components/steward/AtlasStewardView').then(m => ({ default: m.AtlasStewardView })));
@@ -339,9 +342,10 @@ export default function App() {
                       <ConfirmationProvider>
                         <BioregionalHazardProvider>
                           <AdaptiveModeProvider>
-                            <ContextualNotificationProvider>
-                              <ThemeAndAccessSyncListener>
-                            <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
+                            <AdaptiveLightingProvider>
+                              <ContextualNotificationProvider>
+                                <ThemeAndAccessSyncListener>
+                              <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
             {/* Moral Compass Dynamic Cursor Trail */}
             <MoralCompassCursor 
               moralIntensity={94.8} 
@@ -850,6 +854,12 @@ export default function App() {
                   setSubscriptionState(getCurrentSubscription());
                 }}
               />
+
+              {/* System Health & Startup Diagnostics Error Overlay */}
+              <StartupErrorOverlay />
+
+              {/* In-App Milestone Celebrations & Achievement Badges Drawer */}
+              <AchievementCelebrationModal />
             </Suspense>
 
             {/* Real-time Render & Performance Telemetry HUD */}
@@ -860,6 +870,7 @@ export default function App() {
           </div>
         </ThemeAndAccessSyncListener>
         </ContextualNotificationProvider>
+        </AdaptiveLightingProvider>
         </AdaptiveModeProvider>
         </BioregionalHazardProvider>
         </ConfirmationProvider>

@@ -683,6 +683,311 @@ app.post("/api/sentinel/actuate-scada", async (req, res) => {
   }
 });
 
+// 1d-3. BIOREGIONAL PREDICTIVE MODEL & PRE-EVENT WARNING GENERATOR (Gemini 3.8 Flash)
+app.post("/api/gemini/hazard-predict", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { bioregionId = "all", currentAlerts = [], predictiveHorizonHours = 48 } = req.body;
+    const ai = getGemini();
+
+    if (!ai) {
+      // Deterministic realistic fallback for development / offline environment
+      const heuristicWarnings = [
+        {
+          id: `pre-evt-${Date.now()}-01`,
+          satelliteMission: "Sentinel-5P TROPOMI",
+          orbitPassNumber: 19520,
+          bioregionId: bioregionId === "all" ? "congo-peatlands" : bioregionId,
+          bioregionName: "Congo Basin Cuvette Centrale Peatlands",
+          country: "DRC / Republic of Congo",
+          coordinates: [0.35, 18.92],
+          hazardCategory: "methane_plume",
+          severity: "EXISTENTIAL",
+          title: "Pre-Event Early Warning: Soil Pyrogenic Threshold Imminent in 36h",
+          detectedDelta: "Degassing gradient +3.8 ppb/hr; water table receding toward pyrogenic flashpoint",
+          baselineValue: "1892 ppb atmospheric column",
+          currentValue: "1948 ppb accelerating plume trajectory",
+          timestamp: new Date().toISOString(),
+          timeAgo: "Predictive T - 36h",
+          confidenceScore: 97.8,
+          mitigationProtocol: "Deploy preemptive swamp weir sluices & alert Lokolama community riparian fire patrol before auto-ignition.",
+          stewardCommunity: "Central African Rainforest Commission (COMIFAC)",
+          acknowledged: false,
+          merkleHash: "0x" + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(""),
+          trendReadings: [1892, 1898, 1908, 1920, 1935, 1948, 1970],
+          trendUnit: "ppb CH4",
+          isPreEvent: true,
+          hoursToBreach: 36,
+          projectedPeakValue: "1975 ppb runaway combustion breach",
+          predictedTrajectory: "Subsurface peat drying curve accelerated by 18% due to unseasonal solar radiance deficit over northern catchment.",
+          primaryEcologicalImpact: "Atmospheric Stability",
+          ecologicalImpactTags: ["Atmospheric Stability", "Peat Degassing", "Methane Column", "Carbon Flux"]
+        },
+        {
+          id: `pre-evt-${Date.now()}-02`,
+          satelliteMission: "GRACE-FO Subsurface",
+          orbitPassNumber: 9450,
+          bioregionId: bioregionId === "all" ? "turkana-basin" : bioregionId,
+          bioregionName: "Turkana Deep Pastoralist Aquifer Basin",
+          country: "Kenya / Ethiopia",
+          coordinates: [3.25, 35.80],
+          hazardCategory: "aquifer_deficit",
+          severity: "CRITICAL",
+          title: "Pre-Event Early Warning: Piezometric Depression Cone Salinization in 48h",
+          detectedDelta: "Hydrostatic head depression expanding at 0.42 cm EWT/day into sweetwater aquifer",
+          baselineValue: "-2.1 cm annual mean anomaly",
+          currentValue: "-17.2 cm approaching -20.0 cm critical salinization barrier",
+          timestamp: new Date().toISOString(),
+          timeAgo: "Predictive T - 48h",
+          confidenceScore: 96.1,
+          mitigationProtocol: "Preemptively transition 12 deep boreholes to cyclical pulse pumping; notify pastoralist watering council.",
+          stewardCommunity: "Turkana Water Users Elders Assembly",
+          acknowledged: false,
+          merkleHash: "0x" + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(""),
+          trendReadings: [-8.4, -10.1, -12.3, -14.2, -15.8, -17.2, -21.0],
+          trendUnit: "cm EWT",
+          isPreEvent: true,
+          hoursToBreach: 48,
+          projectedPeakValue: "-21.5 cm permanent brackish transition",
+          predictedTrajectory: "Continuous diurnal drawdown from upper Lotikipi aquifer threatens irreversible mineral leaching into drinking supply.",
+          primaryEcologicalImpact: "Water Security",
+          ecologicalImpactTags: ["Water Security", "Groundwater Depletion", "Salinity Intrusion", "Agrarian Security"]
+        }
+      ];
+
+      return res.json({
+        success: true,
+        mode: "deterministic_predictive_fallback",
+        predictiveHorizonHours,
+        preEventWarnings: heuristicWarnings,
+        aiSynthesis: "Predictive environmental trend model analyzed multi-spectral telemetry trends. Two high-velocity pre-event thresholds detected before physical boundary breach.",
+        latencyMs: Date.now() - startTime,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const prompt = `You are ATLAS BIOREGIONAL PREDICTOR, an advanced ecological early-warning AI model powered by Gemini.
+Analyze the following active environmental telemetry & historical alert context:
+Bioregion Filter: "${bioregionId}"
+Forecast Horizon: ${predictiveHorizonHours} hours
+Active Alerts & Trends: ${JSON.stringify(currentAlerts.slice(0, 5))}
+
+Task:
+Analyze multi-spectral trajectories (temperature radiance, moisture drawdown, methane degassing rates, soil moisture stress, and piezometric aquifer decline).
+Proactively generate 2 to 3 high-fidelity 'pre-event' alert warnings that alert environmental stewards BEFORE a critical physical threshold is breached.
+
+Return a JSON object matching this schema exactly:
+{
+  "aiSynthesis": "Detailed synthesis explaining the thermodynamic/ecological mechanics driving these impending breaches...",
+  "preEventWarnings": [
+    {
+      "id": "pre-evt-unique-id",
+      "satelliteMission": "Sentinel-2B MSI" | "Landsat-9 TIRS" | "GRACE-FO Subsurface" | "Sentinel-5P TROPOMI" | "Sentinel-1 C-SAR" | "ECOSTRESS ISS",
+      "orbitPassNumber": number,
+      "bioregionId": string,
+      "bioregionName": string,
+      "country": string,
+      "coordinates": [number, number],
+      "hazardCategory": "thermal_fire" | "aquifer_deficit" | "canopy_stress" | "methane_plume" | "siltation_surge",
+      "severity": "EXISTENTIAL" | "CRITICAL" | "WARNING" | "ADVISORY",
+      "title": "Pre-Event Early Warning: [Specific Mechanism & Threat]",
+      "detectedDelta": "Rate of change and trajectory explanation...",
+      "baselineValue": "Historical baseline value with unit",
+      "currentValue": "Current accelerating telemetry value with unit",
+      "projectedPeakValue": "Projected breach value if unmitigated",
+      "hoursToBreach": number,
+      "predictedTrajectory": "Physical explanation of trend acceleration...",
+      "confidenceScore": number (85 - 99.5),
+      "mitigationProtocol": "Concrete proactive stewardship intervention before breach...",
+      "stewardCommunity": "Local community or indigenous ranger group",
+      "trendReadings": [number, number, number, number, number, number, number],
+      "trendUnit": "unit string",
+      "primaryEcologicalImpact": "Water Security" | "Biodiversity" | "Soil Integrity" | "Atmospheric Stability" | "Agrarian Security",
+      "ecologicalImpactTags": ["tag1", "tag2", "tag3"]
+    }
+  ]
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.2,
+      }
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    const warnings = (parsed.preEventWarnings || []).map((w: any, idx: number) => ({
+      ...w,
+      id: w.id || `pre-evt-${Date.now()}-${idx}`,
+      isPreEvent: true,
+      timeAgo: `Predictive T - ${w.hoursToBreach || 24}h`,
+      timestamp: new Date().toISOString(),
+      acknowledged: false,
+      merkleHash: "0x" + Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join(""),
+    }));
+
+    aiTelemetryState.totalRequests++;
+    aiTelemetryState.successfulRequests++;
+
+    return res.json({
+      success: true,
+      mode: "gemini_3.8_flash_predictive",
+      predictiveHorizonHours,
+      aiSynthesis: parsed.aiSynthesis || "Gemini predictive trend analysis synthesized proactive early-warning threshold envelopes.",
+      preEventWarnings: warnings,
+      latencyMs: Date.now() - startTime,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    aiTelemetryState.failedRequests++;
+    console.error("Hazard prediction error:", error);
+    return res.status(500).json({ error: error.message || "Failed to generate predictive hazard alert warnings" });
+  }
+});
+
+// 1d-4. DOWNSTREAM INFRASTRUCTURE IMPACT FORECASTER (Gemini 3.8 Flash)
+app.post("/api/gemini/hazard-forecast", async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { alert } = req.body;
+    if (!alert) {
+      return res.status(400).json({ error: "Hazard alert data is required" });
+    }
+
+    const ai = getGemini();
+
+    if (!ai) {
+      // Deterministic high-fidelity fallback for offline / dev
+      return res.json({
+        success: true,
+        mode: "deterministic_infrastructure_fallback",
+        hazardId: alert.id,
+        hazardTitle: alert.title,
+        bioregionName: alert.bioregionName,
+        overallVulnerabilityScore: alert.severity === "EXISTENTIAL" ? 94 : alert.severity === "CRITICAL" ? 82 : 64,
+        cascadingTimeline: {
+          immediate: "0-6 Hours: Thermal radiative stress and particulate dispersion trigger automated shutdowns of high-voltage transmission interconnects and primary water intake filtration pumps within 15km radius.",
+          shortTerm: "12-48 Hours: Upstream hydraulic sediment surge threatens to choke irrigation bypass weirs; localized transport bridges suffer scour risk; emergency water supply reserves reduced by 40%.",
+          mediumTerm: "3-7 Days: Extended agricultural supply chain severance; soil moisture drawdown impedes post-event revegetation; potential grid load-shedding across 4 district cooperatives."
+        },
+        affectedInfrastructure: [
+          {
+            facilityName: `${alert.bioregionName.split(" ")[0]} Riparian Intake & Water Purification Plant`,
+            type: "water",
+            impactLevel: "SEVERE",
+            estimatedDowntimeHours: 36,
+            vulnerabilityMechanism: "Fine colloid siltation and chemical sediment backscatter clog micro-strainer membranes, inducing high cavitation risk in main lift pumps.",
+            mitigationSafeguard: "Activate automated multi-port swirl chamber bypass; switch intake to subterranean alluvial infiltration wells."
+          },
+          {
+            facilityName: "Transboundary Regional Power Distribution Substation 132kV",
+            type: "energy",
+            impactLevel: alert.hazardCategory === "thermal_fire" ? "SEVERE" : "MODERATE",
+            estimatedDowntimeHours: 18,
+            vulnerabilityMechanism: "Air ionization from thermal particulate plumes induces phase-to-ground flashover risk across insulator strings.",
+            mitigationSafeguard: "Isolate western transmission feeder; divert base-load through southern decentralized microgrid batteries."
+          },
+          {
+            facilityName: "Cooperative Grain Silos & Cold Storage Depot",
+            type: "agriculture",
+            impactLevel: "MODERATE",
+            estimatedDowntimeHours: 24,
+            vulnerabilityMechanism: "Microclimate thermal surge strains compressor refrigeration cooling circuits, risking post-harvest seed spoilage.",
+            mitigationSafeguard: "Activate thermal shading louvers and switch refrigeration plant to auxiliary thermal-storage glycol reserve."
+          },
+          {
+            facilityName: "Riparian Highway Access Bridge & Floodplain Causeway",
+            type: "transport",
+            impactLevel: alert.hazardCategory === "siltation_surge" ? "SEVERE" : "LOW",
+            estimatedDowntimeHours: 12,
+            vulnerabilityMechanism: "Turbulent hydrodynamic shear and alluvial bed scour degrade southern approach embankment stability.",
+            mitigationSafeguard: "Deploy modular gabion stone mattresses; impose single-lane axle-load speed limits."
+          }
+        ],
+        estimatedEconomicExposure: "$380,000 - $650,000 USD localized civil and infrastructural risk exposure",
+        emergencyInfrastructureProtocols: [
+          "Engage SCADA emergency override protocols on all downstream weir gates.",
+          "Dispatch drone acoustic inspection team to check substation transformer insulator bushings.",
+          "Issue automated water conservation notice to municipal and community treatment reservoirs."
+        ],
+        reasoningSummary: `Gemini Engineering Analysis: The detected ${alert.hazardCategory} anomaly (${alert.detectedDelta}) presents direct structural exposure to public utilities situated downstream within the hydrological and thermal dispersion cone of ${alert.bioregionName}. Preemptive physical isolation is strongly recommended.`,
+        latencyMs: Date.now() - startTime,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const prompt = `You are ATLAS INFRASTRUCTURE IMPACT FORECASTER, a civil engineering, hydrological, and critical infrastructure reasoning engine powered by Gemini.
+Analyze the downstream cascading consequences of this environmental hazard:
+Alert Title: "${alert.title}"
+Category: "${alert.hazardCategory}"
+Severity: "${alert.severity}"
+Bioregion: "${alert.bioregionName} (${alert.country})"
+Coordinates: [${alert.coordinates[0]}, ${alert.coordinates[1]}]
+Detected Delta: "${alert.detectedDelta}"
+Baseline vs Current: "${alert.baselineValue}" -> "${alert.currentValue}"
+
+Task:
+Simulate and predict the direct and cascading physical impacts on local physical, civil, municipal, and energy infrastructure (water filtration, irrigation canals, power transmission lines, roads/bridges, grain storage, local clinics).
+
+Return a JSON object matching this schema exactly:
+{
+  "overallVulnerabilityScore": number (0 - 100),
+  "cascadingTimeline": {
+    "immediate": "0-6 Hours: direct immediate impacts...",
+    "shortTerm": "12-48 Hours: secondary infrastructure disruption...",
+    "mediumTerm": "3-7 Days: systemic economic/social downstream effects..."
+  },
+  "affectedInfrastructure": [
+    {
+      "facilityName": "Specific infrastructure facility name...",
+      "type": "water" | "energy" | "transport" | "telecom" | "agriculture" | "healthcare",
+      "impactLevel": "SEVERE" | "MODERATE" | "LOW",
+      "estimatedDowntimeHours": number,
+      "vulnerabilityMechanism": "Exact physical/mechanical failure mechanism...",
+      "mitigationSafeguard": "Concrete engineering or operational safeguard..."
+    }
+  ],
+  "estimatedEconomicExposure": "Dollar estimate and description of exposure...",
+  "emergencyInfrastructureProtocols": [
+    "Protocol 1...",
+    "Protocol 2...",
+    "Protocol 3..."
+  ],
+  "reasoningSummary": "2-3 sentence engineering synthesis of cascading risks..."
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.2,
+      }
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    aiTelemetryState.totalRequests++;
+    aiTelemetryState.successfulRequests++;
+
+    return res.json({
+      success: true,
+      mode: "gemini_3.8_flash_forecast",
+      hazardId: alert.id,
+      hazardTitle: alert.title,
+      bioregionName: alert.bioregionName,
+      ...parsed,
+      latencyMs: Date.now() - startTime,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    aiTelemetryState.failedRequests++;
+    console.error("Infrastructure forecast error:", error);
+    return res.status(500).json({ error: error.message || "Failed to forecast infrastructure downstream impact" });
+  }
+});
+
 // 1e. AI SYSTEM TELEMETRY & OBSERVABILITY METRICS API
 app.get("/api/ai/telemetry", (req, res) => {
   const mem = process.memoryUsage();
@@ -1830,6 +2135,10 @@ async function startServer() {
   // Setup WebSocket proxy for Gemini Live API
   const wss = new WebSocketServer({ server, path: "/ws/live" });
 
+  wss.on("error", (err) => {
+    console.error("WebSocket server error:", err);
+  });
+
   wss.on("connection", (clientWs: WebSocket) => {
     console.log("WebSocket client connected for Live Voice API");
     const apiKey = process.env.GEMINI_API_KEY;
@@ -2563,7 +2872,10 @@ async function startServer() {
   // Vite middleware / SPA fallback
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === "true" ? false : undefined,
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -2574,6 +2886,22 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  server.on("error", (err: any) => {
+    if (err.code === "EADDRINUSE") {
+      console.error("\n=======================================================================");
+      console.error(`  [EXPRESS SERVER ERROR] Port ${PORT} is already in use (EADDRINUSE)`);
+      console.error("=======================================================================");
+      console.error("  Actionable Troubleshooting Steps:");
+      console.error(`  1. Check for running processes on port ${PORT}: lsof -i :${PORT} or fuser ${PORT}/tcp`);
+      console.error(`  2. Terminate the blocking process: kill -9 <PID> or fuser -k ${PORT}/tcp`);
+      console.error("  3. Ensure no parallel dev servers are attempting to bind port 3000 simultaneously.");
+      console.error("  4. In Cloud Run / AI Studio, trigger a server restart using the dev server manager.");
+      console.error("=======================================================================\n");
+    } else {
+      console.error("[SERVER] Server runtime error:", err);
+    }
+  });
 
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Atlas Sanctum Intelligence Core & Multimodal Studio listening on port ${PORT}`);

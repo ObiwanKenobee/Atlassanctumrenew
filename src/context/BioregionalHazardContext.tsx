@@ -560,3 +560,5 @@ export const useBioregionalHazard = () => {
   }
   return context;
 };
+
+export const useBioregionalHazards = useBioregionalHazard;
