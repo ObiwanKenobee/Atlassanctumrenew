@@ -13,7 +13,7 @@ import {
   ExternalLink,
   ChevronRight
 } from 'lucide-react';
-import { SatelliteHazardAlert } from '../../data/bioregionalHazardsData';
+import { SatelliteHazardAlert } from './BioregionalHazardMonitor';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 interface EpistemicExplanationModalProps {
@@ -31,7 +31,8 @@ export const EpistemicExplanationModal: React.FC<EpistemicExplanationModalProps>
 
   // Derive weights and sensor factors based on category
   const getEpistemicFactors = () => {
-    switch (alert.hazardCategory) {
+    switch (alert.hazardCategory as string) {
+      case 'thermal_fire':
       case 'wildfire':
         return [
           { name: 'Thermal Radiative Power (VIIRS 375m / MODIS Band 21)', weight: 42, rawValue: '48.2 MW/km²', contribution: 38.6 },
@@ -39,6 +40,7 @@ export const EpistemicExplanationModal: React.FC<EpistemicExplanationModalProps>
           { name: 'Atmospheric Wind Vector & Vapor Deficit', weight: 18, rawValue: '34 km/h gusts', contribution: 16.1 },
           { name: 'Historical Fuel Load & Micro-weather Anomaly', weight: 12, rawValue: '14yr biomass accumulation', contribution: 11.1 }
         ];
+      case 'aquifer_deficit':
       case 'drought':
         return [
           { name: 'GRACE-FO Terrestrial Water Storage Anomaly', weight: 38, rawValue: '-14.8 cm EWT', contribution: 34.2 },
@@ -46,19 +48,28 @@ export const EpistemicExplanationModal: React.FC<EpistemicExplanationModalProps>
           { name: 'Evapotranspiration Stress Index (ALEXI)', weight: 20, rawValue: '88th percentile stress', contribution: 18.2 },
           { name: 'Pastoralist Waterpoint Borehole Pressure Drop', weight: 10, rawValue: '-2.4 bar', contribution: 9.1 }
         ];
+      case 'siltation_surge':
       case 'flooding':
         return [
           { name: 'Sentinel-1 SAR Dual-Pol Water Inundation Extent', weight: 45, rawValue: '3,840 ha flooded', contribution: 41.2 },
-          { name: 'Upstream River Gauge Surge Rate (Mara Sondu)', weight: 30, rawValue: '+4.2 m/hr surge', contribution: 28.0 },
+          { name: 'Upstream River Gauge Surge Rate (Sondu Catchment)', weight: 30, rawValue: '+4.2 m/hr surge', contribution: 28.0 },
           { name: 'Soil Saturation Index (SMAP Passive Microwave)', weight: 15, rawValue: '96% field capacity', contribution: 14.4 },
           { name: 'Digital Elevation Model Runoff Velocity (Copernicus DEM)', weight: 10, rawValue: '1.8 m/s velocity', contribution: 9.4 }
         ];
+      case 'canopy_stress':
       case 'deforestation':
         return [
           { name: 'Sentinel-2 MSI 10m Canopy Disruption (GLAD Alert)', weight: 40, rawValue: '28 ha cleared in 72h', contribution: 37.0 },
           { name: 'Bioacoustic Chainsaw Frequency Anomaly (Acoustic Node #7)', weight: 30, rawValue: '4.2 kHz sustained waveform', contribution: 28.5 },
           { name: 'Thermal Road Cutting Sentinel Trace', weight: 20, rawValue: '1.8 km new intrusion track', contribution: 18.0 },
           { name: 'Customary Elder FPIC Perimeter Violation Flag', weight: 10, rawValue: 'Within sacred grove buffer', contribution: 9.5 }
+        ];
+      case 'methane_plume':
+        return [
+          { name: 'Sentinel-5P TROPOMI Column Averaged CH₄', weight: 45, rawValue: '1,920 ppb spike (+310 ppb)', contribution: 42.0 },
+          { name: 'EMIT Hyperspectral Methane Point Source Swath', weight: 30, rawValue: '620 kg/hr source rate', contribution: 28.0 },
+          { name: 'Micro-Meteorological Boundary Layer Inversion', weight: 15, rawValue: 'Thermal inversion at 850 hPa', contribution: 14.2 },
+          { name: 'Ground Gas Chromatograph Attestation', weight: 10, rawValue: '2 nodes concordant', contribution: 9.8 }
         ];
       default:
         return [
@@ -94,7 +105,7 @@ export const EpistemicExplanationModal: React.FC<EpistemicExplanationModalProps>
                 </span>
               </div>
               <h3 className="text-sm font-serif font-bold text-white mt-0.5">
-                {alert.name}
+                {alert.title || (alert as any).name}
               </h3>
             </div>
           </div>

@@ -17,7 +17,8 @@ import {
   AlertTriangle, 
   Radio, 
   LineChart as LineChartIcon,
-  MessageSquareShare
+  MessageSquareShare,
+  Users
 } from 'lucide-react';
 import { INTELLIGENCE_LAYERS, CIVILIZATION_METRICS, SAMPLE_PROVENANCE } from '../../data/mockCivilizationData';
 import { CivilizationMetric } from '../../types';
@@ -28,6 +29,8 @@ import { KnowledgeGraphStudio } from '../intelligence/KnowledgeGraphStudio';
 import { BioregionalHazardMonitor } from '../bioregional/BioregionalHazardMonitor';
 import { BioregionalImpactD3Map } from '../bioregional/BioregionalImpactD3Map';
 import { CommunityImpactFeed } from '../bioregional/CommunityImpactFeed';
+import { CollaborativeStewardshipTeams } from '../profile/CollaborativeStewardshipTeams';
+import { ImpactStoryGenerator } from '../profile/ImpactStoryGenerator';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 interface ImpactDashboardViewProps {
@@ -41,7 +44,7 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
 }) => {
   const [selectedLayerId, setSelectedLayerId] = useState<string>('flourishing-os');
   const [selectedMetric, setSelectedMetric] = useState<CivilizationMetric>(CIVILIZATION_METRICS[0]);
-  const [activeTab, setActiveTab] = useState<'community-feed' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor'>('restoration-mesh');
+  const [activeTab, setActiveTab] = useState<'community-feed' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story'>('restoration-mesh');
 
   const activeLayer = INTELLIGENCE_LAYERS.find(l => l.id === selectedLayerId) || INTELLIGENCE_LAYERS[0];
   const layerMetrics = CIVILIZATION_METRICS;
@@ -204,6 +207,36 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           >
             <Layers className="w-3.5 h-3.5" />
             <span>Epistemic Matrix Grid</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('collaborative-teams');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'collaborative-teams'
+                ? 'bg-[#C5A059] text-black shadow-md'
+                : 'bg-[#141414] text-[#F5F5F0]/70 hover:text-white border border-[#F5F5F0]/10'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Collaborative Teams</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('impact-story');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'impact-story'
+                ? 'bg-[#C5A059] text-black shadow-md'
+                : 'bg-[#141414] text-[#F5F5F0]/70 hover:text-white border border-[#F5F5F0]/10'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Impact Story Generator</span>
           </button>
         </div>
 
@@ -419,6 +452,29 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Primary Tab: Collaborative Stewardship Teams & Shared Badges */}
+      {activeTab === 'collaborative-teams' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <CollaborativeStewardshipTeams />
+        </div>
+      )}
+
+      {/* Primary Tab: Automated Impact Story Generator */}
+      {activeTab === 'impact-story' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <ImpactStoryGenerator 
+            stewardName="Amani Kiprono"
+            reputationPoints={18450}
+            verifiedAuditsSigned={34}
+            earnedBadgeCount={8}
+            hectaresRestored={420}
+            litersProtectedMillions={18.4}
+            carbonSequesteredTons={620}
+            streakDays={14}
+          />
         </div>
       )}
     </div>

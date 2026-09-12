@@ -30,7 +30,8 @@ import {
   FileText,
   ArrowLeftRight,
   TrendingUp,
-  Cpu
+  Cpu,
+  Brain
 } from 'lucide-react';
 import { useBioregionalHazards } from '../../context/BioregionalHazardContext';
 import { audioFeedback } from '../../lib/audioFeedback';
@@ -46,6 +47,8 @@ import { DownloadReportModal } from './DownloadReportModal';
 import { CompareHazardsModal } from './CompareHazardsModal';
 import { ForecastImpactModal } from './ForecastImpactModal';
 import { PredictiveHazardModelModal } from './PredictiveHazardModelModal';
+import { EpistemicExplanationModal } from './EpistemicExplanationModal';
+import { EpistemicScoreTooltip } from './EpistemicScoreTooltip';
 import { BioregionalPredictiveSearch, GeographicalBioregion } from './BioregionalPredictiveSearch';
 import { HazardSeverityDistributionChart } from './HazardSeverityDistributionChart';
 import { StewardshipStreakWidget } from './StewardshipStreakWidget';
@@ -533,6 +536,8 @@ export const BioregionalHazardMonitor: React.FC<BioregionalHazardMonitorProps> =
   const [isForecastOpen, setIsForecastOpen] = useState<boolean>(false);
   const [forecastTargetAlert, setForecastTargetAlert] = useState<SatelliteHazardAlert | null>(null);
   const [isPredictiveModelOpen, setIsPredictiveModelOpen] = useState<boolean>(false);
+  const [isEpistemicOpen, setIsEpistemicOpen] = useState<boolean>(false);
+  const [epistemicAlert, setEpistemicAlert] = useState<SatelliteHazardAlert | null>(null);
 
   // Notification Preferences State (Persisted in localStorage)
   const [preferences, setPreferences] = useState<HazardNotificationPreferences>(() => {
@@ -558,10 +563,71 @@ export const BioregionalHazardMonitor: React.FC<BioregionalHazardMonitorProps> =
   const [syncCountdown, setSyncCountdown] = useState<number>(30);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
+  // Viewport bounds for satellite telemetry ingestion
+  const [viewportBounds, setViewportBounds] = useState<{ minLat: number; maxLat: number; minLng: number; maxLng: number }>({
+    minLat: -15.0,
+    maxLat: 15.0,
+    minLng: 10.0,
+    maxLng: 52.0
+  });
+  const [isSatelliteTelemetryOnline, setIsSatelliteTelemetryOnline] = useState<boolean>(true);
+  const [satelliteTelemetryCount, setSatelliteTelemetryCount] = useState<number>(0);
+
+  // Fetch real-time satellite telemetry for current viewport
+  const fetchViewportTelemetry = async (bounds = viewportBounds, cat = filterCategory) => {
+    try {
+      const categoryParam = cat === 'ALL' ? 'all' : cat;
+      const res = await fetch(`/api/satellite/viewport-telemetry?minLat=${bounds.minLat}&maxLat=${bounds.maxLat}&minLng=${bounds.minLng}&maxLng=${bounds.maxLng}&category=${categoryParam}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.alerts)) {
+        setIsSatelliteTelemetryOnline(true);
+        setSatelliteTelemetryCount(data.alerts.length);
+        setAlerts(prev => {
+          const prevMap = new Map(prev.map(a => [a.id, a]));
+          data.alerts.forEach((alert: SatelliteHazardAlert) => {
+            prevMap.set(alert.id, {
+              ...alert,
+              // Normalize hazard categories for UI compatibility
+              hazardCategory: ((alert as any).hazardCategory === 'wildfire' ? 'thermal_fire' :
+                               (alert as any).hazardCategory === 'flood' ? 'siltation_surge' :
+                               (alert as any).hazardCategory === 'deforestation' ? 'canopy_stress' :
+                               alert.hazardCategory) as any
+            });
+          });
+          return Array.from(prevMap.values());
+        });
+      }
+    } catch (err) {
+      console.warn('Satellite viewport telemetry fetch error:', err);
+    }
+  };
+
+  // Initial fetch and category change fetch
+  useEffect(() => {
+    fetchViewportTelemetry(viewportBounds, filterCategory);
+  }, [filterCategory]);
+
+  // Listen to viewport changes from D3 Map
+  useEffect(() => {
+    const handleViewportChange = (e: any) => {
+      if (e.detail?.bounds) {
+        setViewportBounds(e.detail.bounds);
+        fetchViewportTelemetry(e.detail.bounds, filterCategory);
+      }
+    };
+    window.addEventListener('hazard-map-viewport-changed', handleViewportChange);
+    return () => {
+      window.removeEventListener('hazard-map-viewport-changed', handleViewportChange);
+    };
+  }, [filterCategory]);
+
   // Trigger telemetry refresh
   const handleTriggerTelemetrySync = () => {
     setIsSyncing(true);
     setLastSyncTime(new Date());
+
+    // Fetch fresh live satellite passes
+    fetchViewportTelemetry(viewportBounds, filterCategory);
 
     // Live sensor update simulation: micro-jitter on values
     setAlerts(prev => prev.map(a => {
@@ -872,6 +938,12 @@ export const BioregionalHazardMonitor: React.FC<BioregionalHazardMonitorProps> =
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-400 font-bold">
                 ORBITAL TELEMETRY
               </span>
+              {satelliteTelemetryCount > 0 && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  VIIRS/Sentinel Ingest: {satelliteTelemetryCount} active
+                </span>
+              )}
             </div>
             <p className="text-xs text-[#F5F5F0]/60 font-sans">
               Real-time satellite-driven environmental alerts, chronologic hazard feed & planetary telemetry
@@ -1120,6 +1192,10 @@ export const BioregionalHazardMonitor: React.FC<BioregionalHazardMonitorProps> =
             setIsCompareOpen(true);
           }}
           onOpenPredictiveModel={() => setIsPredictiveModelOpen(true)}
+          onEpistemicExplain={(alert) => {
+            setEpistemicAlert(alert);
+            setIsEpistemicOpen(true);
+          }}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
@@ -1171,7 +1247,16 @@ export const BioregionalHazardMonitor: React.FC<BioregionalHazardMonitorProps> =
                     <div className="flex items-start justify-between gap-3 border-b border-[#1B3022] pb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          {getSeverityBadge(selectedAlert.severity)}
+                          <EpistemicScoreTooltip
+                            alert={selectedAlert}
+                            onOpenFullExplanation={(a) => {
+                              setEpistemicAlert(a);
+                              setIsEpistemicOpen(true);
+                            }}
+                            position="bottom"
+                          >
+                            {getSeverityBadge(selectedAlert.severity)}
+                          </EpistemicScoreTooltip>
                           <span className="text-xs font-mono text-[#C5A059]">
                             {selectedAlert.satelliteMission}
                           </span>
@@ -1186,12 +1271,24 @@ export const BioregionalHazardMonitor: React.FC<BioregionalHazardMonitorProps> =
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0">
-                        <div className="text-[10px] font-mono text-[#F5F5F0]/40 uppercase">Epistemic Certainty</div>
-                        <div className="text-base font-mono font-bold text-emerald-400">
-                          {selectedAlert.confidenceScore}%
+                      <EpistemicScoreTooltip
+                        alert={selectedAlert}
+                        onOpenFullExplanation={(a) => {
+                          setEpistemicAlert(a);
+                          setIsEpistemicOpen(true);
+                        }}
+                        position="left"
+                      >
+                        <div className="text-right shrink-0 p-1.5 rounded-lg bg-black/40 border border-emerald-500/20 hover:border-emerald-500/50 transition-colors">
+                          <div className="text-[10px] font-mono text-[#F5F5F0]/40 uppercase flex items-center gap-1 justify-end">
+                            <span>Epistemic Certainty</span>
+                            <span className="text-[9px] text-[#C5A059]">ℹ</span>
+                          </div>
+                          <div className="text-base font-mono font-bold text-emerald-400">
+                            {selectedAlert.confidenceScore}%
+                          </div>
                         </div>
-                      </div>
+                      </EpistemicScoreTooltip>
                     </div>
 
                     {/* Spectral & Telemetry Analysis Block */}
@@ -1283,6 +1380,20 @@ export const BioregionalHazardMonitor: React.FC<BioregionalHazardMonitorProps> =
                       >
                         <ArrowLeftRight className="w-3.5 h-3.5 text-blue-300" />
                         <span>Compare</span>
+                      </button>
+
+                      {/* Epistemic AI Explain Button */}
+                      <button
+                        onClick={() => {
+                          audioFeedback.playMicroTick();
+                          setEpistemicAlert(selectedAlert);
+                          setIsEpistemicOpen(true);
+                        }}
+                        className="px-3 py-1.5 bg-[#171408] hover:bg-[#25200C] border border-[#C5A059]/50 text-[#C5A059] rounded-lg text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        title="Inspect Epistemic AI Explanation: View Bayesian sensor weights, mathematical formula, and AI provenance"
+                      >
+                        <Brain className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Epistemic AI Explain</span>
                       </button>
 
                       {!selectedAlert.acknowledged ? (
@@ -1451,6 +1562,16 @@ export const BioregionalHazardMonitor: React.FC<BioregionalHazardMonitorProps> =
           setSelectedAlert(newAlert);
           setTargetMapCoordinates(newAlert.coordinates);
         }}
+      />
+
+      {/* Epistemic Explanation & AI Provenance Modal */}
+      <EpistemicExplanationModal
+        isOpen={isEpistemicOpen}
+        onClose={() => {
+          setIsEpistemicOpen(false);
+          setEpistemicAlert(null);
+        }}
+        alert={epistemicAlert || selectedAlert}
       />
     </div>
   );

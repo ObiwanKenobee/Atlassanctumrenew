@@ -24,7 +24,8 @@ import {
   Mountain,
   Eye,
   SlidersHorizontal,
-  Thermometer
+  Thermometer,
+  Brain
 } from 'lucide-react';
 import { SatelliteHazardAlert } from './BioregionalHazardMonitor';
 import { audioFeedback } from '../../lib/audioFeedback';
@@ -359,11 +360,25 @@ export const BioregionalHazardD3Map: React.FC<BioregionalHazardD3MapProps> = ({
   // 8. Regenerative Potential & What-If Restoration State
   const [isRegenPotentialLayerActive, setIsRegenPotentialLayerActive] = useState<boolean>(true);
   const [selectedRegenZone, setSelectedRegenZone] = useState<RegenerativeInterventionZone | null>(null);
+  const [geminiHeatmapGrid, setGeminiHeatmapGrid] = useState<any[]>([]);
   const [whatIfScenario, setWhatIfScenario] = useState<WhatIfScenarioState>({
     interventionIntensity: 75,
     activeStrategy: 'holistic',
     simulatedHorizonYear: 2028
   });
+
+  // Listen to Gemini predictive heatmap updates
+  useEffect(() => {
+    const handleGeminiGrid = (e: any) => {
+      if (Array.isArray(e.detail?.grid)) {
+        setGeminiHeatmapGrid(e.detail.grid);
+      }
+    };
+    window.addEventListener('gemini-heatmap-grid-updated', handleGeminiGrid);
+    return () => {
+      window.removeEventListener('gemini-heatmap-grid-updated', handleGeminiGrid);
+    };
+  }, []);
 
   // Keep focus in sync with prop changes
   useEffect(() => {
@@ -1087,6 +1102,34 @@ export const BioregionalHazardD3Map: React.FC<BioregionalHazardD3MapProps> = ({
           panOrZoomToCoordinates(zone.coordinates[0], zone.coordinates[1]);
         });
       });
+
+      // Layer 6B: Gemini Predictive Overlay Heatmap Grid
+      if (geminiHeatmapGrid && geminiHeatmapGrid.length > 0) {
+        const geminiGroup = regenGroup.append('g').attr('class', 'gemini-predictive-grid-group');
+        geminiHeatmapGrid.forEach((cell, idx) => {
+          const pt = projection([cell.lng, cell.lat]);
+          if (!pt) return;
+          const [px, py] = pt;
+
+          const cellGroup = geminiGroup.append('g')
+            .attr('class', `gemini-cell-${idx}`)
+            .attr('transform', `translate(${px}, ${py})`);
+
+          // Soft recovery glow
+          cellGroup.append('circle')
+            .attr('r', Math.max(8, (cell.radiusKm || 12) / 1.5))
+            .attr('fill', '#10B981')
+            .attr('opacity', Math.min(0.65, (cell.recoveryIntensity || 50) / 130))
+            .attr('filter', 'url(#hazard-glow)');
+
+          // Micro beacon point
+          cellGroup.append('circle')
+            .attr('r', 3)
+            .attr('fill', '#34D399')
+            .attr('stroke', '#064E3B')
+            .attr('stroke-width', 0.8);
+        });
+      }
     }
 
     if (selectedAlert && !targetCoordinates) {
@@ -1106,7 +1149,8 @@ export const BioregionalHazardD3Map: React.FC<BioregionalHazardD3MapProps> = ({
     selectedEcoZoneId,
     isRegenPotentialLayerActive,
     whatIfScenario,
-    selectedRegenZone
+    selectedRegenZone,
+    geminiHeatmapGrid
   ]);
 
   // Global Continuous Cinematic Rotation Animation Loop
@@ -1784,6 +1828,59 @@ export const BioregionalHazardD3Map: React.FC<BioregionalHazardD3MapProps> = ({
           <div className="text-[9px] text-[#C5A059]/80 pt-1 border-t border-white/10 flex justify-between">
             <span>{hoveredCluster.historicalEventsCount} recorded breaches</span>
             <span>Radius: {hoveredCluster.radiusKm}km</span>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Context-Sensitive Epistemic Explanation Tooltip on Map Hazard Hover */}
+      {hoveredAlert && (
+        <div className="absolute top-14 right-16 max-w-[320px] p-3 rounded-xl bg-[#080E0A]/95 backdrop-blur-xl border border-[#C5A059]/60 shadow-2xl text-xs font-mono space-y-2 pointer-events-auto z-30 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between pb-1.5 border-b border-[#1B3022]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-5 h-5 rounded bg-[#C5A059]/20 border border-[#C5A059]/40 flex items-center justify-center">
+                <Brain className="w-3 h-3 text-[#C5A059]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
+                  Epistemic Explanation
+                </span>
+                <div className="text-[8px] text-white/50">AI Hazard Score Deconstruction</div>
+              </div>
+            </div>
+            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+              hoveredAlert.severity === 'EXISTENTIAL'
+                ? 'bg-rose-950 border-rose-600 text-rose-200'
+                : hoveredAlert.severity === 'CRITICAL'
+                ? 'bg-rose-950/80 border-rose-500/40 text-rose-300'
+                : 'bg-amber-950/80 border-amber-500/40 text-amber-300'
+            }`}>
+              {hoveredAlert.severity === 'EXISTENTIAL' ? 'Score: 98/100' : hoveredAlert.severity === 'CRITICAL' ? 'Score: 88/100' : 'Score: 68/100'}
+            </span>
+          </div>
+
+          <div className="text-white font-serif font-bold text-xs leading-snug">
+            {hoveredAlert.title}
+          </div>
+
+          {/* Epistemic formula & Bayesian certainty */}
+          <div className="p-1.5 rounded-lg bg-black/60 border border-white/5 text-[8.5px] space-y-1">
+            <div className="text-white/40 uppercase">Bayesian Formula:</div>
+            <div className="text-emerald-300 font-medium">S_hazard = ∑(w_i · δ_i) × κ_vulnerability</div>
+            <div className="flex items-center justify-between text-white/60 pt-0.5">
+              <span>Certainty: <strong className="text-emerald-400">{hoveredAlert.confidenceScore.toFixed(1)}%</strong></span>
+              <span>Sensors: <strong className="text-[#C5A059]">{hoveredAlert.satelliteMission.split(' ')[0]} + In-Situ</strong></span>
+            </div>
+          </div>
+
+          <div className="text-[9px] text-[#F5F5F0]/80">
+            <span className="text-white/40">Anomaly Delta:</span> {hoveredAlert.detectedDelta}
+          </div>
+
+          <div className="pt-1.5 border-t border-white/10 flex items-center justify-between text-[8.5px]">
+            <span className="text-[#C5A059] truncate max-w-[170px]">
+              {hoveredAlert.bioregionName}
+            </span>
+            <span className="text-white/40">Click node to inspect metrics</span>
           </div>
         </div>
       )}

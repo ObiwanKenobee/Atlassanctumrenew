@@ -107,6 +107,48 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["nodeId", "tagColor"]
+    },
+    "ImpactBadge": {
+      "title": "ImpactBadge",
+      "description": "Collectible digital ecological badges earned by stewards based on verified contributions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "badgeKey": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "tier": { "type": "string", "enum": ["bronze", "silver", "gold", "platinum", "emerald"] },
+        "category": { "type": "string", "enum": ["hydrology", "carbon", "canopy", "audit", "community", "hazard_response"] },
+        "unlockedAt": { "type": "string", "format": "date-time" },
+        "criteriaMet": { "type": "string", "maxLength": 512 },
+        "proofHash": { "type": "string", "maxLength": 128 },
+        "reputationAwarded": { "type": "number" },
+        "telemetrySnapshot": { "type": "object" }
+      },
+      "required": ["userId", "badgeKey", "name", "tier", "proofHash"]
+    },
+    "StewardshipTeam": {
+      "title": "StewardshipTeam",
+      "description": "Collaborative mission-based team tracking shared bioregional goals and collective impact",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "bioregion": { "type": "string", "maxLength": 128 },
+        "missionTitle": { "type": "string", "maxLength": 256 },
+        "missionGoal": { "type": "string", "maxLength": 512 },
+        "missionTarget": { "type": "number" },
+        "missionCurrent": { "type": "number" },
+        "missionUnit": { "type": "string", "maxLength": 64 },
+        "collectiveReputation": { "type": "number" },
+        "rank": { "type": "number" },
+        "members": { "type": "array" },
+        "sharedBadges": { "type": "array" },
+        "creatorId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "bioregion", "missionTitle", "creatorId"]
     }
   },
   "firestore": {
@@ -133,6 +175,14 @@
     "/assets/{assetId}": {
       "schema": "Asset",
       "description": "Cyber-physical asset registry and live digital twin state documents"
+    },
+    "/impact_badges/{badgeId}": {
+      "schema": "ImpactBadge",
+      "description": "Collectible digital impact badges awarded to ecological stewards"
+    },
+    "/stewardship_teams/{teamId}": {
+      "schema": "StewardshipTeam",
+      "description": "Collaborative stewardship teams and collective restoration mission trackers"
     }
   }
 }

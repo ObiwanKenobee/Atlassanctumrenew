@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Layers, 
@@ -13,7 +13,11 @@ import {
   X,
   Play,
   RotateCcw,
-  Info
+  Info,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  Bot
 } from 'lucide-react';
 import { 
   REGENERATIVE_POTENTIAL_ZONES, 
@@ -25,28 +29,50 @@ import { audioFeedback } from '../../lib/audioFeedback';
 
 interface RegenerativePotentialWhatIfDockProps {
   scenario: WhatIfScenarioState;
-  onChangeScenario: (updated: WhatIfScenarioState) => void;
+  onChangeScenario?: (updated: WhatIfScenarioState) => void;
+  onScenarioChange?: (updated: WhatIfScenarioState) => void;
   selectedZone: RegenerativeInterventionZone | null;
   onSelectZone: (zone: RegenerativeInterventionZone | null) => void;
-  onFlyToCoordinates: (coords: [number, number], zoom?: number) => void;
-  isLayerActive: boolean;
-  onToggleLayer: () => void;
+  onFlyToCoordinates?: (coords: [number, number], zoom?: number) => void;
+  isLayerActive?: boolean;
+  onToggleLayer?: () => void;
+}
+
+export interface GeminiRegenPrediction {
+  restorationSuccessScore: number;
+  biomeResilienceDelta: string;
+  biomassAccumulationProjection: string;
+  waterTableRecoveryMeters: string;
+  soilOrganicMatterDelta: string;
+  scenarioNarrative: string;
+  keyRiskVectors: string[];
+  successCatalysts: string[];
+  predictedSuccessHeatmapGrid: any[];
 }
 
 export const RegenerativePotentialWhatIfDock: React.FC<RegenerativePotentialWhatIfDockProps> = ({
   scenario,
   onChangeScenario,
+  onScenarioChange,
   selectedZone,
   onSelectZone,
   onFlyToCoordinates,
-  isLayerActive,
+  isLayerActive = true,
   onToggleLayer
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [isSimulating, setIsSimulating] = useState<boolean>(false);
+  const [geminiPrediction, setGeminiPrediction] = useState<GeminiRegenPrediction | null>(null);
+  const [viewMode, setViewMode] = useState<'empirical' | 'gemini'>('empirical');
+
+  const handleUpdateScenario = (updated: WhatIfScenarioState) => {
+    if (onChangeScenario) onChangeScenario(updated);
+    if (onScenarioChange) onScenarioChange(updated);
+  };
 
   const handleIntensityChange = (val: number) => {
     audioFeedback.playMicroTick();
-    onChangeScenario({
+    handleUpdateScenario({
       ...scenario,
       interventionIntensity: val
     });
@@ -54,7 +80,7 @@ export const RegenerativePotentialWhatIfDock: React.FC<RegenerativePotentialWhat
 
   const handleStrategyChange = (strat: WhatIfScenarioState['activeStrategy']) => {
     audioFeedback.playSubtleClick();
-    onChangeScenario({
+    handleUpdateScenario({
       ...scenario,
       activeStrategy: strat
     });
@@ -62,11 +88,60 @@ export const RegenerativePotentialWhatIfDock: React.FC<RegenerativePotentialWhat
 
   const handleReset = () => {
     audioFeedback.playSubtleClick();
-    onChangeScenario({
+    handleUpdateScenario({
       interventionIntensity: 75,
       activeStrategy: 'holistic',
       simulatedHorizonYear: 2028
     });
+    setGeminiPrediction(null);
+    setViewMode('empirical');
+  };
+
+  // Run Gemini ecological restoration scenario simulation
+  const handleRunGeminiSimulation = async () => {
+    setIsSimulating(true);
+    audioFeedback.playMicroTick();
+
+    try {
+      const res = await fetch('/api/gemini/regenerative-potential', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          zoneId: selectedZone?.id || 'turkana-basin',
+          zoneName: selectedZone?.name || 'Turkana Basin & Lotikipi Aquifer',
+          coordinates: selectedZone?.coordinates || [3.5, 36.0],
+          interventionType: scenario.activeStrategy,
+          interventionLabel: selectedZone?.interventionLabel || 'Deep Riparian Swales & Native Acacia Infiltration',
+          intensityPercent: scenario.interventionIntensity,
+          horizonYears: 5,
+          localData: {
+            baselineScore: selectedZone?.baselineHazardScore || 65,
+            dataSource: selectedZone?.localDataSource || 'Copernicus & Field Sensors'
+          }
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && data.prediction) {
+        setGeminiPrediction(data.prediction);
+        setViewMode('gemini');
+        audioFeedback.playSuccessChime();
+
+        // Broadcast predictive heatmap points to D3 Map
+        if (Array.isArray(data.prediction.predictedSuccessHeatmapGrid)) {
+          window.dispatchEvent(new CustomEvent('gemini-heatmap-grid-updated', {
+            detail: {
+              grid: data.prediction.predictedSuccessHeatmapGrid,
+              zoneId: selectedZone?.id
+            }
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn('Gemini simulation call failed:', err);
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   return (
@@ -215,6 +290,77 @@ export const RegenerativePotentialWhatIfDock: React.FC<RegenerativePotentialWhat
             </div>
           </div>
 
+          {/* Gemini AI Simulation Trigger */}
+          <div className="p-2.5 rounded-lg bg-gradient-to-r from-emerald-950/60 via-[#0A160E] to-emerald-950/60 border border-emerald-500/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300">
+                <Bot className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Gemini Bioregional Simulator</span>
+              </div>
+              {geminiPrediction && (
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-900 text-emerald-300 border border-emerald-400/40 flex items-center gap-1">
+                  <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                  Score: {geminiPrediction.restorationSuccessScore}/100
+                </span>
+              )}
+            </div>
+
+            <button
+              id="run-gemini-restoration-sim-btn"
+              disabled={isSimulating}
+              onClick={handleRunGeminiSimulation}
+              className="w-full py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-emerald-950/40"
+            >
+              {isSimulating ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Modeling Hydrodynamic & Flora Dynamics...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{geminiPrediction ? 'Re-Run Gemini AI Simulation' : 'Run Gemini AI Restoration Simulation'}</span>
+                </>
+              )}
+            </button>
+
+            {/* Gemini Prediction Narrative & Details */}
+            {geminiPrediction && (
+              <div className="pt-2 border-t border-emerald-500/30 space-y-2 text-[10px] animate-in fade-in duration-200">
+                <div className="flex items-center justify-between text-[9px] font-mono text-white/50">
+                  <span>FORECAST HORIZON: 5 YRS</span>
+                  <span className="text-emerald-400">{geminiPrediction.biomeResilienceDelta}</span>
+                </div>
+                <p className="text-[11px] text-white/80 font-sans leading-relaxed bg-black/40 p-2 rounded border border-emerald-500/20">
+                  {geminiPrediction.scenarioNarrative}
+                </p>
+
+                <div className="grid grid-cols-2 gap-1.5 pt-1">
+                  <div className="p-1.5 rounded bg-black/50 border border-emerald-500/20">
+                    <span className="text-white/40 block text-[9px]">Carbon Stock Accretion:</span>
+                    <span className="text-amber-300 font-bold">{geminiPrediction.biomassAccumulationProjection}</span>
+                  </div>
+                  <div className="p-1.5 rounded bg-black/50 border border-emerald-500/20">
+                    <span className="text-white/40 block text-[9px]">Subsurface Water Gain:</span>
+                    <span className="text-cyan-300 font-bold">{geminiPrediction.waterTableRecoveryMeters}</span>
+                  </div>
+                </div>
+
+                {geminiPrediction.keyRiskVectors && geminiPrediction.keyRiskVectors.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-wider flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-amber-400" />
+                      Intervention Risk Vector:
+                    </span>
+                    <div className="text-[10px] text-white/60 bg-black/40 p-1.5 rounded border border-amber-500/20">
+                      {geminiPrediction.keyRiskVectors[0]}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Selected Intervention Zone Inspector */}
           {selectedZone ? (
             (() => {
@@ -260,7 +406,7 @@ export const RegenerativePotentialWhatIfDock: React.FC<RegenerativePotentialWhat
                     </div>
                     <div className="space-y-0.5">
                       <div className="text-white/40">Water Table Gain:</div>
-                      <div className="font-bold text-cyan-300">+{proj.projectWaterTableGain} m</div>
+                      <div className="font-bold text-cyan-300">+{proj.projectedWaterTableGain} m</div>
                     </div>
                   </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   User, 
   Award, 
@@ -39,8 +39,14 @@ import {
   INITIAL_LOCAL_KNOWLEDGE_SUBMISSIONS, 
   INITIAL_FAILURE_REVIEWS 
 } from '../../data/stewardshipReputationData';
+import { 
+  ImpactBadgeManager, 
+  CollectibleImpactBadge, 
+  ImpactActivityMetrics,
+  DEFAULT_ACTIVITY_METRICS 
+} from '../../services/ImpactBadgeManager';
 import { audioFeedback } from '../../lib/audioFeedback';
-import { db } from '../../lib/db';
+import { db, auth } from '../../lib/db';
 
 interface CitizenProfileViewProps {
   onSelectTab: (tab: PageView) => void;
@@ -148,6 +154,72 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
   const [contributionFilter, setContributionFilter] = useState<'all' | 'audits' | 'knowledge' | 'forensics'>('all');
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
   const [justEarnedBadge, setJustEarnedBadge] = useState<string | null>(null);
+  const [collectibleBadges, setCollectibleBadges] = useState<CollectibleImpactBadge[]>(() => {
+    return ImpactBadgeManager.calculateContributions({
+      hectaresRestored: 4280,
+      litersWaterProtectedMillions: 1840,
+      carbonSequesteredTons: 12450,
+      verifiedAuditsSigned: 7,
+      alertsReviewed: 98,
+      stewardshipStreakDays: 6,
+      collaborativeMissionsJoined: 1,
+      reputationPoints: 3450
+    });
+  });
+  const [badgeCategoryFilter, setBadgeCategoryFilter] = useState<'all' | 'hydrology' | 'canopy' | 'carbon' | 'audit' | 'community' | 'hazard_response'>('all');
+  const [isSyncingBadges, setIsSyncingBadges] = useState<boolean>(false);
+
+  // Subscribe to real-time collectible badges from Firestore
+  useEffect(() => {
+    const currentUserId = auth.currentUser?.uid || 'current-steward-did';
+    const metrics: ImpactActivityMetrics = {
+      hectaresRestored: profile.hectaresRestored,
+      litersWaterProtectedMillions: profile.litersProtectedMillions,
+      carbonSequesteredTons: profile.carbonSequesteredTons,
+      verifiedAuditsSigned: profile.verifiedAuditsSigned,
+      alertsReviewed: 98,
+      stewardshipStreakDays: 6,
+      collaborativeMissionsJoined: 1,
+      reputationPoints: profile.reputationPoints
+    };
+
+    const unsubscribe = ImpactBadgeManager.listenToBadges(currentUserId, metrics, (updatedBadges) => {
+      setCollectibleBadges(updatedBadges);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [profile]);
+
+  // Recalculate and evaluate all collectible badges with Firestore sync
+  const handleRecalculateBadges = async () => {
+    setIsSyncingBadges(true);
+    audioFeedback.playMicroTick();
+    const currentUserId = auth.currentUser?.uid || 'current-steward-did';
+    const metrics: ImpactActivityMetrics = {
+      hectaresRestored: profile.hectaresRestored,
+      litersWaterProtectedMillions: profile.litersProtectedMillions,
+      carbonSequesteredTons: profile.carbonSequesteredTons,
+      verifiedAuditsSigned: profile.verifiedAuditsSigned,
+      alertsReviewed: 104,
+      stewardshipStreakDays: 7,
+      collaborativeMissionsJoined: 1,
+      reputationPoints: profile.reputationPoints
+    };
+
+    try {
+      const result = await ImpactBadgeManager.evaluateAndSync(currentUserId, metrics, collectibleBadges);
+      setCollectibleBadges(result.allBadges);
+      if (result.newlyUnlocked.length > 0) {
+        setJustEarnedBadge(`Unlocked ${result.newlyUnlocked[0].name}!`);
+      }
+    } catch (err) {
+      console.warn('Recalculate badges error:', err);
+    } finally {
+      setIsSyncingBadges(false);
+    }
+  };
 
   // Execute & Claim Badge Action
   const handleExecuteAction = async (quest: RegenerativeActionQuest) => {
@@ -184,6 +256,21 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
       setQuests(updatedQuests);
       setProfile(updatedProfile);
       setJustEarnedBadge(`${quest.badgeName} (+${quest.reputationPoints} Rep)`);
+
+      // Evaluate collectible badges in ImpactBadgeManager & persist to Firestore
+      const currentUserId = auth.currentUser?.uid || 'current-steward-did';
+      const metrics: ImpactActivityMetrics = {
+        hectaresRestored: updatedProfile.hectaresRestored,
+        litersWaterProtectedMillions: updatedProfile.litersProtectedMillions,
+        carbonSequesteredTons: updatedProfile.carbonSequesteredTons,
+        verifiedAuditsSigned: updatedProfile.verifiedAuditsSigned,
+        alertsReviewed: 99,
+        stewardshipStreakDays: 6,
+        collaborativeMissionsJoined: 1,
+        reputationPoints: newRep
+      };
+
+      await ImpactBadgeManager.evaluateAndSync(currentUserId, metrics, collectibleBadges);
 
       try {
         localStorage.setItem('atlas_citizen_quests_state', JSON.stringify(updatedQuests));
@@ -494,60 +581,149 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
       {/* Tab 1: Earned Badges Catalog */}
       {activeTab === 'badges' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-0.5">
-              <h3 className="text-lg font-serif text-white font-bold">Cryptographically Verified Badges</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-serif text-white font-bold">Collectible Impact Badges</h3>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono uppercase bg-emerald-950 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Firestore Synced
+                </span>
+              </div>
               <p className="text-xs text-[#F5F5F0]/60 font-sans">
-                Each badge represents peer-reviewed physical evidence or governance contributions anchored in the Atlas immutable ledger.
+                Calculated dynamically via ImpactBadgeManager based on real-time ecological restoration telemetry, orbital reviews, and cryptographic audits.
               </p>
             </div>
-            <button
-              onClick={() => setActiveTab('actions')}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black font-mono text-xs uppercase font-bold rounded transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Earn New Badges</span>
-            </button>
+            
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleRecalculateBadges}
+                disabled={isSyncingBadges}
+                className="px-3 py-1.5 bg-[#1B3022] hover:bg-[#254530] text-[#C5A059] border border-[#C5A059]/40 font-mono text-xs uppercase font-bold rounded transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isSyncingBadges ? 'animate-spin' : ''}`} />
+                <span>{isSyncingBadges ? 'Syncing...' : 'Recalculate Badges'}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('actions')}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-black font-mono text-xs uppercase font-bold rounded transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Earn More</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {AVAILABLE_STEWARDSHIP_BADGES.map((badge) => (
-              <div 
-                key={badge.id}
-                className="p-5 rounded-sm bg-[#0D0D0D] border border-[#C5A059]/30 hover:border-[#C5A059] transition-all space-y-4 relative overflow-hidden group"
+          {/* Category Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-white/10 pb-3">
+            {[
+              { id: 'all', label: 'All Badges' },
+              { id: 'hydrology', label: 'Hydrology' },
+              { id: 'canopy', label: 'Canopy' },
+              { id: 'carbon', label: 'Carbon' },
+              { id: 'audit', label: 'Audits' },
+              { id: 'hazard_response', label: 'Hazard Response' },
+              { id: 'community', label: 'Community' }
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setBadgeCategoryFilter(cat.id as any)}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider transition-all ${
+                  badgeCategoryFilter === cat.id
+                    ? 'bg-[#C5A059] text-black font-bold shadow'
+                    : 'bg-[#111813] text-[#F5F5F0]/60 hover:text-white border border-white/5'
+                }`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="w-12 h-12 rounded-sm bg-[#1B3022] border border-[#C5A059]/50 flex items-center justify-center text-[#C5A059] shrink-0">
-                    <Award className="w-6 h-6" />
-                  </div>
-                  <div className="text-right font-mono">
-                    <span className="px-2 py-0.5 rounded text-[9px] uppercase font-bold bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/40">
-                      {badge.tier}
-                    </span>
-                    <div className="text-[10px] text-emerald-400 mt-1 font-bold">+{badge.reputationPointsValue} Rep</div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="text-[10px] font-mono text-[#F5F5F0]/40 uppercase">{badge.code}</div>
-                  <h4 className="text-base font-serif font-bold text-white">{badge.title}</h4>
-                  <p className="text-xs text-[#F5F5F0]/70 font-sans leading-relaxed">
-                    {badge.description}
-                  </p>
-                </div>
-
-                <div className="pt-2 border-t border-[#F5F5F0]/10 space-y-1 text-[10px] font-mono">
-                  <div className="flex items-center justify-between text-[#F5F5F0]/50">
-                    <span>Attestations Count:</span>
-                    <span className="text-white font-bold">{badge.attestationsCount} Peers</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[#F5F5F0]/50">
-                    <span>Minted Token:</span>
-                    <span className="text-cyan-300 font-bold">{badge.mintedTokenId}</span>
-                  </div>
-                </div>
-              </div>
+                {cat.label}
+              </button>
             ))}
+          </div>
+
+          {/* Collectible Badges Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {collectibleBadges
+              .filter(b => badgeCategoryFilter === 'all' || b.category === badgeCategoryFilter)
+              .map((badge) => {
+                const isUnlocked = badge.isUnlocked;
+                const tierColor = badge.tier === 'emerald'
+                  ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/50'
+                  : badge.tier === 'platinum'
+                  ? 'text-cyan-300 bg-cyan-950/60 border-cyan-500/50'
+                  : badge.tier === 'gold'
+                  ? 'text-amber-300 bg-amber-950/60 border-amber-500/50'
+                  : 'text-[#C5A059] bg-[#C5A059]/20 border-[#C5A059]/40';
+
+                return (
+                  <div 
+                    key={badge.id}
+                    className={`p-5 rounded-sm border transition-all space-y-4 relative overflow-hidden group ${
+                      isUnlocked 
+                        ? 'bg-[#0D0D0D] border-[#C5A059]/30 hover:border-[#C5A059]' 
+                        : 'bg-[#090D0A]/70 border-white/10 opacity-75 hover:opacity-100'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className={`w-12 h-12 rounded-sm border flex items-center justify-center shrink-0 ${
+                        isUnlocked ? 'bg-[#1B3022] border-[#C5A059]/50 text-[#C5A059]' : 'bg-[#141A16] border-white/20 text-white/40'
+                      }`}>
+                        <Award className="w-6 h-6" />
+                      </div>
+                      <div className="text-right font-mono">
+                        <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold border ${tierColor}`}>
+                          {badge.tier}
+                        </span>
+                        <div className="text-[10px] text-emerald-400 mt-1 font-bold">+{badge.reputationAwarded} Rep</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-[#F5F5F0]/40 uppercase">
+                        <span>{badge.category}</span>
+                        {isUnlocked ? (
+                          <span className="text-emerald-400 font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Unlocked
+                          </span>
+                        ) : (
+                          <span className="text-amber-400/80 font-bold">In Progress</span>
+                        )}
+                      </div>
+                      <h4 className="text-base font-serif font-bold text-white">{badge.name}</h4>
+                      <p className="text-xs text-[#F5F5F0]/70 font-sans leading-relaxed">
+                        {badge.description}
+                      </p>
+                    </div>
+
+                    {/* Progress Bar for Locked or Unlocked */}
+                    <div className="space-y-1.5 pt-1 font-mono text-[10px]">
+                      <div className="flex justify-between text-white/60">
+                        <span>Contribution Progress</span>
+                        <span className="text-white font-bold">{badge.currentProgress.toLocaleString()} / {badge.targetProgress.toLocaleString()} {badge.progressUnit}</span>
+                      </div>
+                      <div className="h-1.5 bg-black/60 rounded-full overflow-hidden border border-white/10">
+                        <div 
+                          className={`h-full transition-all duration-500 ${
+                            isUnlocked ? 'bg-gradient-to-r from-emerald-500 to-[#C5A059]' : 'bg-emerald-700/60'
+                          }`}
+                          style={{ width: `${Math.min(100, (badge.currentProgress / badge.targetProgress) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#F5F5F0]/10 space-y-1 text-[10px] font-mono">
+                      <div className="flex items-center justify-between text-[#F5F5F0]/50">
+                        <span>Criteria:</span>
+                        <span className="text-white font-medium truncate max-w-[180px]">{badge.criteriaMet}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[#F5F5F0]/50">
+                        <span>Proof Hash:</span>
+                        <span className="text-cyan-300 font-bold truncate max-w-[180px]">
+                          {badge.proofHash || 'Pending Verification'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

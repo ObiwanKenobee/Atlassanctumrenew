@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   ShieldCheck, 
@@ -19,6 +19,14 @@ import {
   Lock,
   HeartHandshake
 } from 'lucide-react';
+import { 
+  collection, 
+  doc, 
+  onSnapshot, 
+  setDoc, 
+  getDocs 
+} from 'firebase/firestore';
+import { firestoreInstance, handleFirestoreError, OperationType, auth } from '../../lib/db';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 export interface StewardshipTeamMember {
@@ -124,97 +132,191 @@ const INITIAL_TEAMS: StewardshipTeam[] = [
 ];
 
 export const CollaborativeStewardshipTeams: React.FC = () => {
-  const [teams, setTeams] = useState<StewardshipTeam[]>(() => {
-    try {
-      const saved = localStorage.getItem('atlas_stewardship_teams');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return INITIAL_TEAMS;
-  });
-
-  const [selectedTeamId, setSelectedTeamId] = useState<string>(teams[0]?.id || 'team-mara-riparian');
+  const [teams, setTeams] = useState<StewardshipTeam[]>(INITIAL_TEAMS);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('team-mara-riparian');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [newTeamName, setNewTeamName] = useState<string>('');
   const [newBioregion, setNewBioregion] = useState<string>('Upper Mara Catchment');
   const [newChallenge, setNewChallenge] = useState<string>('');
+  const [isFirestoreConnected, setIsFirestoreConnected] = useState<boolean>(false);
+
+  // Real-time Firestore sync with /stewardship_teams
+  useEffect(() => {
+    const teamsCol = collection(firestoreInstance, 'stewardship_teams');
+    const unsubscribe = onSnapshot(
+      teamsCol,
+      async (snapshot) => {
+        setIsFirestoreConnected(true);
+        if (snapshot.empty) {
+          // Seed initial teams into Firestore
+          for (const team of INITIAL_TEAMS) {
+            try {
+              await setDoc(doc(firestoreInstance, 'stewardship_teams', team.id), {
+                id: team.id,
+                name: team.name,
+                bioregion: team.bioregion,
+                missionTitle: team.challengeTitle,
+                missionGoal: team.description,
+                missionTarget: team.progressTarget,
+                missionCurrent: team.progressCurrent,
+                missionUnit: team.progressUnit,
+                collectiveReputation: team.collectiveReputation,
+                members: team.members,
+                sharedBadges: team.sharedBadges,
+                creatorId: 'lead',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+            } catch (err) {
+              console.warn('Seeding team warning:', err);
+            }
+          }
+          setTeams(INITIAL_TEAMS);
+        } else {
+          const loaded: StewardshipTeam[] = [];
+          snapshot.forEach((snap) => {
+            const data = snap.data();
+            loaded.push({
+              id: snap.id,
+              name: data.name || 'Restoration Team',
+              bioregion: data.bioregion || 'Bioregion',
+              challengeTitle: data.missionTitle || data.challengeTitle || 'Shared Restoration Goal',
+              description: data.missionGoal || data.description || 'Restoration collective',
+              progressCurrent: data.missionCurrent ?? data.progressCurrent ?? 0,
+              progressTarget: data.missionTarget ?? data.progressTarget ?? 10,
+              progressUnit: data.missionUnit || data.progressUnit || 'Actions',
+              collectiveReputation: data.collectiveReputation ?? 500,
+              maxMembers: data.maxMembers || 8,
+              isUserMember: data.members?.some((m: any) => m.isCurrentUser || m.id === (auth.currentUser?.uid || 'current-user')) || false,
+              members: data.members || [],
+              sharedBadges: data.sharedBadges || []
+            });
+          });
+          setTeams(loaded);
+          if (loaded.length > 0 && !loaded.some(t => t.id === selectedTeamId)) {
+            setSelectedTeamId(loaded[0].id);
+          }
+        }
+      },
+      (error) => {
+        try {
+          handleFirestoreError(error, OperationType.LIST, 'stewardship_teams');
+        } catch {
+          setIsFirestoreConnected(false);
+        }
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const activeTeam = teams.find(t => t.id === selectedTeamId) || teams[0];
 
-  const handleJoinTeam = (teamId: string) => {
+  const handleJoinTeam = async (teamId: string) => {
     audioFeedback.playBell([528, 660], 0.2);
-    const updated = teams.map(t => {
-      if (t.id === teamId) {
-        const alreadyMember = t.members.some(m => m.isCurrentUser);
-        if (!alreadyMember) {
-          const newMember: StewardshipTeamMember = {
-            id: 'current-user',
-            name: 'Amani Kiprono',
-            role: 'Field Scout',
-            avatarInitials: 'AK',
-            auditsContributed: 1,
-            isCurrentUser: true
-          };
-          return {
-            ...t,
-            isUserMember: true,
-            members: [...t.members, newMember]
-          };
-        }
-      }
-      return t;
-    });
-    setTeams(updated);
+    const targetTeam = teams.find(t => t.id === teamId);
+    if (!targetTeam) return;
+
+    const alreadyMember = targetTeam.members.some(m => m.isCurrentUser);
+    if (alreadyMember) return;
+
+    const currentUid = auth.currentUser?.uid || 'current-user';
+    const newMember: StewardshipTeamMember = {
+      id: currentUid,
+      name: auth.currentUser?.displayName || 'Amani Kiprono',
+      role: 'Field Scout',
+      avatarInitials: 'AK',
+      auditsContributed: 1,
+      isCurrentUser: true
+    };
+
+    const updatedMembers = [...targetTeam.members, newMember];
+    const updatedTeam: StewardshipTeam = {
+      ...targetTeam,
+      isUserMember: true,
+      members: updatedMembers
+    };
+
+    // Optimistic UI update
+    setTeams(teams.map(t => t.id === teamId ? updatedTeam : t));
+
+    // Persist to Firestore
     try {
-      localStorage.setItem('atlas_stewardship_teams', JSON.stringify(updated));
-    } catch {}
+      await setDoc(doc(firestoreInstance, 'stewardship_teams', teamId), {
+        id: updatedTeam.id,
+        name: updatedTeam.name,
+        bioregion: updatedTeam.bioregion,
+        missionTitle: updatedTeam.challengeTitle,
+        missionGoal: updatedTeam.description,
+        missionTarget: updatedTeam.progressTarget,
+        missionCurrent: updatedTeam.progressCurrent,
+        missionUnit: updatedTeam.progressUnit,
+        collectiveReputation: updatedTeam.collectiveReputation,
+        members: updatedMembers,
+        sharedBadges: updatedTeam.sharedBadges,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `stewardship_teams/${teamId}`);
+    }
   };
 
-  const handleContributeToMission = () => {
+  const handleContributeToMission = async () => {
     audioFeedback.playMicroTick();
     if (!activeTeam) return;
 
-    const updated = teams.map(t => {
-      if (t.id === activeTeam.id) {
-        const nextProgress = Math.min(t.progressTarget, t.progressCurrent + 1);
-        const willUnlockBadge = nextProgress >= t.progressTarget;
-        const updatedBadges = t.sharedBadges.map(b => {
-          if (!b.unlocked && willUnlockBadge) {
-            return { ...b, unlocked: true };
-          }
-          return b;
-        });
-
-        const updatedMembers = t.members.map(m => {
-          if (m.isCurrentUser) {
-            return { ...m, auditsContributed: m.auditsContributed + 1 };
-          }
-          return m;
-        });
-
-        return {
-          ...t,
-          progressCurrent: nextProgress,
-          collectiveReputation: t.collectiveReputation + 250,
-          members: updatedMembers,
-          sharedBadges: updatedBadges
-        };
+    const nextProgress = Math.min(activeTeam.progressTarget, activeTeam.progressCurrent + 1);
+    const willUnlockBadge = nextProgress >= activeTeam.progressTarget;
+    const updatedBadges = activeTeam.sharedBadges.map(b => {
+      if (!b.unlocked && willUnlockBadge) {
+        return { ...b, unlocked: true };
       }
-      return t;
+      return b;
     });
 
-    setTeams(updated);
+    const updatedMembers = activeTeam.members.map(m => {
+      if (m.isCurrentUser) {
+        return { ...m, auditsContributed: m.auditsContributed + 1 };
+      }
+      return m;
+    });
+
+    const updatedTeam: StewardshipTeam = {
+      ...activeTeam,
+      progressCurrent: nextProgress,
+      collectiveReputation: activeTeam.collectiveReputation + 250,
+      members: updatedMembers,
+      sharedBadges: updatedBadges
+    };
+
+    setTeams(teams.map(t => t.id === activeTeam.id ? updatedTeam : t));
+
+    // Persist to Firestore
     try {
-      localStorage.setItem('atlas_stewardship_teams', JSON.stringify(updated));
-    } catch {}
+      await setDoc(doc(firestoreInstance, 'stewardship_teams', activeTeam.id), {
+        missionCurrent: nextProgress,
+        collectiveReputation: updatedTeam.collectiveReputation,
+        members: updatedMembers,
+        sharedBadges: updatedBadges,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `stewardship_teams/${activeTeam.id}`);
+    }
   };
 
-  const handleCreateTeam = (e: React.FormEvent) => {
+  const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamName.trim() || !newChallenge.trim()) return;
 
     audioFeedback.playBell([440, 880], 0.25);
+    const teamId = `team-${Date.now()}`;
+    const currentUid = auth.currentUser?.uid || 'current-user';
+
     const newTeam: StewardshipTeam = {
-      id: `team-${Date.now()}`,
+      id: teamId,
       name: newTeamName.trim(),
       bioregion: newBioregion,
       challengeTitle: newChallenge.trim(),
@@ -226,7 +328,14 @@ export const CollaborativeStewardshipTeams: React.FC = () => {
       maxMembers: 6,
       isUserMember: true,
       members: [
-        { id: 'lead', name: 'Amani Kiprono', role: 'Lead Hydrologist', avatarInitials: 'AK', auditsContributed: 1, isCurrentUser: true }
+        { 
+          id: currentUid, 
+          name: auth.currentUser?.displayName || 'Amani Kiprono', 
+          role: 'Lead Hydrologist', 
+          avatarInitials: 'AK', 
+          auditsContributed: 1, 
+          isCurrentUser: true 
+        }
       ],
       sharedBadges: [
         { id: `b-${Date.now()}`, name: 'Founding Sentinel', tier: 'gold', icon: 'Award', unlocked: true, criteria: 'Team founded on Atlas Sanctum' },
@@ -241,9 +350,28 @@ export const CollaborativeStewardshipTeams: React.FC = () => {
     setNewTeamName('');
     setNewChallenge('');
 
+    // Persist new team to Firestore
     try {
-      localStorage.setItem('atlas_stewardship_teams', JSON.stringify(updated));
-    } catch {}
+      await setDoc(doc(firestoreInstance, 'stewardship_teams', teamId), {
+        id: newTeam.id,
+        name: newTeam.name,
+        bioregion: newTeam.bioregion,
+        missionTitle: newTeam.challengeTitle,
+        missionGoal: newTeam.description,
+        missionTarget: newTeam.progressTarget,
+        missionCurrent: newTeam.progressCurrent,
+        missionUnit: newTeam.progressUnit,
+        collectiveReputation: newTeam.collectiveReputation,
+        maxMembers: newTeam.maxMembers,
+        members: newTeam.members,
+        sharedBadges: newTeam.sharedBadges,
+        creatorId: currentUid,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `stewardship_teams/${teamId}`);
+    }
   };
 
   return (
@@ -260,6 +388,10 @@ export const CollaborativeStewardshipTeams: React.FC = () => {
             </h3>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-500/40">
               COLLECTIVE CHALLENGES
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+              <span className={`w-1.5 h-1.5 rounded-full ${isFirestoreConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              {isFirestoreConnected ? 'Firestore Synced' : 'Connecting...'}
             </span>
           </div>
           <p className="text-xs text-white/60 font-sans">

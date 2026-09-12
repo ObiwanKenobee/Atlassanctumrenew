@@ -24,9 +24,11 @@ import {
   Sparkles,
   ArrowLeftRight,
   Tag,
-  Scale
+  Scale,
+  Brain
 } from 'lucide-react';
 import { SatelliteHazardAlert } from './BioregionalHazardMonitor';
+import { EpistemicScoreTooltip } from './EpistemicScoreTooltip';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 // Automated Tagging System Helper for Ecological Impact
@@ -83,6 +85,7 @@ interface AlertFeedSidebarProps {
   onForecastImpact?: (alert: SatelliteHazardAlert) => void;
   onCompareAlert?: (alert: SatelliteHazardAlert) => void;
   onOpenPredictiveModel?: () => void;
+  onEpistemicExplain?: (alert: SatelliteHazardAlert) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -194,6 +197,7 @@ export const AlertFeedSidebar: React.FC<AlertFeedSidebarProps> = ({
   onForecastImpact,
   onCompareAlert,
   onOpenPredictiveModel,
+  onEpistemicExplain,
   isCollapsed,
   onToggleCollapse
 }) => {
@@ -525,7 +529,13 @@ export const AlertFeedSidebar: React.FC<AlertFeedSidebarProps> = ({
                       {alert.bioregionName}
                     </span>
                   </div>
-                  {getSeverityBadge(alert.severity)}
+                  <EpistemicScoreTooltip 
+                    alert={alert} 
+                    onOpenFullExplanation={onEpistemicExplain}
+                    position="left"
+                  >
+                    {getSeverityBadge(alert.severity)}
+                  </EpistemicScoreTooltip>
                 </div>
 
                 {/* Pre-Event Indicator if active */}
@@ -631,6 +641,22 @@ export const AlertFeedSidebar: React.FC<AlertFeedSidebarProps> = ({
                       >
                         <ArrowLeftRight className="w-2.5 h-2.5" />
                         <span>Compare</span>
+                      </button>
+                    )}
+
+                    {/* Epistemic AI Explain Action */}
+                    {onEpistemicExplain && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          audioFeedback.playMicroTick();
+                          onEpistemicExplain(alert);
+                        }}
+                        className="px-1.5 py-0.5 rounded bg-black/60 hover:bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/40 transition-all flex items-center gap-1 cursor-pointer"
+                        title="Epistemic AI Explanation: Inspect Bayesian sensor weights, math formula, and provenance"
+                      >
+                        <Brain className="w-2.5 h-2.5 text-[#C5A059]" />
+                        <span>Explain</span>
                       </button>
                     )}
 

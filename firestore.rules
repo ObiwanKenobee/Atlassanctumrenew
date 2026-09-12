@@ -101,5 +101,19 @@ service cloud.firestore {
       allow create: if true;
       allow update, delete: if false; // Immutable sensor reading stream
     }
+
+    // 13. Collectible Impact Badges (Citizen profile unlocked tokens)
+    match /impact_badges/{badgeId} {
+      allow read: if true;
+      allow create, update: if true; // Allows offline and client-side badge manager syncing
+      allow delete: if isSignedIn();
+    }
+
+    // 14. Collaborative Stewardship Teams & Goals
+    match /stewardship_teams/{teamId} {
+      allow read: if true;
+      allow create, update: if true; // Allows team creation, member joining, and shared goal updates
+      allow delete: if isSignedIn();
+    }
   }
 }

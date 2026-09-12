@@ -32,7 +32,16 @@ interface ImpactStoryGeneratorProps {
 }
 
 export type StoryTone = 'lyrical' | 'technical' | 'ancestral';
-export type BioregionFocus = 'mara_watershed' | 'kilifi_coast' | 'mau_complex' | 'turkana_basin';
+export type BioregionFocus = 'Upper Mara Catchment' | 'Kilifi Biosphere Reserve' | 'Mau Forest Complex' | 'Turkana Pastoralist Basin';
+
+interface GeneratedStory {
+  title: string;
+  subtitle: string;
+  narrative: string;
+  tagline: string;
+  keyMetrics: { label: string; value: string }[];
+  modelUsed?: string;
+}
 
 export const ImpactStoryGenerator: React.FC<ImpactStoryGeneratorProps> = ({
   stewardName = 'Amani Kiprono',
@@ -45,13 +54,15 @@ export const ImpactStoryGenerator: React.FC<ImpactStoryGeneratorProps> = ({
   streakDays = 14
 }) => {
   const [tone, setTone] = useState<StoryTone>('lyrical');
-  const [bioregion, setBioregion] = useState<BioregionFocus>('mara_watershed');
+  const [bioregion, setBioregion] = useState<BioregionFocus>('Upper Mara Catchment');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [ambientPlaying, setAmbientPlaying] = useState<boolean>(false);
+  const [customStory, setCustomStory] = useState<GeneratedStory | null>(null);
+  const [engineSource, setEngineSource] = useState<string>('gemini-3.8-flash');
 
   // Generate dynamic story based on inputs
-  const story = useMemo(() => {
+  const defaultStory = useMemo(() => {
     const litersFormatted = `${litersProtectedMillions} million`;
     const hectaresFormatted = `${hectaresRestored.toLocaleString()} hectares`;
     const carbonFormatted = `${carbonSequesteredTons.toLocaleString()} metric tons`;
@@ -60,7 +71,7 @@ export const ImpactStoryGenerator: React.FC<ImpactStoryGeneratorProps> = ({
       return {
         title: `The Living River of ${stewardName}`,
         subtitle: `A chronicle of patient regeneration across ${hectaresFormatted}`,
-        narrative: `In the quiet hours before dawn, when the morning mist still clings to the riparian grasses of the Upper Mara, one citizen's quiet devotion ripple outward across an entire catchment. Over ${streakDays} consecutive dawn vigils, ${stewardName} did not merely observe the Earth; they stood guard over its fragile arteries.
+        narrative: `In the quiet hours before dawn, when the morning mist still clings to the riparian grasses of ${bioregion}, one citizen's quiet devotion ripples outward across an entire catchment. Over ${streakDays} consecutive dawn vigils, ${stewardName} did not merely observe the Earth; they stood guard over its fragile arteries.
 
 Through ${verifiedAuditsSigned} cryptographically verified field audits and the grounding of satellite anomalies into tangible soil truth, ${litersFormatted} liters of precious headwater flow were shielded from destructive siltation. Every swale measured and every canopy transect verified has woven a protective skin over ${hectaresFormatted} of vulnerable biosphere—sequestering ${carbonFormatted} of living carbon back into mother humus.
 
@@ -77,7 +88,7 @@ This is not the work of distant bureaucracies. It is the steady heartbeat of civ
       return {
         title: `Biophysical Field Impact Report: ${stewardName}`,
         subtitle: `Calibrated telemetry & empirical restoration dossier • ${streakDays}d active cycle`,
-        narrative: `TECHNICAL EXECUTIVE SUMMARY: Field Steward ${stewardName} has executed ${verifiedAuditsSigned} high-assurance telemetry validations within the active bioregional grid. By coupling in-situ lysimeter matric potentials with Sentinel-2 MSI multispectral reflectance indices, ground-level validation reduced spaceborne uncertainty by 42.6%.
+        narrative: `TECHNICAL EXECUTIVE SUMMARY: Field Steward ${stewardName} has executed ${verifiedAuditsSigned} high-assurance telemetry validations within the active bioregional grid of ${bioregion}. By coupling in-situ lysimeter matric potentials with Sentinel-2 MSI multispectral reflectance indices, ground-level validation reduced spaceborne uncertainty by 42.6%.
 
 INTERVENTION YIELD: Cumulative vegetative surface stabilization spans ${hectaresFormatted}, resulting in an empirically modeled infiltration surplus of ${litersFormatted} liters across vulnerable aquifer recharge sectors. Net terrestrial carbon stock accretion is audited at ${carbonFormatted} CO2e, verified via non-destructive canopy allometry and soil organic matter cores.
 
@@ -94,7 +105,7 @@ AUDIT PROVENANCE: All ${earnedBadgeCount} earned stewardship badges remain secur
       // Ancestral Tone
       return {
         title: `Songs of the Ancient Soil: The Path of ${stewardName}`,
-        subtitle: `Honoring the covenant between community and the living watershed`,
+        subtitle: `Honoring the covenant between community and the living watershed of ${bioregion}`,
         narrative: `The elders taught that the river remembers every footstep that approaches it with humility. For ${streakDays} unbroken sunrises, ${stewardName} has walked the path of the true custodian, carrying neither exploitation nor indifference, but the sacred promise to leave the watering holes sweeter than they were found.
 
 By standing between the fragile riverbanks and the machinery of neglect, ${stewardName} guarded ${litersFormatted} liters of life-giving water—the very blood of our livestock and the nursery of our children's future. With hands in the dark earth and eyes attuned to the sky's distant stars, they brought healing to ${hectaresFormatted} of ancestral pastures, restoring ${carbonFormatted} of sacred breath into the living womb of the continent.
@@ -111,18 +122,55 @@ Let it be told in the barazas and whispered under the broad canopy of the Acacia
     }
   }, [tone, bioregion, stewardName, reputationPoints, verifiedAuditsSigned, earnedBadgeCount, hectaresRestored, litersProtectedMillions, carbonSequesteredTons, streakDays]);
 
-  const handleRegenerate = () => {
+  const activeStory = customStory || defaultStory;
+
+  const handleGenerateWithGemini = async (selectedTone?: StoryTone, selectedRegion?: BioregionFocus) => {
+    const toneToUse = selectedTone || tone;
+    const regionToUse = selectedRegion || bioregion;
     audioFeedback.playMicroTick();
     setIsGenerating(true);
-    setTimeout(() => {
+
+    try {
+      const res = await fetch('/api/gemini/impact-story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stewardName,
+          tone: toneToUse,
+          bioregion: regionToUse,
+          hectaresRestored,
+          litersProtectedMillions,
+          carbonSequesteredTons,
+          streakDays,
+          verifiedAuditsSigned,
+          reputationPoints,
+          earnedBadgeCount
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.story && data.story.title) {
+          setCustomStory(data.story);
+          setEngineSource(data.mode || 'gemini_3.8_flash');
+          audioFeedback.playBell([528, 660, 792], 0.35);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Gemini impact story generation offline or failed, using local grounded synthesis', e);
+    } finally {
       setIsGenerating(false);
-      audioFeedback.playBell([528, 660], 0.25);
-    }, 450);
+    }
+
+    // Fallback to local
+    setCustomStory(null);
+    audioFeedback.playBell([528, 660], 0.25);
   };
 
   const handleCopyStory = () => {
     audioFeedback.playMicroTick();
-    const shareText = `🌿 ATLAS SANCTUM STEWARD STORY: "${story.title}"\n${story.subtitle}\n\n${story.narrative}\n\nKey Ecological Impact:\n• ${story.keyMetrics.map(m => `${m.label}: ${m.value}`).join('\n• ')}\n\nVerified on Atlas Sanctum Sovereign Ledger`;
+    const shareText = `🌿 ATLAS SANCTUM STEWARD STORY: "${activeStory.title}"\n${activeStory.subtitle}\n\n${activeStory.narrative}\n\nKey Ecological Impact:\n• ${activeStory.keyMetrics.map(m => `${m.label}: ${m.value}`).join('\n• ')}\n\nVerified on Atlas Sanctum Sovereign Ledger`;
     navigator.clipboard.writeText(shareText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -130,7 +178,7 @@ Let it be told in the barazas and whispered under the broad canopy of the Acacia
 
   const handleDownloadMarkdown = () => {
     audioFeedback.playMicroTick();
-    const mdContent = `# ${story.title}\n*${story.subtitle}*\n\n> "${story.tagline}"\n\n${story.narrative}\n\n## Audited Impact Metrics\n${story.keyMetrics.map(m => `- **${m.label}**: ${m.value}`).join('\n')}\n\n---\n*Verified by Atlas Sanctum Decentralized Bioregional Ledger*\n*Proof Hash: 0x${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}*`;
+    const mdContent = `# ${activeStory.title}\n*${activeStory.subtitle}*\n\n> "${activeStory.tagline}"\n\n${activeStory.narrative}\n\n## Audited Impact Metrics\n${activeStory.keyMetrics.map(m => `- **${m.label}**: ${m.value}`).join('\n')}\n\n---\n*Synthesized by Atlas Sanctum Gemini Engine*\n*Proof Hash: 0x${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}*`;
     
     const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -155,63 +203,81 @@ Let it be told in the barazas and whispered under the broad canopy of the Acacia
       {/* Top Banner & Strategy Controls */}
       <div className="p-4 rounded-xl bg-gradient-to-r from-[#0C1710] via-[#09120C] to-[#0C1710] border border-emerald-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="p-1.5 rounded-lg bg-emerald-950 border border-emerald-400/40 text-emerald-400">
               <BookOpen className="w-4 h-4" />
             </div>
             <h3 className="text-base font-serif font-bold text-[#F5F5F0]">
               Automated Impact Story Generator
             </h3>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-500/40">
-              AI NARRATIVE SYNTHESIS
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+              <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+              GEMINI NARRATIVE ENGINE
             </span>
           </div>
           <p className="text-xs text-white/60 font-sans">
-            Transforms your verifiable field audits, tree transects, and telemetry calibrations into an emotionally resonant, shareable story of ecological regeneration.
+            Transforms verifiable field audits, lysimeter sensor logs, and telemetry calibrations into an emotionally resonant, shareable story of ecological regeneration.
           </p>
         </div>
 
-        {/* Tone Selection Pills */}
-        <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-lg border border-white/10 text-xs font-mono">
-          <button
-            onClick={() => {
-              audioFeedback.playMicroTick();
-              setTone('lyrical');
+        {/* Bioregion & Tone Selection Pills */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={bioregion}
+            onChange={(e) => {
+              const newReg = e.target.value as BioregionFocus;
+              setBioregion(newReg);
+              handleGenerateWithGemini(tone, newReg);
             }}
-            className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-              tone === 'lyrical'
-                ? 'bg-emerald-500 text-black font-bold shadow-sm'
-                : 'text-white/60 hover:text-white'
-            }`}
+            className="px-2.5 py-1.5 rounded-lg bg-black/60 border border-white/10 text-xs font-mono text-emerald-300 focus:outline-none focus:border-emerald-500"
           >
-            Lyrical &amp; Poetic
-          </button>
-          <button
-            onClick={() => {
-              audioFeedback.playMicroTick();
-              setTone('technical');
-            }}
-            className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-              tone === 'technical'
-                ? 'bg-cyan-500 text-black font-bold shadow-sm'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            Technical Dossier
-          </button>
-          <button
-            onClick={() => {
-              audioFeedback.playMicroTick();
-              setTone('ancestral');
-            }}
-            className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
-              tone === 'ancestral'
-                ? 'bg-[#C5A059] text-black font-bold shadow-sm'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            Ancestral Baraza
-          </button>
+            <option value="Upper Mara Catchment">Upper Mara Catchment</option>
+            <option value="Kilifi Biosphere Reserve">Kilifi Biosphere Reserve</option>
+            <option value="Mau Forest Complex">Mau Forest Complex</option>
+            <option value="Turkana Pastoralist Basin">Turkana Pastoralist Basin</option>
+          </select>
+
+          <div className="flex items-center gap-1.5 p-1 bg-black/40 rounded-lg border border-white/10 text-xs font-mono">
+            <button
+              onClick={() => {
+                setTone('lyrical');
+                handleGenerateWithGemini('lyrical', bioregion);
+              }}
+              className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                tone === 'lyrical'
+                  ? 'bg-emerald-500 text-black font-bold shadow-sm'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Lyrical &amp; Poetic
+            </button>
+            <button
+              onClick={() => {
+                setTone('technical');
+                handleGenerateWithGemini('technical', bioregion);
+              }}
+              className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                tone === 'technical'
+                  ? 'bg-cyan-500 text-black font-bold shadow-sm'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Technical Dossier
+            </button>
+            <button
+              onClick={() => {
+                setTone('ancestral');
+                handleGenerateWithGemini('ancestral', bioregion);
+              }}
+              className={`px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                tone === 'ancestral'
+                  ? 'bg-[#C5A059] text-black font-bold shadow-sm'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Ancestral Baraza
+            </button>
+          </div>
         </div>
       </div>
 
@@ -231,10 +297,15 @@ Let it be told in the barazas and whispered under the broad canopy of the Acacia
         {/* Story Header */}
         <div className="relative z-10 space-y-2 border-b border-white/10 pb-5">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-xs font-mono font-bold tracking-widest uppercase text-[#C5A059] flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" />
-              Verified Regenerative Narrative
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold tracking-widest uppercase text-[#C5A059] flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Verified Regenerative Narrative
+              </span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-white/50">
+                {engineSource.includes('gemini') ? 'Gemini 3.8 Flash' : 'Grounded Telemetry'}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={toggleAmbientSound}
@@ -250,39 +321,39 @@ Let it be told in the barazas and whispered under the broad canopy of the Acacia
               </button>
               
               <button
-                onClick={handleRegenerate}
+                onClick={() => handleGenerateWithGemini()}
                 disabled={isGenerating}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer"
-                title="Re-synthesize Story"
+                className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer"
+                title="Re-synthesize Story with Gemini Engine"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
-                <span className="text-[10px]">Re-synthesize</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin text-emerald-400' : ''}`} />
+                <span className="text-[10px]">{isGenerating ? 'Gemini Synthesizing...' : 'Generate with Gemini'}</span>
               </button>
             </div>
           </div>
 
           <h2 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-tight">
-            {story.title}
+            {activeStory.title}
           </h2>
           <p className="text-xs font-mono text-white/60">
-            {story.subtitle}
+            {activeStory.subtitle}
           </p>
         </div>
 
         {/* Narrative Body */}
         <div className="relative z-10 py-6 space-y-4">
           <p className="text-sm sm:text-base font-serif text-[#F5F5F0]/90 leading-relaxed whitespace-pre-line tracking-wide">
-            {story.narrative}
+            {activeStory.narrative}
           </p>
 
           <blockquote className="p-3 my-4 rounded-lg bg-black/40 border-l-2 border-[#C5A059] text-xs sm:text-sm font-serif italic text-[#C5A059] pl-4">
-            &ldquo;{story.tagline}&rdquo;
+            &ldquo;{activeStory.tagline}&rdquo;
           </blockquote>
         </div>
 
         {/* Four Key Metrics Pillars */}
         <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5 border-t border-white/10">
-          {story.keyMetrics.map((metric, idx) => (
+          {activeStory.keyMetrics.map((metric, idx) => (
             <div key={idx} className="p-3 rounded-lg bg-black/50 border border-white/10 space-y-1">
               <div className="text-[10px] font-mono text-white/50 uppercase tracking-wider">
                 {metric.label}
