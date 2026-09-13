@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Sparkles,
@@ -11,9 +11,12 @@ import {
   Network,
   Scale,
   BrainCircuit,
-  Info
+  Info,
+  RotateCcw,
+  Clock
 } from 'lucide-react';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { useDraftAutoSave } from '../../context/ConfirmationDialogContext';
 
 export interface ExtractedCausalAssertion {
   id: string;
@@ -46,6 +49,39 @@ export const ScientificDocumentIngestion: React.FC<{
   const [documentContent, setDocumentContent] = useState<string>(SAMPLE_PAPERS[0].text);
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
   const [extractedAssertions, setExtractedAssertions] = useState<ExtractedCausalAssertion[]>([]);
+
+  // Temporary Draft Auto-Save integration
+  const { hasSavedDraft, recoverDraft, discardDraft, savedDraft } = useDraftAutoSave(
+    'scientific_document_ingestion_draft',
+    { documentTitle, documentContent },
+    {
+      title: documentTitle ? `Dossier: ${documentTitle.slice(0, 30)}...` : 'Scientific Dossier Draft',
+      fieldSummary: documentContent ? `${documentContent.slice(0, 60)}...` : undefined,
+      debounceMs: 600
+    }
+  );
+
+  // Listen for global draft recovery events
+  useEffect(() => {
+    const handleGlobalRecovery = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.key === 'scientific_document_ingestion_draft' && customEvent.detail?.data) {
+        const data = customEvent.detail.data;
+        if (data.documentTitle) setDocumentTitle(data.documentTitle);
+        if (data.documentContent) setDocumentContent(data.documentContent);
+      }
+    };
+    window.addEventListener('atlas-draft-recovered', handleGlobalRecovery);
+    return () => window.removeEventListener('atlas-draft-recovered', handleGlobalRecovery);
+  }, []);
+
+  const handleRecoverSession = () => {
+    const recovered = recoverDraft();
+    if (recovered) {
+      if (recovered.documentTitle) setDocumentTitle(recovered.documentTitle);
+      if (recovered.documentContent) setDocumentContent(recovered.documentContent);
+    }
+  };
 
   const handleSelectSample = (sample: typeof SAMPLE_PAPERS[0]) => {
     setDocumentTitle(sample.title);
@@ -170,6 +206,32 @@ export const ScientificDocumentIngestion: React.FC<{
           ))}
         </div>
       </div>
+
+      {/* Draft Auto-Save Recovery Strip */}
+      {hasSavedDraft && (
+        <div className="flex items-center justify-between p-2.5 rounded bg-[#161B18] border border-[#C5A059]/30 text-xs font-mono">
+          <div className="flex items-center gap-2 text-neutral-300">
+            <Clock className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Unsaved local draft detected from previous session.</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRecoverSession}
+              id="scientific-dossier-recover-btn"
+              className="px-2.5 py-1 rounded bg-[#C5A059] hover:bg-[#d4af37] text-black font-bold text-[10px] uppercase flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Recover Last Session</span>
+            </button>
+            <button
+              onClick={discardDraft}
+              className="px-2 py-1 rounded bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white text-[10px] cursor-pointer"
+            >
+              Discard
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Input Textarea & Extract Action */}
       <div className="space-y-3 font-mono text-xs">

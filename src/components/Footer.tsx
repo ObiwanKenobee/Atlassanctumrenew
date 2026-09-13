@@ -2,6 +2,7 @@ import React from 'react';
 import { TreeDeciduous, ArrowUpRight, Scale, Sparkles, ShieldCheck, Lock, Award, Activity } from 'lucide-react';
 import { PageView } from '../types';
 import { EnvironmentStatusFooter } from './EnvironmentStatusFooter';
+import { MoralAlignmentGauge } from './footer/MoralAlignmentGauge';
 import { useTrustLayer } from '../context/TrustLayerContext';
 import { audioFeedback } from '../lib/audioFeedback';
 
@@ -113,6 +114,9 @@ export const Footer: React.FC<FooterProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Real-time Aggregated Moral Alignment Radial Gauge */}
+        <MoralAlignmentGauge onSelectTab={onSelectTab} />
 
         {/* 4 Column Architecture Links */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">

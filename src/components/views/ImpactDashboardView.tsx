@@ -18,19 +18,25 @@ import {
   Radio, 
   LineChart as LineChartIcon,
   MessageSquareShare,
-  Users
+  Users,
+  Scale,
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import { INTELLIGENCE_LAYERS, CIVILIZATION_METRICS, SAMPLE_PROVENANCE } from '../../data/mockCivilizationData';
 import { CivilizationMetric } from '../../types';
 import { CausalImpactD3Graph } from '../CausalImpactD3Graph';
 import { HumanFlourishingTimelineChart } from '../analytics/HumanFlourishingTimelineChart';
 import { ProjectFlourishingD3Network } from '../analytics/ProjectFlourishingD3Network';
+import { RegenerativeProgressD3Chart } from '../analytics/RegenerativeProgressD3Chart';
+import { FlourishingVsStabilityD3Chart } from '../analytics/FlourishingVsStabilityD3Chart';
 import { KnowledgeGraphStudio } from '../intelligence/KnowledgeGraphStudio';
 import { BioregionalHazardMonitor } from '../bioregional/BioregionalHazardMonitor';
 import { BioregionalImpactD3Map } from '../bioregional/BioregionalImpactD3Map';
 import { CommunityImpactFeed } from '../bioregional/CommunityImpactFeed';
 import { CollaborativeStewardshipTeams } from '../profile/CollaborativeStewardshipTeams';
 import { ImpactStoryGenerator } from '../profile/ImpactStoryGenerator';
+import { generateImpactArchivalPDF } from '../../lib/generateImpactArchivalPDF';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 interface ImpactDashboardViewProps {
@@ -44,7 +50,27 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
 }) => {
   const [selectedLayerId, setSelectedLayerId] = useState<string>('flourishing-os');
   const [selectedMetric, setSelectedMetric] = useState<CivilizationMetric>(CIVILIZATION_METRICS[0]);
-  const [activeTab, setActiveTab] = useState<'community-feed' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story'>('restoration-mesh');
+  const [activeTab, setActiveTab] = useState<'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story'>('flourishing-vs-stability');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfGenerationSuccess, setPdfGenerationSuccess] = useState(false);
+
+  const handleGeneratePDF = async () => {
+    try {
+      setIsGeneratingPdf(true);
+      audioFeedback.playSubtleClick();
+      await generateImpactArchivalPDF({
+        includeBadges: true,
+        includeTwelveMonthTrajectory: true
+      });
+      setPdfGenerationSuccess(true);
+      audioFeedback.playSuccessChime();
+      setTimeout(() => setPdfGenerationSuccess(false), 5000);
+    } catch (err) {
+      console.error('Failed to generate archival PDF summary:', err);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   const activeLayer = INTELLIGENCE_LAYERS.find(l => l.id === selectedLayerId) || INTELLIGENCE_LAYERS[0];
   const layerMetrics = CIVILIZATION_METRICS;
@@ -68,7 +94,28 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Generate Verified Archival PDF Summary Button */}
+          <button
+            id="generate-archival-pdf-summary-btn"
+            onClick={handleGeneratePDF}
+            disabled={isGeneratingPdf}
+            className="px-4 py-2 bg-[#0D0D0D] hover:bg-[#1A1A1A] border border-[#C5A059] text-[#C5A059] hover:text-white rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer disabled:opacity-50"
+            title="Compile current longitudinal metrics & stewardship badges into a verified PDF report"
+          >
+            {isGeneratingPdf ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 text-[#C5A059] animate-spin" />
+                <span>Compiling Archival PDF...</span>
+              </>
+            ) : (
+              <>
+                <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span>Generate PDF Summary</span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={() => {
               onInspectProvenance(SAMPLE_PROVENANCE);
@@ -82,9 +129,44 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         </div>
       </div>
 
+      {/* PDF Archival Generation Confirmation Banner */}
+      {pdfGenerationSuccess && (
+        <div className="p-3.5 bg-emerald-950/90 border border-emerald-500/50 rounded flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs font-mono text-emerald-300 shadow-xl animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>
+              <strong>Verified Archival Report Generated:</strong> Longitudinal flourishing metrics, 12-month trajectory, and ratified stewardship badges compiled with QR consensus proof. Download initiated.
+            </span>
+          </div>
+          <span className="text-[10px] text-emerald-400/80 bg-black/40 px-2 py-0.5 rounded border border-emerald-500/30 uppercase font-bold tracking-wider shrink-0">
+            PDF/A ARCHIVED
+          </span>
+        </div>
+      )}
+
       {/* View Switcher: Recharts Flourishing Timeline vs Restoration Mesh D3 vs Knowledge Graph Studio vs Interactive Causal D3 Graph vs Telemetry Matrix */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F5F5F0]/10 pb-3">
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Flourishing vs Stability D3 Multi-Line Trend Chart Tab */}
+          <button
+            id="tab-flourishing-vs-stability-btn"
+            onClick={() => {
+              setActiveTab('flourishing-vs-stability');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'flourishing-vs-stability'
+                ? 'bg-[#C5A059] text-black shadow-md'
+                : 'bg-[#141414] text-[#C5A059] hover:text-white border border-[#C5A059]/40'
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5" />
+            <span>Flourishing vs Stability (12-Mo D3)</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-black/30 text-current font-bold uppercase">
+              Decoupling
+            </span>
+          </button>
+
           <button
             id="tab-community-feed-btn"
             onClick={() => {
@@ -102,6 +184,21 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-bold">
               VERIFIED
             </span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('regenerative-progress');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'regenerative-progress'
+                ? 'bg-[#C5A059] text-black shadow-md'
+                : 'bg-[#141414] text-[#F5F5F0]/70 hover:text-white border border-[#F5F5F0]/10'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Regenerative Progress (D3)</span>
           </button>
 
           <button
@@ -246,10 +343,37 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         </div>
       </div>
 
+      {/* Primary Tab: D3 Multi-Line 12-Month Trend Comparison: Ecological Flourishing vs Economic Stability */}
+      {activeTab === 'flourishing-vs-stability' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <FlourishingVsStabilityD3Chart 
+            onInspectPoint={(pt) => {
+              onInspectProvenance({
+                ...SAMPLE_PROVENANCE,
+                metricName: `12-Month Trajectory: ${pt.monthLabel}`,
+                verificationHash: pt.cryptographicHash,
+                rawSensorReading: `Ecological: ${pt.ecologicalFlourishing}% • Economic: ${pt.economicStability}% (Decoupling: +${pt.decouplingMargin}%)`,
+                confidenceInterval: `±0.8% across ${pt.verifiedSensorCount} cryptographic sensor nodes`,
+                epistemicTier: 'Zero-Knowledge Multi-Spectral Mesh'
+              });
+            }}
+            onInspectProvenance={onInspectProvenance}
+            onOpenMoralSimulator={onOpenMoralSimulator}
+          />
+        </div>
+      )}
+
       {/* Primary Tab: Community Impact Social Feed */}
       {activeTab === 'community-feed' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           <CommunityImpactFeed />
+        </div>
+      )}
+
+      {/* Primary Tab: D3 Longitudinal Regenerative Progress Chart */}
+      {activeTab === 'regenerative-progress' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <RegenerativeProgressD3Chart onInspectPoint={onInspectProvenance} />
         </div>
       )}
 

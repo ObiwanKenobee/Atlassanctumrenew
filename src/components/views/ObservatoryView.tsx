@@ -20,6 +20,11 @@ import {
 import { LIVING_REALITY_LAYERS, GLOBAL_PROJECTS, SAMPLE_PROVENANCE } from '../../data/mockCivilizationData';
 import { ProjectLocation } from '../../types';
 import { EpistemicHeatmapLayer } from './observatory/EpistemicHeatmapLayer';
+import { 
+  ObservatoryHazardMapLayer, 
+  BIOREGIONAL_OPTIONS, 
+  GeohashZoomLevel 
+} from './observatory/ObservatoryHazardMapLayer';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 interface ObservatoryViewProps {
@@ -34,9 +39,42 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
   onOpenCommandCenter
 }) => {
   const [selectedLayerId, setSelectedLayerId] = useState<string>(LIVING_REALITY_LAYERS[0].id);
-  const [isEpistemicHeatmapMode, setIsEpistemicHeatmapMode] = useState<boolean>(false);
+  const [activeObservatoryMode, setActiveObservatoryMode] = useState<'biophysical' | 'hazard_radar' | 'epistemic'>('biophysical');
   const [selectedProject, setSelectedProject] = useState<ProjectLocation>(GLOBAL_PROJECTS[0]);
   const [zoomLevel, setZoomLevel] = useState<'Regional' | 'Continental' | 'Global'>('Regional');
+
+  // Persistent Bioregional Selection & Geohash Zoom Level
+  const [selectedBioregion, setSelectedBioregion] = useState<string>(() => {
+    try {
+      return localStorage.getItem('atlas_observatory_selected_bioregion') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+
+  const [geohashZoomLevel, setGeohashZoomLevel] = useState<GeohashZoomLevel>(() => {
+    try {
+      return (localStorage.getItem('atlas_observatory_geohash_zoom') as GeohashZoomLevel) || 'regional';
+    } catch {
+      return 'regional';
+    }
+  });
+
+  const handleBioregionChange = (bioregionId: string) => {
+    audioFeedback.playSubtleClick();
+    setSelectedBioregion(bioregionId);
+    try {
+      localStorage.setItem('atlas_observatory_selected_bioregion', bioregionId);
+    } catch {}
+  };
+
+  const handleGeohashZoomChange = (level: GeohashZoomLevel) => {
+    audioFeedback.playMicroTick();
+    setGeohashZoomLevel(level);
+    try {
+      localStorage.setItem('atlas_observatory_geohash_zoom', level);
+    } catch {}
+  };
 
   const activeLayer = LIVING_REALITY_LAYERS.find(l => l.id === selectedLayerId) || LIVING_REALITY_LAYERS[0];
 
@@ -75,17 +113,17 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
         </div>
       </div>
 
-      {/* Observatory Mode Selector: Biophysical Matrix vs Epistemic Heatmap Layer */}
+      {/* Observatory Mode Selector: Biophysical Matrix vs Hazard Map vs Epistemic Heatmap Layer */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-[#0D0D0D] border border-[#F5F5F0]/15 rounded-sm">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             id="observatory-biophysical-mode-btn"
             onClick={() => {
               audioFeedback.playSubtleClick();
-              setIsEpistemicHeatmapMode(false);
+              setActiveObservatoryMode('biophysical');
             }}
             className={`px-3 sm:px-4 py-2 rounded-sm text-xs font-mono uppercase font-bold tracking-wider transition-all cursor-pointer ${
-              !isEpistemicHeatmapMode
+              activeObservatoryMode === 'biophysical'
                 ? 'bg-[#1B3022] text-[#F5F5F0] border border-[#C5A059] shadow-sm'
                 : 'text-[#F5F5F0]/60 hover:text-white hover:bg-[#151515]'
             }`}
@@ -97,13 +135,32 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
           </button>
 
           <button
+            id="observatory-hazard-map-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              setActiveObservatoryMode('hazard_radar');
+            }}
+            className={`px-3 sm:px-4 py-2 rounded-sm text-xs font-mono uppercase font-bold tracking-wider transition-all cursor-pointer ${
+              activeObservatoryMode === 'hazard_radar'
+                ? 'bg-rose-950 text-rose-300 border border-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.35)]'
+                : 'text-[#F5F5F0]/60 hover:text-rose-300 hover:bg-[#151515]'
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+              Real-Time Hazard Map Layer
+            </span>
+          </button>
+
+          <button
             id="observatory-epistemic-heatmap-btn"
             onClick={() => {
               audioFeedback.playSubtleClick();
-              setIsEpistemicHeatmapMode(true);
+              setActiveObservatoryMode('epistemic');
             }}
             className={`px-3 sm:px-4 py-2 rounded-sm text-xs font-mono uppercase font-bold tracking-wider transition-all cursor-pointer ${
-              isEpistemicHeatmapMode
+              activeObservatoryMode === 'epistemic'
                 ? 'bg-emerald-950 text-emerald-300 border border-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.35)]'
                 : 'text-[#F5F5F0]/60 hover:text-emerald-300 hover:bg-[#151515]'
             }`}
@@ -116,12 +173,69 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
         </div>
 
         <div className="text-[11px] font-mono text-[#F5F5F0]/40 pr-2 hidden sm:block">
-          {isEpistemicHeatmapMode ? 'Color-coded topography active (ZKP Merkle-Attested)' : '42,900 Active Sensor Telemetry Mesh'}
+          {activeObservatoryMode === 'hazard_radar'
+            ? 'Water Scarcity & Wildfire Stress Telemetry Active'
+            : activeObservatoryMode === 'epistemic'
+            ? 'Color-coded topography active (ZKP Merkle-Attested)'
+            : '42,900 Active Sensor Telemetry Mesh'}
         </div>
       </div>
 
-      {/* Conditionally Render Epistemic Heatmap Layer vs Standard Biophysical Carousel & Map */}
-      {isEpistemicHeatmapMode ? (
+      {/* Persistent Bioregional Selection Dropdown & Geohash Zoom Filter Bar */}
+      <div className="p-3 bg-[#0D0D0D] border border-[#C5A059]/30 rounded-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-md">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-[#C5A059]" />
+            <label htmlFor="observatory-bioregion-selector" className="text-xs font-mono uppercase text-[#C5A059] font-bold">
+              Bioregional Focus:
+            </label>
+          </div>
+          <select
+            id="observatory-bioregion-selector"
+            value={selectedBioregion}
+            onChange={(e) => handleBioregionChange(e.target.value)}
+            className="px-3 py-1.5 bg-[#141414] hover:bg-[#1A1A1A] border border-[#C5A059]/50 rounded text-xs font-mono text-white focus:outline-none focus:border-[#C5A059] cursor-pointer transition-colors shadow-inner"
+          >
+            {BIOREGIONAL_OPTIONS.map((b) => (
+              <option key={b.id} value={b.id} className="bg-[#111] text-white">
+                {b.name} ({b.geohashL4})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-[#F5F5F0]/50 uppercase">Geohash Resolution:</span>
+          <div className="flex items-center gap-1 bg-[#0A0A0A] p-0.5 border border-[#F5F5F0]/15 rounded text-xs font-mono">
+            {(['global', 'regional', 'local'] as const).map((zoom) => (
+              <button
+                key={zoom}
+                id={`observatory-geohash-${zoom}-btn`}
+                onClick={() => handleGeohashZoomChange(zoom)}
+                className={`px-2.5 py-1 rounded-sm text-[10px] font-mono uppercase font-bold transition-all cursor-pointer ${
+                  geohashZoomLevel === zoom
+                    ? 'bg-[#C5A059] text-black shadow'
+                    : 'text-[#F5F5F0]/50 hover:text-white'
+                }`}
+              >
+                {zoom === 'global' ? 'L3-L4 Global' : zoom === 'regional' ? 'L5-L6 Meso' : 'L7-L8 Local'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Conditionally Render Active View Mode */}
+      {activeObservatoryMode === 'hazard_radar' ? (
+        <ObservatoryHazardMapLayer
+          selectedBioregion={selectedBioregion}
+          onSelectBioregion={handleBioregionChange}
+          geohashZoomLevel={geohashZoomLevel}
+          onSelectGeohashZoomLevel={handleGeohashZoomChange}
+          onInspectProvenance={onInspectProvenance}
+          onOpenCommandCenter={onOpenCommandCenter}
+        />
+      ) : activeObservatoryMode === 'epistemic' ? (
         <EpistemicHeatmapLayer
           onInspectProvenance={onInspectProvenance}
           onOpenCommandCenter={onOpenCommandCenter}
@@ -138,7 +252,7 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
               <button
                 onClick={() => {
                   audioFeedback.playSubtleClick();
-                  setIsEpistemicHeatmapMode(true);
+                  setActiveObservatoryMode('epistemic');
                 }}
                 className="text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
               >

@@ -48,6 +48,8 @@ import { BioregionalHazardBeacon } from './navigation/BioregionalHazardBeacon';
 import { HeaderHazardAlertBanner } from './navigation/HeaderHazardAlertBanner';
 import { MoralAlignmentHUD } from './MoralAlignmentHUD';
 import { AcousticCommandToggle } from './navigation/AcousticCommandToggle';
+import { ResilienceModeToggle } from './navigation/ResilienceModeToggle';
+import { SyncHealthIndicator } from './navigation/SyncHealthIndicator';
 import { audioFeedback, hapticFeedback } from '../lib/audioFeedback';
 import { prefetchView } from '../lib/viewPrefetch';
 
@@ -786,6 +788,12 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           {/* Real-time Bioregional Hazard Monitor Beacon */}
           <BioregionalHazardBeacon onSelectTab={onSelectTab} />
+
+          {/* Real-time Offline Sync & Database Health Indicator */}
+          <SyncHealthIndicator />
+
+          {/* Low-Connectivity Field Resilience Mode (IndexedDB Mission Cache) */}
+          <ResilienceModeToggle />
 
           {/* Infrastructure Health Status: SystemVitalityMonitor & Real-time System Pulse (Streamlined on Tablet/Desktop) */}
           <div className="hidden md:flex items-center gap-1.5">

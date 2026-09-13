@@ -24,6 +24,7 @@ import { TrustLayerBanner } from './components/trust/TrustLayerBanner';
 import { VerificationToastProvider } from './context/VerificationToastContext';
 import { VerificationNotificationContainer } from './components/verification/VerificationNotificationContainer';
 import { BioregionalHazardProvider } from './context/BioregionalHazardContext';
+import { BioregionalAlertSystem } from './components/bioregional/BioregionalAlertSystem';
 import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
@@ -366,6 +367,9 @@ export default function App() {
               onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
               onOpenCommandments={() => setCommandmentsModalOpen(true)}
             />
+
+            {/* Non-Intrusive Bioregional Stress Alert Notification Banner */}
+            <BioregionalAlertSystem onSelectTab={handleSelectTab} />
 
             {/* Real-Time Unified Cross-Module Mission Pipeline Status Bar */}
             <ActiveMissionStatusBar

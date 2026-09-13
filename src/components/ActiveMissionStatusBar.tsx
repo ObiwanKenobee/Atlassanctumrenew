@@ -21,6 +21,7 @@ import {
 import { PageView, ActiveMissionPipeline } from '../types';
 import { useActiveMission } from '../context/ActiveMissionContext';
 import { useConfirmation } from '../context/ConfirmationDialogContext';
+import { MissionCommandConfirmWrapper } from './common/MissionCommandConfirmWrapper';
 import { InstitutionalDossierModal } from './modals/InstitutionalDossierModal';
 import { audioFeedback } from '../lib/audioFeedback';
 
@@ -184,17 +185,30 @@ export const ActiveMissionStatusBar: React.FC<ActiveMissionStatusBarProps> = ({ 
                   <span>Export Dossier</span>
                 </button>
                 {currentStageIndex < STAGES.length - 1 && (
-                  <button
-                    onClick={() => {
+                  <MissionCommandConfirmWrapper
+                    commandTitle={`Transition Mission Stage to ${STAGES[currentStageIndex + 1].shortLabel}`}
+                    commandDescription={`Advance active mission "${activeMission.title}" from stage ${STAGES[currentStageIndex].shortLabel} to stage ${STAGES[currentStageIndex + 1].shortLabel}.`}
+                    severity="warning"
+                    consequences={[
+                      `Transitions field operations into stage: ${STAGES[currentStageIndex + 1].desc}`,
+                      'Commits stage transition record to local session cache',
+                      'Updates tactical dispatch views and active checklist'
+                    ]}
+                    targetIdentifier={activeMission.bioregion}
+                    onConfirm={() => {
                       const next = STAGES[currentStageIndex + 1];
                       advanceMissionStage(next.key);
                       onSelectTab(next.tab);
                     }}
-                    className="px-3 py-1.5 bg-[#C5A059] hover:bg-[#D4AF37] text-black font-bold text-[10px] font-mono uppercase tracking-wider rounded-sm flex items-center gap-1 cursor-pointer"
                   >
-                    <span>Advance to {STAGES[currentStageIndex + 1].shortLabel.split('.')[1]}</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 bg-[#C5A059] hover:bg-[#D4AF37] text-black font-bold text-[10px] font-mono uppercase tracking-wider rounded-sm flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Advance to {STAGES[currentStageIndex + 1].shortLabel.split('.')[1]}</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </MissionCommandConfirmWrapper>
                 )}
               </div>
             </div>

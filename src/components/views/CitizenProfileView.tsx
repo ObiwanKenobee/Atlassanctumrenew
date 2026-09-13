@@ -27,11 +27,13 @@ import {
   Filter,
   Trophy,
   Calendar,
-  Users
+  Users,
+  Hexagon
 } from 'lucide-react';
 import { AnnualImpactSummaryCard } from './AnnualImpactSummaryCard';
 import { ImpactStoryGenerator } from '../profile/ImpactStoryGenerator';
 import { CollaborativeStewardshipTeams } from '../profile/CollaborativeStewardshipTeams';
+import { StewardshipHeatmap3D } from '../profile/StewardshipHeatmap3D';
 import { PageView } from '../../types';
 import { 
   CURRENT_STEWARD_PROFILE, 
@@ -150,7 +152,7 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
     return INITIAL_QUESTS;
   });
 
-  const [activeTab, setActiveTab] = useState<'badges' | 'actions' | 'contributions' | 'impact' | 'story' | 'teams'>('badges');
+  const [activeTab, setActiveTab] = useState<'badges' | 'actions' | 'contributions' | 'impact' | 'story' | 'teams' | 'heatmap'>('badges');
   const [contributionFilter, setContributionFilter] = useState<'all' | 'audits' | 'knowledge' | 'forensics'>('all');
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
   const [justEarnedBadge, setJustEarnedBadge] = useState<string | null>(null);
@@ -576,6 +578,24 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
             Stewardship Teams
           </span>
         </button>
+
+        <button
+          id="profile-tab-heatmap"
+          onClick={() => {
+            audioFeedback.playSubtleClick();
+            setActiveTab('heatmap');
+          }}
+          className={`px-4 py-2 rounded-sm uppercase font-bold tracking-wider transition-all cursor-pointer ${
+            activeTab === 'heatmap'
+              ? 'bg-emerald-950 text-emerald-300 border border-emerald-500 shadow-sm'
+              : 'text-[#F5F5F0]/50 hover:text-emerald-300 hover:bg-[#141414]'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <Hexagon className="w-4 h-4 text-[#C5A059]" />
+            3D Stewardship Heatmap
+          </span>
+        </button>
       </div>
 
       {/* Tab 1: Earned Badges Catalog */}
@@ -884,6 +904,11 @@ export const CitizenProfileView: React.FC<CitizenProfileViewProps> = ({
       {/* Tab 5: Collaborative Stewardship Teams */}
       {activeTab === 'teams' && (
         <CollaborativeStewardshipTeams />
+      )}
+
+      {/* Tab 6: 3D Stewardship Heatmap Overlay */}
+      {activeTab === 'heatmap' && (
+        <StewardshipHeatmap3D />
       )}
     </div>
   );

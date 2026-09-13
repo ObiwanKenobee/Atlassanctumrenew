@@ -44,6 +44,7 @@ import { subscribeMissions, getAllMissions, getMissionById } from '../../lib/age
 import { subscribeAuditLogs, getAuditTrail } from '../../lib/agents/agentGateway';
 import { audioFeedback } from '../../lib/audioFeedback';
 import { PageView } from '../../types';
+import { MissionCommandConfirmWrapper } from '../common/MissionCommandConfirmWrapper';
 
 interface AgentMissionControlViewProps {
   onSelectTab?: (tab: PageView) => void;
@@ -751,25 +752,38 @@ export const AgentMissionControlView: React.FC<AgentMissionControlViewProps> = (
                     {isPaused ? 'Resume Loop' : 'Pause Loop'}
                   </button>
 
-                  <button
-                    onClick={handleExecuteNextStep}
+                  <MissionCommandConfirmWrapper
+                    commandTitle="Deploy Autonomous DAG Execution Step"
+                    commandDescription={`Execute task ${currentMission.activeTaskIndex + 1} of ${currentMission.tasks.length} for mission "${currentMission.title}".`}
+                    severity="warning"
+                    consequences={[
+                      'Executes active agent remediation routine on edge nodes',
+                      'Modifies DAG task status and streams real-time telemetry',
+                      'Attests execution step to persistent memory bank'
+                    ]}
+                    targetIdentifier={currentMission.targetRegion}
+                    onConfirm={handleExecuteNextStep}
                     disabled={isExecuting || isPaused || currentMission.phase === 'WAITING_APPROVAL'}
-                    className="px-4 py-2 text-xs font-mono font-bold tracking-wider uppercase rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 transition-all flex items-center gap-2 shadow-md"
                   >
-                    {isExecuting ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Autonomous Step in Progress...
-                      </>
-                    ) : currentMission.phase === 'WAITING_APPROVAL' ? (
-                      <>
-                        <Lock className="w-3.5 h-3.5 text-amber-300" /> Paused (Awaiting Human Approval)
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-3.5 h-3.5" /> Execute Next Autonomous Task
-                      </>
-                    )}
-                  </button>
+                    <button
+                      disabled={isExecuting || isPaused || currentMission.phase === 'WAITING_APPROVAL'}
+                      className="px-4 py-2 text-xs font-mono font-bold tracking-wider uppercase rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 transition-all flex items-center gap-2 shadow-md cursor-pointer"
+                    >
+                      {isExecuting ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Autonomous Step in Progress...
+                        </>
+                      ) : currentMission.phase === 'WAITING_APPROVAL' ? (
+                        <>
+                          <Lock className="w-3.5 h-3.5 text-amber-300" /> Paused (Awaiting Human Approval)
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5" /> Execute Next Autonomous Task
+                        </>
+                      )}
+                    </button>
+                  </MissionCommandConfirmWrapper>
                 </div>
               )}
             </div>
@@ -888,18 +902,46 @@ export const AgentMissionControlView: React.FC<AgentMissionControlViewProps> = (
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => handleResolveApproval(pendingApproval.id, 'rejected')}
-                className="px-4 py-2 text-xs font-mono uppercase tracking-wider rounded border border-red-500/40 text-red-300 hover:bg-red-950/50 transition-colors flex items-center gap-1.5"
+              <MissionCommandConfirmWrapper
+                commandTitle="Reject Approval Request & Pivot Mission DAG"
+                commandDescription={`Reject action "${pendingApproval.actionTitle}". Agent fleet will immediately recalculate alternative remediation path.`}
+                severity="danger"
+                consequences={[
+                  'Rejects pending execution gate requested by ' + pendingApproval.requestingAgentId,
+                  'Forces autonomous planner to compute fallback DAG topology',
+                  'Logs operator rejection decision to immutable audit stream'
+                ]}
+                targetIdentifier={currentMission.targetRegion}
+                onConfirm={() => handleResolveApproval(pendingApproval.id, 'rejected')}
               >
-                <X className="w-4 h-4" /> Reject & Pivot Plan
-              </button>
-              <button
-                onClick={() => handleResolveApproval(pendingApproval.id, 'approved', `Approved with target: ${modifiedTargetNode} (${modifiedStripeMode})`)}
-                className="px-5 py-2 text-xs font-mono font-bold uppercase tracking-wider rounded bg-amber-500 text-black hover:bg-amber-400 transition-colors flex items-center gap-1.5 shadow-lg shadow-amber-500/20"
+                <button
+                  type="button"
+                  className="px-4 py-2 text-xs font-mono uppercase tracking-wider rounded border border-red-500/40 text-red-300 hover:bg-red-950/50 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <X className="w-4 h-4" /> Reject & Pivot Plan
+                </button>
+              </MissionCommandConfirmWrapper>
+
+              <MissionCommandConfirmWrapper
+                commandTitle="Dual-Key Authorization: Hot Failover Execution"
+                commandDescription={`Authorize "${pendingApproval.actionTitle}" on node ${modifiedTargetNode} (${modifiedStripeMode}). Blast radius 78/100.`}
+                severity="critical"
+                requiredPasscode="AUTHORIZE"
+                consequences={[
+                  'Directs standby compute and storage nodes to assume primary traffic',
+                  'Commits cryptographic dual-key signature to governance ledger',
+                  'Irrevocably locks previous node configuration until post-incident review'
+                ]}
+                targetIdentifier={`${modifiedTargetNode} (${modifiedStripeMode})`}
+                onConfirm={() => handleResolveApproval(pendingApproval.id, 'approved', `Approved with target: ${modifiedTargetNode} (${modifiedStripeMode})`)}
               >
-                <Check className="w-4 h-4" /> Sign & Authorize Hot Failover
-              </button>
+                <button
+                  type="button"
+                  className="px-5 py-2 text-xs font-mono font-bold uppercase tracking-wider rounded bg-amber-500 text-black hover:bg-amber-400 transition-colors flex items-center gap-1.5 shadow-lg shadow-amber-500/20 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" /> Sign & Authorize Hot Failover
+                </button>
+              </MissionCommandConfirmWrapper>
             </div>
           </div>
         </div>
