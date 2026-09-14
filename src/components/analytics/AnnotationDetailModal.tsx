@@ -12,7 +12,9 @@ import {
   Copy, 
   BookOpen,
   Radio,
-  FileText
+  FileText,
+  Trash2,
+  Tag
 } from 'lucide-react';
 import { TimelineAnnotationMarker } from './flourishingAnalyticsData';
 import { audioFeedback } from '../../lib/audioFeedback';
@@ -22,13 +24,15 @@ interface AnnotationDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onInspectProvenance?: (provenance: any) => void;
+  onDeleteAnnotation?: (id: string) => void;
 }
 
 export const AnnotationDetailModal: React.FC<AnnotationDetailModalProps> = ({
   annotation,
   isOpen,
   onClose,
-  onInspectProvenance
+  onInspectProvenance,
+  onDeleteAnnotation
 }) => {
   const [copiedUrl, setCopiedUrl] = React.useState<string | null>(null);
 
@@ -92,15 +96,40 @@ export const AnnotationDetailModal: React.FC<AnnotationDetailModalProps> = ({
                 <Calendar className="w-3 h-3 text-[#C5A059]" />
                 {annotation.date}
               </span>
+              {annotation.isCustom && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-950/80 text-purple-300 border border-purple-500/40 font-bold flex items-center gap-1">
+                  <Tag className="w-3 h-3 text-purple-400" />
+                  CUSTOM ANNOTATION
+                </span>
+              )}
+              {annotation.spikeOrDrop && (
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${annotation.spikeOrDrop === 'spike' ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' : 'bg-rose-950 text-rose-300 border border-rose-500/40'}`}>
+                  {annotation.spikeOrDrop === 'spike' ? '▲ POSITIVE SPIKE' : '▼ SUDDEN DROP'}
+                </span>
+              )}
             </div>
 
             <h2 className="text-xl sm:text-2xl font-serif text-[#F5F5F0] leading-snug">
               {annotation.title}
             </h2>
 
+            {annotation.customLabelText && (
+              <div className="text-xs text-amber-300 font-mono flex items-center gap-1.5">
+                <span className="text-[#F5F5F0]/50 font-sans">Chart Marker:</span>
+                <span className="px-1.5 py-0.5 rounded bg-black/60 border border-amber-500/30 font-bold">
+                  {annotation.customLabelText}
+                </span>
+              </div>
+            )}
+
             <div className="flex items-center gap-1.5 text-xs text-[#C5A059] font-mono">
               <MapPin className="w-3.5 h-3.5 shrink-0" />
               <span>{annotation.bioregion}</span>
+              {annotation.author && (
+                <span className="text-[#F5F5F0]/50 font-sans">
+                  • Authored by <strong className="text-[#F5F5F0]">{annotation.author}</strong>
+                </span>
+              )}
             </div>
           </div>
 
@@ -216,8 +245,23 @@ export const AnnotationDetailModal: React.FC<AnnotationDetailModalProps> = ({
 
         {/* Footer Actions */}
         <div className="pt-4 border-t border-[#F5F5F0]/10 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono">
-          <div className="text-[10px] text-[#F5F5F0]/50 text-center sm:text-left">
-            Every historical datapoint is anchored in real-world satellite, sensor, or community baraza evidence.
+          <div className="text-[10px] text-[#F5F5F0]/50 text-center sm:text-left flex items-center gap-2">
+            {annotation.isCustom && onDeleteAnnotation && (
+              <button
+                onClick={() => {
+                  audioFeedback.playSubtleClick();
+                  if (window.confirm('Delete this custom annotation from the chart?')) {
+                    onDeleteAnnotation(annotation.id);
+                    onClose();
+                  }
+                }}
+                className="py-1.5 px-3 rounded bg-rose-950/80 hover:bg-rose-900 border border-rose-500/50 text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <span>Delete Annotation</span>
+              </button>
+            )}
+            <span>Every historical datapoint is anchored in real-world satellite, sensor, or baraza evidence.</span>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">

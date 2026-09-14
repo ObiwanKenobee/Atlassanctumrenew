@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, 
   Layers, 
@@ -21,7 +21,8 @@ import {
   Users,
   Scale,
   RefreshCw,
-  Download
+  Download,
+  Brain
 } from 'lucide-react';
 import { INTELLIGENCE_LAYERS, CIVILIZATION_METRICS, SAMPLE_PROVENANCE } from '../../data/mockCivilizationData';
 import { CivilizationMetric } from '../../types';
@@ -38,6 +39,20 @@ import { CollaborativeStewardshipTeams } from '../profile/CollaborativeStewardsh
 import { ImpactStoryGenerator } from '../profile/ImpactStoryGenerator';
 import { generateImpactArchivalPDF } from '../../lib/generateImpactArchivalPDF';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { TimeRangeOption, exportVisualizedTrendCSV } from '../analytics/trendExportUtils';
+import { TimeRangeSelector } from '../analytics/TimeRangeSelector';
+import { TWELVE_MONTH_INTERVAL_DATA } from '../analytics/FlourishingVsStabilityD3Chart';
+import { COMPARATIVE_BIOREGIONS } from '../analytics/flourishingAnalyticsData';
+
+const IMPACT_DASHBOARD_CACHE_KEY = 'atlas_sanctum_impact_dashboard_cache_v2';
+
+interface ImpactDashboardCachedState {
+  timeRange?: TimeRangeOption;
+  isNormalized?: boolean;
+  selectedBioregions?: string[];
+  activeTab?: 'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story';
+  selectedLayerId?: string;
+}
 
 interface ImpactDashboardViewProps {
   onInspectProvenance: (prov: any) => void;
@@ -48,11 +63,58 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
   onInspectProvenance,
   onOpenMoralSimulator
 }) => {
-  const [selectedLayerId, setSelectedLayerId] = useState<string>('flourishing-os');
+  // Load cached settings from localStorage
+  const [cachedState] = useState<ImpactDashboardCachedState | null>(() => {
+    try {
+      const raw = localStorage.getItem(IMPACT_DASHBOARD_CACHE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {
+      console.warn('Failed to parse impact dashboard cache:', e);
+    }
+    return null;
+  });
+
+  const [selectedLayerId, setSelectedLayerId] = useState<string>(() => cachedState?.selectedLayerId ?? 'flourishing-os');
   const [selectedMetric, setSelectedMetric] = useState<CivilizationMetric>(CIVILIZATION_METRICS[0]);
-  const [activeTab, setActiveTab] = useState<'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story'>('flourishing-vs-stability');
+  const [activeTab, setActiveTab] = useState<'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story'>(() => cachedState?.activeTab ?? 'flourishing-vs-stability');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfGenerationSuccess, setPdfGenerationSuccess] = useState(false);
+  const [csvExportSuccess, setCsvExportSuccess] = useState<string | null>(null);
+
+  // Trend Chart State Managed at Dashboard Level
+  const [timeRange, setTimeRange] = useState<TimeRangeOption>(() => cachedState?.timeRange ?? 'year');
+  const [isNormalized, setIsNormalized] = useState<boolean>(() => cachedState?.isNormalized ?? false);
+  const [selectedBioregions, setSelectedBioregions] = useState<string[]>(() => cachedState?.selectedBioregions ?? ['pan-african']);
+  const [triggerInsightsCounter, setTriggerInsightsCounter] = useState<number>(0);
+
+  // Save filter settings, selected bioregions and view states to localStorage
+  useEffect(() => {
+    try {
+      const stateToCache: ImpactDashboardCachedState = {
+        timeRange,
+        isNormalized,
+        selectedBioregions,
+        activeTab,
+        selectedLayerId
+      };
+      localStorage.setItem(IMPACT_DASHBOARD_CACHE_KEY, JSON.stringify(stateToCache));
+    } catch (e) {
+      console.warn('Failed to cache impact dashboard state to localStorage:', e);
+    }
+  }, [timeRange, isNormalized, selectedBioregions, activeTab, selectedLayerId]);
+
+  const handleExportTrendCSV = () => {
+    audioFeedback.playSubtleClick();
+    const result = exportVisualizedTrendCSV({
+      primaryDataset: TWELVE_MONTH_INTERVAL_DATA,
+      selectedBioregions: COMPARATIVE_BIOREGIONS.filter(b => selectedBioregions.includes(b.id)),
+      isNormalized,
+      timeRange
+    });
+    audioFeedback.playSuccessChime();
+    setCsvExportSuccess(`Exported ${result.rowCount} trend telemetry records to ${result.fileName}`);
+    setTimeout(() => setCsvExportSuccess(null), 5000);
+  };
 
   const handleGeneratePDF = async () => {
     try {
@@ -95,6 +157,43 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Quick-Set Time Range Selector for Trend Analytics */}
+          <div className="flex items-center">
+            <TimeRangeSelector
+              value={timeRange}
+              onChange={(newRange) => {
+                setTimeRange(newRange);
+                audioFeedback.playMicroTick();
+              }}
+            />
+          </div>
+
+          {/* Generate AI Insights Button */}
+          <button
+            id="header-generate-ai-insights-btn"
+            onClick={() => {
+              setActiveTab('flourishing-vs-stability');
+              setTriggerInsightsCounter(prev => prev + 1);
+              audioFeedback.playCovenantResonance();
+            }}
+            className="px-3.5 py-2 bg-gradient-to-r from-purple-950/80 to-[#1A1625] hover:from-purple-900/90 hover:to-[#262035] border border-purple-500/50 text-purple-200 rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer"
+            title="Use Gemini AI to analyze current longitudinal trend chart and summarize key ecological and economic correlations"
+          >
+            <Brain className="w-3.5 h-3.5 text-purple-400" />
+            <span>Generate AI Insights</span>
+          </button>
+
+          {/* Export to CSV Button */}
+          <button
+            id="export-trend-data-csv-btn"
+            onClick={handleExportTrendCSV}
+            className="px-3.5 py-2 bg-[#171612] hover:bg-[#26241b] border border-[#C5A059] text-[#C5A059] hover:text-white rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer"
+            title="Download currently visualized longitudinal trend data (with applied normalizations and exact timestamps) as CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Export to CSV</span>
+          </button>
+
           {/* Generate Verified Archival PDF Summary Button */}
           <button
             id="generate-archival-pdf-summary-btn"
@@ -128,6 +227,21 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* CSV Export Confirmation Banner */}
+      {csvExportSuccess && (
+        <div className="p-3.5 bg-emerald-950/90 border border-emerald-500/50 rounded flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs font-mono text-emerald-300 shadow-xl animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>
+              <strong>Trend Data CSV Exported:</strong> {csvExportSuccess}
+            </span>
+          </div>
+          <span className="text-[10px] text-emerald-400/80 bg-black/40 px-2 py-0.5 rounded border border-emerald-500/30 uppercase font-bold tracking-wider shrink-0">
+            CSV AUDITED
+          </span>
+        </div>
+      )}
 
       {/* PDF Archival Generation Confirmation Banner */}
       {pdfGenerationSuccess && (
@@ -347,6 +461,13 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
       {activeTab === 'flourishing-vs-stability' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           <FlourishingVsStabilityD3Chart 
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            isNormalized={isNormalized}
+            onNormalizeChange={setIsNormalized}
+            selectedBioregions={selectedBioregions}
+            onBioregionsChange={setSelectedBioregions}
+            triggerInsightsCounter={triggerInsightsCounter}
             onInspectPoint={(pt) => {
               onInspectProvenance({
                 ...SAMPLE_PROVENANCE,

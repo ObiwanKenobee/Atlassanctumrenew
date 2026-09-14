@@ -14,7 +14,7 @@ export interface TimelineAnnotationMarker {
   calendarMonth: string;
   date: string;
   title: string;
-  category: 'governance' | 'climate_event' | 'stress_anomaly' | 'economic_dividend' | 'infrastructure_mesh' | 'epistemic_parity';
+  category: 'governance' | 'climate_event' | 'stress_anomaly' | 'economic_dividend' | 'infrastructure_mesh' | 'epistemic_parity' | 'spike' | 'drop' | 'custom';
   categoryLabel: string;
   categoryColor: string;
   bioregion: string;
@@ -23,6 +23,10 @@ export interface TimelineAnnotationMarker {
   sensorQuorum: number;
   cryptographicHash: string;
   provenanceLinks: ProvenanceExternalLink[];
+  isCustom?: boolean;
+  spikeOrDrop?: 'spike' | 'drop' | 'neutral';
+  customLabelText?: string;
+  author?: string;
 }
 
 export interface HistoricalAnomalyEvent {
