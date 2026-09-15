@@ -22,7 +22,12 @@ import {
   Scale,
   RefreshCw,
   Download,
-  Brain
+  Brain,
+  Flame,
+  Columns,
+  Sliders,
+  Camera,
+  Plus
 } from 'lucide-react';
 import { INTELLIGENCE_LAYERS, CIVILIZATION_METRICS, SAMPLE_PROVENANCE } from '../../data/mockCivilizationData';
 import { CivilizationMetric } from '../../types';
@@ -33,13 +38,18 @@ import { RegenerativeProgressD3Chart } from '../analytics/RegenerativeProgressD3
 import { FlourishingVsStabilityD3Chart } from '../analytics/FlourishingVsStabilityD3Chart';
 import { KnowledgeGraphStudio } from '../intelligence/KnowledgeGraphStudio';
 import { BioregionalHazardMonitor } from '../bioregional/BioregionalHazardMonitor';
-import { BioregionalImpactD3Map } from '../bioregional/BioregionalImpactD3Map';
+import { BioregionalImpactD3Map, HeatmapMode } from '../bioregional/BioregionalImpactD3Map';
 import { CommunityImpactFeed } from '../bioregional/CommunityImpactFeed';
 import { CollaborativeStewardshipTeams } from '../profile/CollaborativeStewardshipTeams';
 import { ImpactStoryGenerator } from '../profile/ImpactStoryGenerator';
+import { DataQualityBadge } from '../analytics/DataQualityBadge';
+import { BioregionalSplitPaneView } from '../analytics/BioregionalSplitPaneView';
+import { PredictiveForecastingSection } from '../analytics/PredictiveForecastingSection';
+import { BioregionalComparatorModal } from '../analytics/BioregionalComparatorModal';
 import { generateImpactArchivalPDF } from '../../lib/generateImpactArchivalPDF';
+import { generateEnvironmentalSnapshotPDF } from '../../lib/generateEnvironmentalSnapshotPDF';
 import { audioFeedback } from '../../lib/audioFeedback';
-import { TimeRangeOption, exportVisualizedTrendCSV } from '../analytics/trendExportUtils';
+import { TimeRangeOption, exportVisualizedTrendCSV, exportBatchAllBioregionsCSV } from '../analytics/trendExportUtils';
 import { TimeRangeSelector } from '../analytics/TimeRangeSelector';
 import { TWELVE_MONTH_INTERVAL_DATA } from '../analytics/FlourishingVsStabilityD3Chart';
 import { COMPARATIVE_BIOREGIONS } from '../analytics/flourishingAnalyticsData';
@@ -50,8 +60,10 @@ interface ImpactDashboardCachedState {
   timeRange?: TimeRangeOption;
   isNormalized?: boolean;
   selectedBioregions?: string[];
-  activeTab?: 'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story';
+  activeTab?: 'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story' | 'split-pane-compare' | 'predictive-forecasting';
   selectedLayerId?: string;
+  isPredictiveForecastingEnabled?: boolean;
+  heatmapMode?: HeatmapMode;
 }
 
 interface ImpactDashboardViewProps {
@@ -76,10 +88,20 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
 
   const [selectedLayerId, setSelectedLayerId] = useState<string>(() => cachedState?.selectedLayerId ?? 'flourishing-os');
   const [selectedMetric, setSelectedMetric] = useState<CivilizationMetric>(CIVILIZATION_METRICS[0]);
-  const [activeTab, setActiveTab] = useState<'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story'>(() => cachedState?.activeTab ?? 'flourishing-vs-stability');
+  const [activeTab, setActiveTab] = useState<'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story' | 'split-pane-compare' | 'predictive-forecasting'>(() => cachedState?.activeTab ?? 'flourishing-vs-stability');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfGenerationSuccess, setPdfGenerationSuccess] = useState(false);
   const [csvExportSuccess, setCsvExportSuccess] = useState<string | null>(null);
+
+  // Snapshot PDF & Comparator Modal States
+  const [isGeneratingSnapshot, setIsGeneratingSnapshot] = useState<boolean>(false);
+  const [snapshotSuccess, setSnapshotSuccess] = useState<string | null>(null);
+  const [isComparatorModalOpen, setIsComparatorModalOpen] = useState<boolean>(false);
+  const [isConfidenceIntervalActive, setIsConfidenceIntervalActive] = useState<boolean>(false);
+
+  // Predictive Forecasting & Heatmap Layer States
+  const [isPredictiveForecastingEnabled, setIsPredictiveForecastingEnabled] = useState<boolean>(() => cachedState?.isPredictiveForecastingEnabled ?? false);
+  const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>(() => cachedState?.heatmapMode ?? 'ecological');
 
   // Trend Chart State Managed at Dashboard Level
   const [timeRange, setTimeRange] = useState<TimeRangeOption>(() => cachedState?.timeRange ?? 'year');
@@ -95,13 +117,15 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         isNormalized,
         selectedBioregions,
         activeTab,
-        selectedLayerId
+        selectedLayerId,
+        isPredictiveForecastingEnabled,
+        heatmapMode
       };
       localStorage.setItem(IMPACT_DASHBOARD_CACHE_KEY, JSON.stringify(stateToCache));
     } catch (e) {
       console.warn('Failed to cache impact dashboard state to localStorage:', e);
     }
-  }, [timeRange, isNormalized, selectedBioregions, activeTab, selectedLayerId]);
+  }, [timeRange, isNormalized, selectedBioregions, activeTab, selectedLayerId, isPredictiveForecastingEnabled, heatmapMode]);
 
   const handleExportTrendCSV = () => {
     audioFeedback.playSubtleClick();
@@ -114,6 +138,47 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
     audioFeedback.playSuccessChime();
     setCsvExportSuccess(`Exported ${result.rowCount} trend telemetry records to ${result.fileName}`);
     setTimeout(() => setCsvExportSuccess(null), 5000);
+  };
+
+  const handleBatchExportCSV = () => {
+    audioFeedback.playSubtleClick();
+    const result = exportBatchAllBioregionsCSV({
+      timeRange,
+      isNormalized
+    });
+    audioFeedback.playSuccessChime();
+    setCsvExportSuccess(`Batch export downloaded: ${result.rowCount} aggregated records across all ${result.bioregionCount} bioregions (${result.fileName})`);
+    setTimeout(() => setCsvExportSuccess(null), 6000);
+  };
+
+  const handleTakeSnapshotPDF = async () => {
+    try {
+      setIsGeneratingSnapshot(true);
+      audioFeedback.playSubtleClick();
+      // Look for the primary D3 chart card or the main dashboard container
+      const chartElement = document.getElementById('flourishing-vs-stability-d3-chart-card') || 
+                           document.getElementById('impact-dashboard-root-view') || 
+                           document.body;
+
+      const activeBioregionObjs = COMPARATIVE_BIOREGIONS.filter(b => selectedBioregions.includes(b.id));
+
+      const result = await generateEnvironmentalSnapshotPDF({
+        chartElement,
+        selectedBioregions: activeBioregionObjs.length > 0 ? activeBioregionObjs : [COMPARATIVE_BIOREGIONS[0]],
+        timeRange,
+        isNormalized,
+        isConfidenceIntervalActive,
+        isPredictiveForecastingEnabled
+      });
+
+      setSnapshotSuccess(result.fileName);
+      audioFeedback.playSuccessChime();
+      setTimeout(() => setSnapshotSuccess(null), 6000);
+    } catch (err) {
+      console.error('Failed to generate high-resolution snapshot PDF:', err);
+    } finally {
+      setIsGeneratingSnapshot(false);
+    }
   };
 
   const handleGeneratePDF = async () => {
@@ -157,6 +222,24 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Predictive Forecasting Toggle Button */}
+          <button
+            id="header-predictive-forecasting-toggle-btn"
+            onClick={() => {
+              setIsPredictiveForecastingEnabled(prev => !prev);
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
+              isPredictiveForecastingEnabled
+                ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-black border-emerald-400 font-bold shadow-lg ring-1 ring-emerald-400/50'
+                : 'bg-[#141414] hover:bg-[#1f1f1f] text-emerald-400 border-emerald-500/40 hover:border-emerald-400'
+            }`}
+            title="Toggle Predictive Trends OLS Regression Engine projecting future trends over the next quarter"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${isPredictiveForecastingEnabled ? 'animate-spin text-black' : 'text-emerald-400'}`} />
+            <span>Forecasting: {isPredictiveForecastingEnabled ? 'NEXT-QTR [ON]' : 'OFF'}</span>
+          </button>
+
           {/* Quick-Set Time Range Selector for Trend Analytics */}
           <div className="flex items-center">
             <TimeRangeSelector
@@ -167,6 +250,21 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
               }}
             />
           </div>
+
+          {/* Bioregional Comparator: Persistent Add Bioregion Button */}
+          <button
+            id="header-bioregional-comparator-btn"
+            onClick={() => {
+              setActiveTab('flourishing-vs-stability');
+              setIsComparatorModalOpen(true);
+              audioFeedback.playMicroTick();
+            }}
+            className="px-3.5 py-2 bg-[#142319] hover:bg-[#1E3325] border border-emerald-500/70 text-emerald-300 hover:text-white rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ring-1 ring-emerald-500/30"
+            title="Open Bioregional Comparator to overlay additional bioregions onto the trend chart for direct comparison"
+          >
+            <Plus className="w-3.5 h-3.5 text-emerald-400" />
+            <span>+ Add Bioregion ({selectedBioregions.length})</span>
+          </button>
 
           {/* Generate AI Insights Button */}
           <button
@@ -180,7 +278,7 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             title="Use Gemini AI to analyze current longitudinal trend chart and summarize key ecological and economic correlations"
           >
             <Brain className="w-3.5 h-3.5 text-purple-400" />
-            <span>Generate AI Insights</span>
+            <span>AI Insights</span>
           </button>
 
           {/* Export to CSV Button */}
@@ -191,7 +289,39 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             title="Download currently visualized longitudinal trend data (with applied normalizations and exact timestamps) as CSV"
           >
             <Download className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Export to CSV</span>
+            <span>Export CSV</span>
+          </button>
+
+          {/* Batch Export Option for All Bioregions */}
+          <button
+            id="batch-export-all-bioregions-csv-btn"
+            onClick={handleBatchExportCSV}
+            className="px-3.5 py-2 bg-[#201D14] hover:bg-[#2F2A1C] border border-[#C5A059]/80 text-[#C5A059] hover:text-white rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer"
+            title="Download aggregated multi-biome dataset for all currently monitored bioregions at once into a unified CSV"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Batch Export ({COMPARATIVE_BIOREGIONS.length})</span>
+          </button>
+
+          {/* Snapshot Button: High-Resolution Screenshot & PDF Report */}
+          <button
+            id="snapshot-chart-pdf-btn"
+            onClick={handleTakeSnapshotPDF}
+            disabled={isGeneratingSnapshot}
+            className="px-3.5 py-2 bg-[#0E1B1B] hover:bg-[#162A2A] border border-cyan-500/60 text-cyan-300 hover:text-white rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer disabled:opacity-50"
+            title="Capture a high-resolution screenshot of the current chart layout (including annotations and selected filters) and generate a downloadable PDF report summarizing current environmental performance"
+          >
+            {isGeneratingSnapshot ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                <span>Capturing Snapshot...</span>
+              </>
+            ) : (
+              <>
+                <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Snapshot (PDF)</span>
+              </>
+            )}
           </button>
 
           {/* Generate Verified Archival PDF Summary Button */}
@@ -210,7 +340,7 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             ) : (
               <>
                 <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Generate PDF Summary</span>
+                <span>Full Ledger PDF</span>
               </>
             )}
           </button>
@@ -254,6 +384,21 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           </div>
           <span className="text-[10px] text-emerald-400/80 bg-black/40 px-2 py-0.5 rounded border border-emerald-500/30 uppercase font-bold tracking-wider shrink-0">
             PDF/A ARCHIVED
+          </span>
+        </div>
+      )}
+
+      {/* Snapshot PDF Generation Confirmation Banner */}
+      {snapshotSuccess && (
+        <div className="p-3.5 bg-cyan-950/90 border border-cyan-500/50 rounded flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs font-mono text-cyan-300 shadow-xl animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+            <span>
+              <strong>Chart Snapshot PDF Generated:</strong> High-resolution render (2.0x retina) and active filters exported to {snapshotSuccess}
+            </span>
+          </div>
+          <span className="text-[10px] text-cyan-300/80 bg-black/40 px-2 py-0.5 rounded border border-cyan-500/30 uppercase font-bold tracking-wider shrink-0">
+            HI-RES RENDER
           </span>
         </div>
       )}
@@ -390,6 +535,47 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             <span>Bioregional Impact Map (D3)</span>
           </button>
 
+          {/* Split-Pane Bioregional Comparison Mode Tab */}
+          <button
+            id="tab-split-pane-compare-btn"
+            onClick={() => {
+              setActiveTab('split-pane-compare');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'split-pane-compare'
+                ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-black shadow-md font-bold'
+                : 'bg-[#141414] text-cyan-300 hover:text-cyan-200 border border-cyan-500/40'
+            }`}
+          >
+            <Columns className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Split-Pane Bioregional Compare</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 font-bold uppercase">
+              SYNCED SLIDERS
+            </span>
+          </button>
+
+          {/* Predictive Forecasting Tab */}
+          <button
+            id="tab-predictive-forecasting-btn"
+            onClick={() => {
+              setActiveTab('predictive-forecasting');
+              setIsPredictiveForecastingEnabled(true);
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'predictive-forecasting'
+                ? 'bg-gradient-to-r from-purple-500 via-indigo-500 to-teal-500 text-black shadow-md font-bold'
+                : 'bg-[#141414] text-purple-300 hover:text-purple-200 border border-purple-500/40'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+            <span>Predictive Forecasting (Next Qtr)</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-950/80 text-purple-300 border border-purple-500/40 font-bold uppercase">
+              OLS REGRESSION
+            </span>
+          </button>
+
           <button
             onClick={() => {
               setActiveTab('hazard-monitor');
@@ -467,6 +653,9 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             onNormalizeChange={setIsNormalized}
             selectedBioregions={selectedBioregions}
             onBioregionsChange={setSelectedBioregions}
+            isConfidenceIntervalActive={isConfidenceIntervalActive}
+            onConfidenceIntervalToggle={setIsConfidenceIntervalActive}
+            onAddBioregionClick={() => setIsComparatorModalOpen(true)}
             triggerInsightsCounter={triggerInsightsCounter}
             onInspectPoint={(pt) => {
               onInspectProvenance({
@@ -481,6 +670,20 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             onInspectProvenance={onInspectProvenance}
             onOpenMoralSimulator={onOpenMoralSimulator}
           />
+
+          {/* Integrated Predictive Trend Forecasting Panel when enabled */}
+          {isPredictiveForecastingEnabled && (
+            <div className="pt-2">
+              <PredictiveForecastingSection
+                isEnabled={isPredictiveForecastingEnabled}
+                onToggle={setIsPredictiveForecastingEnabled}
+                selectedMetric={selectedMetric}
+                metricsList={CIVILIZATION_METRICS}
+                onSelectMetric={setSelectedMetric}
+                onInspectProvenance={onInspectProvenance}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -522,7 +725,32 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
       {/* Primary Tab: D3 Bioregional Geographic Impact Map */}
       {activeTab === 'bioregional-map' && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          <BioregionalImpactD3Map />
+          <BioregionalImpactD3Map 
+            heatmapMode={heatmapMode}
+            onHeatmapModeChange={setHeatmapMode}
+            onInspectProvenance={onInspectProvenance}
+          />
+        </div>
+      )}
+
+      {/* Primary Tab: Split-Pane Bioregional Comparison Mode */}
+      {activeTab === 'split-pane-compare' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <BioregionalSplitPaneView onInspectProvenance={onInspectProvenance} />
+        </div>
+      )}
+
+      {/* Primary Tab: Dedicated Predictive Forecasting Engine */}
+      {activeTab === 'predictive-forecasting' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <PredictiveForecastingSection
+            isEnabled={isPredictiveForecastingEnabled}
+            onToggle={setIsPredictiveForecastingEnabled}
+            selectedMetric={selectedMetric}
+            metricsList={CIVILIZATION_METRICS}
+            onSelectMetric={setSelectedMetric}
+            onInspectProvenance={onInspectProvenance}
+          />
         </div>
       )}
 
@@ -639,6 +867,21 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
                           <span className="text-emerald-400">{metric.provenance.certaintyScore}% Confirmed</span>
                         </div>
                       </div>
+
+                      {/* Small Data Quality & Sensor Provenance Badge */}
+                      <div className="pt-2 border-t border-white/5 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                        <DataQualityBadge
+                          confidenceScore={metric.provenance.certaintyScore}
+                          source={metric.provenance.source}
+                          cryptographicHash={metric.provenance.cryptographicHash}
+                          metricName={metric.name}
+                          size="xs"
+                          onInspectProvenance={() => onInspectProvenance(metric.provenance)}
+                        />
+                        <span className="text-[10px] font-mono text-white/40">
+                          Provenance Verified
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -662,6 +905,27 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
                   <div className="text-[10px] uppercase font-mono text-[#F5F5F0]/40">Auditing Metric</div>
                   <h3 className="text-sm font-serif text-[#F5F5F0]">{selectedMetric.name}</h3>
                   <p className="text-xs text-[#F5F5F0]/60 mt-1 font-sans">{selectedMetric.description}</p>
+                </div>
+
+                {/* Data Quality & Provenance Rating Card */}
+                <div className="p-3 bg-[#0A110D] border border-emerald-500/30 rounded-sm space-y-2">
+                  <div className="text-[10px] uppercase font-mono text-emerald-300 font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      Sensor Data Quality Rating
+                    </span>
+                    <span className="text-[9px] font-mono text-emerald-400/80">
+                      {selectedMetric.provenance.certaintyScore}% Confirmed
+                    </span>
+                  </div>
+                  <DataQualityBadge
+                    confidenceScore={selectedMetric.provenance.certaintyScore}
+                    source={selectedMetric.provenance.source}
+                    cryptographicHash={selectedMetric.provenance.cryptographicHash}
+                    metricName={selectedMetric.name}
+                    size="md"
+                    onInspectProvenance={() => onInspectProvenance(selectedMetric.provenance)}
+                  />
                 </div>
 
                 <div className="space-y-3 pt-2 font-mono text-xs">
@@ -722,6 +986,27 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           />
         </div>
       )}
+      {/* Bioregional Comparator Multi-Selection Modal */}
+      <BioregionalComparatorModal
+        isOpen={isComparatorModalOpen}
+        onClose={() => setIsComparatorModalOpen(false)}
+        selectedBioregionIds={selectedBioregions}
+        onToggleBioregion={(id) => {
+          if (selectedBioregions.includes(id)) {
+            if (selectedBioregions.length > 1) {
+              setSelectedBioregions(selectedBioregions.filter(b => b !== id));
+            }
+          } else {
+            setSelectedBioregions([...selectedBioregions, id]);
+          }
+        }}
+        onSelectAll={() => {
+          setSelectedBioregions(COMPARATIVE_BIOREGIONS.map(b => b.id));
+        }}
+        onResetBaseline={() => {
+          setSelectedBioregions(['pan-african']);
+        }}
+      />
     </div>
   );
 };

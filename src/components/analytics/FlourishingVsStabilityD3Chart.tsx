@@ -39,7 +39,11 @@ import {
   ZoomIn,
   ZoomOut,
   Check,
-  Tag
+  Tag,
+  Plus,
+  MoveVertical,
+  Volume2,
+  X
 } from 'lucide-react';
 import { audioFeedback } from '../../lib/audioFeedback';
 import { 
@@ -56,6 +60,7 @@ import { AnnotationDetailModal } from './AnnotationDetailModal';
 import { AddAnnotationModal } from './AddAnnotationModal';
 import { AnomalyDetailModal } from './AnomalyDetailModal';
 import { BioregionMultiSelectFilter } from './BioregionMultiSelectFilter';
+import { BioregionalComparatorModal } from './BioregionalComparatorModal';
 import { FlourishingAIInsightsModal, FlourishingInsightsData } from './FlourishingAIInsightsModal';
 import { ThresholdAlertModal, AlertThresholdConfig } from './ThresholdAlertModal';
 import { ThresholdAlertBanner } from './ThresholdAlertBanner';
@@ -277,6 +282,7 @@ interface CachedChartState {
   showPredictiveForecast?: boolean;
   forecastScenario?: 'balanced_covenant' | 'regenerative_acceleration' | 'climate_stress_shock';
   alertThreshold?: AlertThresholdConfig;
+  isConfidenceIntervalActive?: boolean;
   lastSavedTimestamp?: number;
 }
 
@@ -325,6 +331,9 @@ interface FlourishingVsStabilityD3ChartProps {
   onTimeRangeChange?: (range: TimeRangeOption) => void;
   isNormalized?: boolean;
   onNormalizeChange?: (normalized: boolean) => void;
+  isConfidenceIntervalActive?: boolean;
+  onConfidenceIntervalToggle?: (active: boolean) => void;
+  onAddBioregionClick?: () => void;
 }
 
 export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3ChartProps> = ({
@@ -337,7 +346,10 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
   timeRange: externalTimeRange,
   onTimeRangeChange,
   isNormalized: externalIsNormalized,
-  onNormalizeChange
+  onNormalizeChange,
+  isConfidenceIntervalActive: externalConfidenceInterval,
+  onConfidenceIntervalToggle,
+  onAddBioregionClick
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -440,6 +452,22 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
     }
   };
 
+  // Confidence Interval Toggle State (±1σ / 95% CI shaded areas)
+  const [internalConfidenceInterval, setInternalConfidenceInterval] = useState<boolean>(() => savedState?.isConfidenceIntervalActive ?? false);
+  const isConfidenceIntervalActive = externalConfidenceInterval !== undefined ? externalConfidenceInterval : internalConfidenceInterval;
+
+  const handleToggleConfidenceInterval = () => {
+    const nextVal = !isConfidenceIntervalActive;
+    if (onConfidenceIntervalToggle) {
+      onConfidenceIntervalToggle(nextVal);
+    } else {
+      setInternalConfidenceInterval(nextVal);
+    }
+  };
+
+  // Bioregional Comparator Modal State
+  const [isBioregionalComparatorModalOpen, setIsBioregionalComparatorModalOpen] = useState<boolean>(false);
+
   // References for tracking state changes and triggering smooth D3 transitions
   const prevNormalizedRef = useRef<boolean>(isNormalized);
   const prevTimeRangeRef = useRef<TimeRangeOption>(activeTimeRange);
@@ -455,6 +483,26 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
   const [isAlertDismissed, setIsAlertDismissed] = useState<boolean>(false);
   const lastAlertFiredRef = useRef<boolean>(false);
+  const [alertDragFeedback, setAlertDragFeedback] = useState<string | null>(null);
+  const [isNotificationPermissionGranted, setIsNotificationPermissionGranted] = useState<boolean>(() => {
+    return typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
+  });
+
+  const handleRequestNotificationPermission = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+          setIsNotificationPermissionGranted(true);
+          audioFeedback.playSuccessChime();
+          setAlertDragFeedback("Real-time desktop push notifications armed for telemetry breaches!");
+          setTimeout(() => setAlertDragFeedback(null), 5000);
+        }
+      } catch (err) {
+        console.warn("Could not request notification permission", err);
+      }
+    }
+  };
 
   // AI Insights State
   const [isAIInsightsModalOpen, setIsAIInsightsModalOpen] = useState<boolean>(false);
@@ -554,6 +602,7 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         showPredictiveForecast,
         forecastScenario,
         alertThreshold,
+        isConfidenceIntervalActive,
         lastSavedTimestamp: Date.now()
       };
       localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(payload));
@@ -570,7 +619,8 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
     showAnnotations,
     showPredictiveForecast,
     forecastScenario,
-    alertThreshold
+    alertThreshold,
+    isConfidenceIntervalActive
   ]);
 
   const handleResetToDefaults = () => {
@@ -1154,7 +1204,7 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         .text(isNormalized ? 'EQUILIBRIUM BASELINE (80 pts Normalized)' : 'REGENERATIVE EQUILIBRIUM THRESHOLD (80 pts)');
     }
 
-    // Interactive Alert on Threshold Guide Line
+    // Interactive Alert on Threshold Guide Line with Drag-to-Define
     if (alertThreshold.enabled) {
       let thresholdScaled = alertThreshold.value;
       if (isNormalized) {
@@ -1169,45 +1219,225 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
 
       const thresholdY = yScale(thresholdScaled);
       if (thresholdY >= 0 && thresholdY <= innerHeight) {
-        const alertGuideGroup = g.append('g').attr('class', 'alert-threshold-guide');
-        
-        alertGuideGroup.append('line')
+        const alertGuideGroup = g.append('g')
+          .attr('class', 'alert-threshold-guide')
+          .attr('id', 'draggable-alert-threshold-layer');
+
+        // Shaded breach zone (territory where condition is breached)
+        const breachZone = alertGuideGroup.append('rect')
+          .attr('class', 'breach-alert-zone')
+          .attr('x', 0)
+          .attr('width', innerWidth)
+          .attr('y', alertThreshold.condition === 'below' ? thresholdY : 0)
+          .attr('height', alertThreshold.condition === 'below' ? Math.max(0, innerHeight - thresholdY) : thresholdY)
+          .attr('fill', '#EF4444')
+          .attr('opacity', 0.07)
+          .attr('pointer-events', 'none');
+
+        // Glowing backdrop line
+        const glowLine = alertGuideGroup.append('line')
+          .attr('class', 'threshold-glow-line')
           .attr('x1', 0)
           .attr('x2', innerWidth)
           .attr('y1', thresholdY)
           .attr('y2', thresholdY)
           .attr('stroke', '#EF4444')
-          .attr('stroke-width', 1.8)
-          .attr('stroke-dasharray', '5 3');
+          .attr('stroke-width', 4)
+          .attr('opacity', 0.25)
+          .attr('pointer-events', 'none');
 
-        const badgeX = Math.max(120, innerWidth - 140);
-        const alertBadge = alertGuideGroup.append('g')
-          .attr('transform', `translate(${badgeX}, ${thresholdY})`)
-          .attr('cursor', 'pointer')
-          .on('click', () => {
-            audioFeedback.playMicroTick();
-            setIsThresholdModalOpen(true);
-          });
+        // Visible dashed threshold line
+        const thresholdLine = alertGuideGroup.append('line')
+          .attr('class', 'threshold-main-line')
+          .attr('x1', 0)
+          .attr('x2', innerWidth)
+          .attr('y1', thresholdY)
+          .attr('y2', thresholdY)
+          .attr('stroke', '#EF4444')
+          .attr('stroke-width', 2)
+          .attr('stroke-dasharray', '6 4')
+          .attr('pointer-events', 'none');
 
-        alertBadge.append('rect')
-          .attr('x', -95)
-          .attr('y', -10)
-          .attr('width', 190)
-          .attr('height', 20)
-          .attr('rx', 4)
-          .attr('fill', '#450A0A')
+        // Wide invisible drag hitbox spanning the full chart width
+        const dragHitbox = alertGuideGroup.append('line')
+          .attr('class', 'threshold-drag-hitbox')
+          .attr('x1', 0)
+          .attr('x2', innerWidth)
+          .attr('y1', thresholdY)
+          .attr('y2', thresholdY)
+          .attr('stroke', 'transparent')
+          .attr('stroke-width', 30)
+          .attr('cursor', 'ns-resize')
+          .attr('pointer-events', 'all');
+
+        // Left Drag Handle Pill: [ ↕ DRAG THRESHOLD ]
+        const leftHandle = alertGuideGroup.append('g')
+          .attr('class', 'threshold-left-handle')
+          .attr('transform', `translate(4, ${thresholdY})`)
+          .attr('cursor', 'ns-resize')
+          .attr('pointer-events', 'all');
+
+        const leftHandleRect = leftHandle.append('rect')
+          .attr('x', 0)
+          .attr('y', -11)
+          .attr('width', 118)
+          .attr('height', 22)
+          .attr('rx', 3)
+          .attr('fill', '#260B0B')
           .attr('stroke', '#EF4444')
           .attr('stroke-width', 1.2);
 
-        alertBadge.append('text')
-          .attr('x', 0)
+        const leftHandleText = leftHandle.append('text')
+          .attr('x', 59)
           .attr('y', 3.5)
           .attr('text-anchor', 'middle')
           .attr('fill', '#FCA5A5')
           .attr('font-size', '8.5px')
           .attr('font-family', 'monospace')
           .attr('font-weight', 'bold')
+          .attr('pointer-events', 'none')
+          .text('↕ DRAG THRESHOLD');
+
+        // Right Status Badge Pill: [ ⚠️ ALERT: ECO < 75% ]
+        const badgeX = Math.max(160, innerWidth - 145);
+        const alertBadge = alertGuideGroup.append('g')
+          .attr('class', 'threshold-badge-group')
+          .attr('transform', `translate(${badgeX}, ${thresholdY})`)
+          .attr('cursor', 'ns-resize')
+          .attr('pointer-events', 'all');
+
+        const badgeRect = alertBadge.append('rect')
+          .attr('x', -95)
+          .attr('y', -11)
+          .attr('width', 190)
+          .attr('height', 22)
+          .attr('rx', 4)
+          .attr('fill', '#450A0A')
+          .attr('stroke', '#EF4444')
+          .attr('stroke-width', 1.2);
+
+        const badgeText = alertBadge.append('text')
+          .attr('x', -8)
+          .attr('y', 4)
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#FCA5A5')
+          .attr('font-size', '8.5px')
+          .attr('font-family', 'monospace')
+          .attr('font-weight', 'bold')
+          .attr('pointer-events', 'none')
           .text(`⚠️ ALERT: ${alertThreshold.metric.toUpperCase()} ${alertThreshold.condition === 'below' ? '<' : '>'} ${alertThreshold.value}${alertThreshold.metric === 'decoupling' ? 'pts' : '%'}`);
+
+        // Quick settings gear icon button inside badge
+        const gearButton = alertBadge.append('g')
+          .attr('transform', 'translate(80, 0)')
+          .attr('cursor', 'pointer')
+          .on('click', (e) => {
+            e.stopPropagation();
+            audioFeedback.playMicroTick();
+            setIsThresholdModalOpen(true);
+          });
+
+        gearButton.append('circle')
+          .attr('r', 7)
+          .attr('fill', '#7F1D1D')
+          .attr('stroke', '#F87171')
+          .attr('stroke-width', 0.8);
+
+        gearButton.append('text')
+          .attr('text-anchor', 'middle')
+          .attr('y', 3)
+          .attr('fill', '#FEE2E2')
+          .attr('font-size', '8px')
+          .attr('font-family', 'sans-serif')
+          .text('⚙');
+
+        // Drag Behavior using d3.drag()
+        let activeDraggedValue = alertThreshold.value;
+        let dragStartY = 0;
+        let hasMovedSignificantly = false;
+
+        const dragBehavior = d3.drag<any, unknown>()
+          .on('start', (event) => {
+            dragStartY = event.y;
+            hasMovedSignificantly = false;
+            audioFeedback.playMicroTick();
+            glowLine.attr('stroke-width', 8).attr('opacity', 0.55);
+            thresholdLine.attr('stroke-width', 2.8).attr('stroke', '#F87171');
+            leftHandleRect.attr('fill', '#7F1D1D').attr('stroke', '#FCA5A5');
+            badgeRect.attr('fill', '#7F1D1D').attr('stroke', '#FCA5A5');
+          })
+          .on('drag', (event) => {
+            if (Math.abs(event.y - dragStartY) > 3) {
+              hasMovedSignificantly = true;
+            }
+            const clampedY = Math.max(0, Math.min(innerHeight, event.y));
+            const invertedRaw = yScale.invert(clampedY);
+
+            // Invert normalization if active
+            let calculatedVal = invertedRaw;
+            if (isNormalized) {
+              if (alertThreshold.metric === 'ecological') {
+                calculatedVal = minEco + (invertedRaw / 100) * (maxEco - minEco);
+              } else if (alertThreshold.metric === 'economic') {
+                calculatedVal = minEcon + (invertedRaw / 100) * (maxEcon - minEcon);
+              } else {
+                calculatedVal = minCounter + (invertedRaw / 100) * (maxCounter - minCounter);
+              }
+            }
+
+            // Bound between 10% and 100%
+            const boundedVal = Math.max(10, Math.min(100, calculatedVal));
+            activeDraggedValue = Math.round(boundedVal * 10) / 10;
+
+            // Direct real-time updates to all SVG elements for silky smooth 60fps rendering
+            glowLine.attr('y1', clampedY).attr('y2', clampedY);
+            thresholdLine.attr('y1', clampedY).attr('y2', clampedY);
+            dragHitbox.attr('y1', clampedY).attr('y2', clampedY);
+            leftHandle.attr('transform', `translate(4, ${clampedY})`);
+            alertBadge.attr('transform', `translate(${badgeX}, ${clampedY})`);
+
+            // Update breach zone rect
+            if (alertThreshold.condition === 'below') {
+              breachZone.attr('y', clampedY).attr('height', Math.max(0, innerHeight - clampedY));
+            } else {
+              breachZone.attr('y', 0).attr('height', clampedY);
+            }
+
+            // Dynamic live text labels
+            leftHandleText.text(`↕ ${activeDraggedValue}${alertThreshold.metric === 'decoupling' ? 'pts' : '%'}`);
+            badgeText.text(`⚠️ SETTING: ${alertThreshold.metric.toUpperCase()} ${alertThreshold.condition === 'below' ? '<' : '>'} ${activeDraggedValue}${alertThreshold.metric === 'decoupling' ? 'pts' : '%'}`);
+          })
+          .on('end', () => {
+            glowLine.attr('stroke-width', 4).attr('opacity', 0.25);
+            thresholdLine.attr('stroke-width', 2).attr('stroke', '#EF4444');
+            leftHandleRect.attr('fill', '#260B0B').attr('stroke', '#EF4444');
+            badgeRect.attr('fill', '#450A0A').attr('stroke', '#EF4444');
+
+            if (!hasMovedSignificantly) {
+              // User clicked rather than dragged -> open settings modal
+              audioFeedback.playSubtleClick();
+              setIsThresholdModalOpen(true);
+              return;
+            }
+
+            // Apply new threshold
+            audioFeedback.playSuccessChime();
+            setAlertThreshold(prev => ({
+              ...prev,
+              value: activeDraggedValue
+            }));
+
+            // Immediate notification setup feedback
+            const unit = alertThreshold.metric === 'decoupling' ? 'pts' : '%';
+            setAlertDragFeedback(`Threshold updated to ${activeDraggedValue}${unit}. Real-time watchdog active for ${alertThreshold.metric.toUpperCase()} ${alertThreshold.condition === 'below' ? '<' : '>'} ${activeDraggedValue}${unit}.`);
+            setTimeout(() => {
+              setAlertDragFeedback(null);
+            }, 5500);
+          });
+
+        dragHitbox.call(dragBehavior);
+        leftHandle.call(dragBehavior);
+        alertBadge.call(dragBehavior);
       }
     }
 
@@ -1262,20 +1492,51 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       .text(isNormalized ? 'NORMALIZED RELATIVE SCALE (0 - 100%)' : 'EVALUATION SCORE (PERCENTILE)');
 
     // -------------------------------------------------------------
+    // -------------------------------------------------------------
     // 3. MULTI-BIOREGION COMPARISON CURVES OR DETAILED PRIMARY CURVES
     // -------------------------------------------------------------
     const isMultiRegionMode = selectedBioregionObjects.length > 1;
 
     if (isMultiRegionMode) {
+      // Shaded Confidence Interval Envelope (±1σ / 95% CI) for each comparative bioregion
+      if (isConfidenceIntervalActive) {
+        selectedBioregionObjects.forEach((region) => {
+          const ciAreaGen = d3.area<MonthlyTrendDataPoint>()
+            .x(d => xScale(d.monthIndex))
+            .y0(d => {
+              const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
+              const lower = Math.max(0, d.ecologicalFlourishing - sigma);
+              return yScale(normRegionEco(lower, region.monthlyData));
+            })
+            .y1(d => {
+              const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
+              const upper = Math.min(100, d.ecologicalFlourishing + sigma);
+              return yScale(normRegionEco(upper, region.monthlyData));
+            })
+            .curve(d3.curveMonotoneX);
+
+          plotG.append('path')
+            .datum(region.monthlyData)
+            .attr('class', `ci-band-${region.id}`)
+            .attr('fill', region.color)
+            .attr('fill-opacity', 0.16)
+            .attr('stroke', region.color)
+            .attr('stroke-width', 0.8)
+            .attr('stroke-dasharray', '3 3')
+            .attr('stroke-opacity', 0.5)
+            .attr('d', ciAreaGen);
+        });
+      }
+
       // MULTI-LINE COMPARISON MODE: Plot curves for each selected bioregion
-      selectedBioregionObjects.forEach((region, rIdx) => {
+      selectedBioregionObjects.forEach((region) => {
         const lineGen = d3.line<MonthlyTrendDataPoint>()
           .x(d => xScale(d.monthIndex))
           .y(d => yScale(normRegionEco(d.ecologicalFlourishing, region.monthlyData)))
           .curve(d3.curveMonotoneX);
 
         // Bioregion line
-        g.append('path')
+        plotG.append('path')
           .datum(region.monthlyData)
           .attr('fill', 'none')
           .attr('stroke', region.color)
@@ -1286,7 +1547,7 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
 
         // Bioregion dots
         region.monthlyData.forEach(d => {
-          g.append('circle')
+          plotG.append('circle')
             .attr('cx', xScale(d.monthIndex))
             .attr('cy', yScale(normRegionEco(d.ecologicalFlourishing, region.monthlyData)))
             .attr('r', 3)
@@ -1324,9 +1585,66 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         .y1(d => yScale(normEcon(d.economicStability)))
         .curve(d3.curveMonotoneX);
 
+      // Shaded Confidence Interval Envelopes (±1σ / 95% CI)
+      if (isConfidenceIntervalActive) {
+        if (activeSeries === 'both' || activeSeries === 'ecological') {
+          const ecoCIAreaGen = d3.area<MonthlyTrendDataPoint>()
+            .x(d => xScale(d.monthIndex))
+            .y0(d => {
+              const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
+              const lower = Math.max(0, d.ecologicalFlourishing - sigma);
+              return yScale(normEco(lower));
+            })
+            .y1(d => {
+              const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
+              const upper = Math.min(100, d.ecologicalFlourishing + sigma);
+              return yScale(normEco(upper));
+            })
+            .curve(d3.curveMonotoneX);
+
+          plotG.append('path')
+            .datum(primaryDataset)
+            .attr('class', 'ci-band-eco')
+            .attr('fill', '#10B981')
+            .attr('fill-opacity', 0.18)
+            .attr('stroke', '#10B981')
+            .attr('stroke-width', 0.8)
+            .attr('stroke-dasharray', '3 3')
+            .attr('stroke-opacity', 0.55)
+            .attr('d', ecoCIAreaGen);
+        }
+
+        if (activeSeries === 'both' || activeSeries === 'economic') {
+          const econCIAreaGen = d3.area<MonthlyTrendDataPoint>()
+            .x(d => xScale(d.monthIndex))
+            .y0(d => {
+              const sigma = Number((3.0 - (d.monthIndex * 0.06)).toFixed(2));
+              const lower = Math.max(0, d.economicStability - sigma);
+              return yScale(normEcon(lower));
+            })
+            .y1(d => {
+              const sigma = Number((3.0 - (d.monthIndex * 0.06)).toFixed(2));
+              const upper = Math.min(100, d.economicStability + sigma);
+              return yScale(normEcon(upper));
+            })
+            .curve(d3.curveMonotoneX);
+
+          plotG.append('path')
+            .datum(primaryDataset)
+            .attr('class', 'ci-band-econ')
+            .attr('fill', '#C5A059')
+            .attr('fill-opacity', 0.16)
+            .attr('stroke', '#C5A059')
+            .attr('stroke-width', 0.8)
+            .attr('stroke-dasharray', '3 3')
+            .attr('stroke-opacity', 0.55)
+            .attr('d', econCIAreaGen);
+        }
+      }
+
       // Extractive Counterfactual
       if (showCounterfactual) {
-        g.append('path')
+        plotG.append('path')
           .datum(primaryDataset)
           .attr('fill', 'none')
           .attr('stroke', '#EF4444')
@@ -1339,13 +1657,13 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       // Economic Stability
       if (activeSeries === 'both' || activeSeries === 'economic') {
         if (showAreaFill) {
-          g.append('path')
+          plotG.append('path')
             .datum(primaryDataset)
             .attr('fill', 'url(#econ-stability-gradient)')
             .attr('d', econArea);
         }
 
-        g.append('path')
+        plotG.append('path')
           .datum(primaryDataset)
           .attr('fill', 'none')
           .attr('stroke', '#C5A059')
@@ -1357,13 +1675,13 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       // Ecological Flourishing
       if (activeSeries === 'both' || activeSeries === 'ecological') {
         if (showAreaFill) {
-          g.append('path')
+          plotG.append('path')
             .datum(primaryDataset)
             .attr('fill', 'url(#eco-flourish-gradient)')
             .attr('d', ecoArea);
         }
 
-        g.append('path')
+        plotG.append('path')
           .datum(primaryDataset)
           .attr('fill', 'none')
           .attr('stroke', '#10B981')
@@ -1377,7 +1695,7 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         const isSelected = selectedPoint.monthIndex === d.monthIndex;
 
         if (activeSeries === 'both' || activeSeries === 'ecological') {
-          g.append('circle')
+          plotG.append('circle')
             .attr('cx', xScale(d.monthIndex))
             .attr('cy', yScale(normEco(d.ecologicalFlourishing)))
             .attr('r', isSelected ? 5.5 : 3.5)
@@ -1387,7 +1705,7 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         }
 
         if (activeSeries === 'both' || activeSeries === 'economic') {
-          g.append('circle')
+          plotG.append('circle')
             .attr('cx', xScale(d.monthIndex))
             .attr('cy', yScale(normEcon(d.economicStability)))
             .attr('r', isSelected ? 5.5 : 3.5)
@@ -1399,15 +1717,18 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
     }
 
     // -------------------------------------------------------------
-    // 4. INTERACTIVE ANNOTATION MARKERS (Clickable with Provenance)
+    // 4. INTERACTIVE ANNOTATION MARKERS & SPIKE/DROP CALLOUT LABELS
     // -------------------------------------------------------------
     if (showAnnotations) {
-      const annotationGroup = g.append('g').attr('class', 'historical-annotation-markers');
+      const annotationGroup = g.append('g').attr('class', 'timeline-annotation-markers');
 
-      HISTORICAL_ANNOTATIONS.forEach((anno) => {
+      allAnnotations.forEach((anno) => {
         const xPos = xScale(anno.monthIndex);
+        if (xPos < -20 || xPos > innerWidth + 20) return;
+
         const yPos = innerHeight + 12;
 
+        // Bottom Timeline Diamond Pin
         const annoMarkerG = annotationGroup.append('g')
           .attr('transform', `translate(${xPos}, ${yPos})`)
           .attr('cursor', 'pointer')
@@ -1440,7 +1761,7 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           .attr('r', 2.5)
           .attr('fill', '#000000');
 
-        // Text Pill Label
+        // Text Pill Label along axis
         annoMarkerG.append('text')
           .attr('x', 0)
           .attr('y', 14)
@@ -1450,7 +1771,109 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           .attr('font-family', 'monospace')
           .attr('font-weight', 'bold')
           .text(anno.shortMonth);
+
+        // On-Chart Spike/Drop Callout Flag (for custom annotations or marked events)
+        if (anno.isCustom || anno.customLabelText || anno.spikeOrDrop) {
+          const pt = primaryDataset.find(p => p.monthIndex === anno.monthIndex);
+          if (pt && xPos >= 0 && xPos <= innerWidth) {
+            const yPointVal = yScale(normEco(pt.ecologicalFlourishing));
+            const isSpike = anno.spikeOrDrop === 'spike';
+            const isDrop = anno.spikeOrDrop === 'drop';
+            const calloutY = isDrop ? Math.min(innerHeight - 25, yPointVal + 35) : Math.max(25, yPointVal - 38);
+
+            const calloutFlag = plotG.append('g')
+              .attr('class', 'custom-spike-drop-callout')
+              .attr('transform', `translate(${xPos}, ${calloutY})`)
+              .attr('cursor', 'pointer')
+              .on('click', (evt) => {
+                evt.stopPropagation();
+                audioFeedback.playCovenantResonance();
+                setSelectedAnnotation(anno);
+              });
+
+            // Dashed connection stem between callout and curve point
+            plotG.append('line')
+              .attr('x1', xPos)
+              .attr('x2', xPos)
+              .attr('y1', isDrop ? calloutY - 8 : calloutY + 8)
+              .attr('y2', yPointVal)
+              .attr('stroke', anno.categoryColor)
+              .attr('stroke-width', 1.2)
+              .attr('stroke-dasharray', '2 2')
+              .attr('stroke-opacity', 0.85);
+
+            // Reticle halo around point
+            plotG.append('circle')
+              .attr('cx', xPos)
+              .attr('cy', yPointVal)
+              .attr('r', 5.5)
+              .attr('fill', 'none')
+              .attr('stroke', anno.categoryColor)
+              .attr('stroke-width', 1.5)
+              .attr('stroke-dasharray', '2 2');
+
+            const labelText = anno.customLabelText || anno.title;
+            const displayLabel = labelText.length > 22 ? labelText.slice(0, 20) + '…' : labelText;
+            const iconSymbol = isSpike ? '▲ ' : isDrop ? '▼ ' : '🏷️ ';
+            const badgeContent = `${iconSymbol}${displayLabel}`;
+            const badgeW = Math.max(68, badgeContent.length * 6.5 + 14);
+
+            calloutFlag.append('rect')
+              .attr('x', -badgeW / 2)
+              .attr('y', -10)
+              .attr('width', badgeW)
+              .attr('height', 20)
+              .attr('rx', 4)
+              .attr('fill', '#0B110D')
+              .attr('stroke', anno.categoryColor)
+              .attr('stroke-width', 1.5);
+
+            calloutFlag.append('text')
+              .attr('x', 0)
+              .attr('y', 3.5)
+              .attr('text-anchor', 'middle')
+              .attr('fill', isSpike ? '#34D399' : isDrop ? '#F87171' : '#F5E6C8')
+              .attr('font-size', '9px')
+              .attr('font-family', 'monospace')
+              .attr('font-weight', 'bold')
+              .text(badgeContent);
+          }
+        }
       });
+    }
+
+    // -------------------------------------------------------------
+    // 5. INTERACTIVE ZOOM BRUSH (Drag & Select Date Range)
+    // -------------------------------------------------------------
+    if (isZoomSelectMode) {
+      const brush = d3.brushX()
+        .extent([[0, 0], [innerWidth, innerHeight]])
+        .on('end', (event) => {
+          if (!event.selection) return;
+          const [x0, x1] = event.selection as [number, number];
+          if (Math.abs(x1 - x0) < 12) return; // avoid accidental micro-click
+          const startMonth = Math.max(1, Math.min(maxMonth, xScale.invert(x0)));
+          const endMonth = Math.max(1, Math.min(maxMonth, xScale.invert(x1)));
+          if (Math.abs(endMonth - startMonth) >= 0.4) {
+            audioFeedback.playSuccessChime();
+            setZoomDomain([Math.min(startMonth, endMonth), Math.max(startMonth, endMonth)]);
+          }
+          g.select<SVGGElement>('.chart-brush-x-selection').call(brush.move as any, null);
+        });
+
+      const brushG = g.append('g')
+        .attr('class', 'chart-brush-x-selection')
+        .call(brush);
+
+      brushG.select('.overlay')
+        .attr('cursor', 'crosshair');
+
+      brushG.selectAll('.selection')
+        .attr('fill', '#C5A059')
+        .attr('fill-opacity', 0.25)
+        .attr('stroke', '#C5A059')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '4 2');
     }
 
     // -------------------------------------------------------------
@@ -1577,76 +2000,78 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       updateCrosshairToPoint(selectedPoint);
     }
 
-    // Transparent Interactive Overlay for Mouse Scrubbing
-    const overlay = g.append('rect')
-      .attr('width', innerWidth)
-      .attr('height', innerHeight)
-      .attr('fill', 'transparent')
-      .attr('cursor', 'crosshair');
+    // Transparent Interactive Overlay for Mouse Scrubbing (active when not in Zoom-Select drag mode)
+    if (!isZoomSelectMode) {
+      const overlay = g.append('rect')
+        .attr('width', innerWidth)
+        .attr('height', innerHeight)
+        .attr('fill', 'transparent')
+        .attr('cursor', 'crosshair');
 
-    overlay.on('mousemove', (event) => {
-      if (!isCrosshairActive) return;
-      const [mouseX] = d3.pointer(event);
-      const rawMonth = xScale.invert(mouseX);
-      const roundedMonth = Math.max(1, Math.min(maxMonth, Math.round(rawMonth)));
+      overlay.on('mousemove', (event) => {
+        if (!isCrosshairActive) return;
+        const [mouseX] = d3.pointer(event);
+        const rawMonth = xScale.invert(mouseX);
+        const roundedMonth = Math.max(1, Math.min(maxMonth, Math.round(rawMonth)));
 
-      if (roundedMonth <= 12) {
-        const pt = primaryDataset.find(p => p.monthIndex === roundedMonth);
-        if (pt) updateCrosshairToPoint(pt);
-      } else {
-        const forecastPt = forecastData.find(p => p.monthIndex === roundedMonth);
-        if (forecastPt) {
-          const pseudoPt: MonthlyTrendDataPoint = {
-            monthIndex: forecastPt.monthIndex,
-            monthLabel: forecastPt.monthLabel,
-            shortMonth: forecastPt.shortMonth,
-            calendarMonth: forecastPt.calendarMonth,
-            exactDate: `${forecastPt.calendarMonth} 15, 2027 (Simulated)`,
-            isoDate: `2027-${String(forecastPt.monthIndex - 12).padStart(2, '0')}-15`,
-            ecologicalFlourishing: forecastPt.projectedFlourishing,
-            economicStability: forecastPt.projectedEconomicStability,
-            extractiveCounterfactual: forecastPt.extractiveCounterfactual,
-            decouplingMargin: forecastPt.decouplingMargin,
-            milestone: `[Projected Gemini Simulation] ${forecastPt.milestone}`,
-            verifiedSensorCount: 4200,
-            cryptographicHash: `Simulated ZK-Leaf #M${forecastPt.monthIndex}`
-          };
-          updateCrosshairToPoint(pseudoPt);
+        if (roundedMonth <= 12) {
+          const pt = primaryDataset.find(p => p.monthIndex === roundedMonth);
+          if (pt) updateCrosshairToPoint(pt);
+        } else {
+          const forecastPt = forecastData.find(p => p.monthIndex === roundedMonth);
+          if (forecastPt) {
+            const pseudoPt: MonthlyTrendDataPoint = {
+              monthIndex: forecastPt.monthIndex,
+              monthLabel: forecastPt.monthLabel,
+              shortMonth: forecastPt.shortMonth,
+              calendarMonth: forecastPt.calendarMonth,
+              exactDate: `${forecastPt.calendarMonth} 15, 2027 (Simulated)`,
+              isoDate: `2027-${String(forecastPt.monthIndex - 12).padStart(2, '0')}-15`,
+              ecologicalFlourishing: forecastPt.projectedFlourishing,
+              economicStability: forecastPt.projectedEconomicStability,
+              extractiveCounterfactual: forecastPt.extractiveCounterfactual,
+              decouplingMargin: forecastPt.decouplingMargin,
+              milestone: `[Projected Gemini Simulation] ${forecastPt.milestone}`,
+              verifiedSensorCount: 4200,
+              cryptographicHash: `Simulated ZK-Leaf #M${forecastPt.monthIndex}`
+            };
+            updateCrosshairToPoint(pseudoPt);
+          }
         }
-      }
-    });
+      });
 
-    overlay.on('mouseleave', () => {
-      if (!isPinned) {
-        setHoveredPoint(null);
-        setCrosshairPos(null);
-        verticalCrosshair.attr('opacity', 0);
-        horizontalEcoLine.attr('opacity', 0);
-        horizontalEconLine.attr('opacity', 0);
-        ecoReticleHalo.attr('opacity', 0);
-        ecoReticleDot.attr('opacity', 0);
-        econReticleHalo.attr('opacity', 0);
-        econReticleDot.attr('opacity', 0);
-        axisBadgeX.attr('opacity', 0);
-      }
-    });
-
-    overlay.on('click', (event) => {
-      const [mouseX] = d3.pointer(event);
-      const rawMonth = xScale.invert(mouseX);
-      const roundedMonth = Math.max(1, Math.min(maxMonth, Math.round(rawMonth)));
-
-      if (roundedMonth <= 12) {
-        const pt = primaryDataset.find(p => p.monthIndex === roundedMonth);
-        if (pt) {
-          audioFeedback.playMicroTick();
-          setSelectedPoint(pt);
-          setIsPinned(prev => !prev || selectedPoint.monthIndex !== pt.monthIndex);
-          updateCrosshairToPoint(pt);
-          if (onInspectPoint) onInspectPoint(pt);
+      overlay.on('mouseleave', () => {
+        if (!isPinned) {
+          setHoveredPoint(null);
+          setCrosshairPos(null);
+          verticalCrosshair.attr('opacity', 0);
+          horizontalEcoLine.attr('opacity', 0);
+          horizontalEconLine.attr('opacity', 0);
+          ecoReticleHalo.attr('opacity', 0);
+          ecoReticleDot.attr('opacity', 0);
+          econReticleHalo.attr('opacity', 0);
+          econReticleDot.attr('opacity', 0);
+          axisBadgeX.attr('opacity', 0);
         }
-      }
-    });
+      });
+
+      overlay.on('click', (event) => {
+        const [mouseX] = d3.pointer(event);
+        const rawMonth = xScale.invert(mouseX);
+        const roundedMonth = Math.max(1, Math.min(maxMonth, Math.round(rawMonth)));
+
+        if (roundedMonth <= 12) {
+          const pt = primaryDataset.find(p => p.monthIndex === roundedMonth);
+          if (pt) {
+            audioFeedback.playMicroTick();
+            setSelectedPoint(pt);
+            setIsPinned(prev => !prev || selectedPoint.monthIndex !== pt.monthIndex);
+            updateCrosshairToPoint(pt);
+            if (onInspectPoint) onInspectPoint(pt);
+          }
+        }
+      });
+    }
 
   }, [
     dimensions, 
@@ -1664,7 +2089,11 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
     showPredictiveForecast,
     forecastData,
     isNormalized,
-    alertThreshold
+    alertThreshold,
+    allAnnotations,
+    isZoomSelectMode,
+    zoomDomain,
+    isConfidenceIntervalActive
   ]);
 
   const displayPoint = hoveredPoint || selectedPoint;
@@ -1875,6 +2304,88 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             <span>6-Mo Forecast: {showPredictiveForecast ? 'ON' : 'OFF'}</span>
           </button>
 
+          {/* Bioregional Comparator: Persistent Add Bioregion Button */}
+          <button
+            id="chart-add-bioregion-persistent-btn"
+            onClick={() => {
+              audioFeedback.playMicroTick();
+              if (onAddBioregionClick) {
+                onAddBioregionClick();
+              } else {
+                setIsBioregionalComparatorModalOpen(true);
+              }
+            }}
+            className="px-2.5 py-1.5 rounded-sm bg-[#16291E] hover:bg-[#203D2C] border border-emerald-500/60 text-emerald-300 hover:text-white text-[10px] font-mono transition-all flex items-center gap-1.5 cursor-pointer font-bold shadow-sm"
+            title="Add an additional bioregion to overlay onto the existing trend chart for direct comparison"
+          >
+            <Plus className="w-3 h-3 text-emerald-400" />
+            <span>+ Add Bioregion ({activeBioregionIds.length})</span>
+          </button>
+
+          {/* Confidence Interval (±1σ / 95% CI) Toggle */}
+          <button
+            id="chart-toggle-confidence-interval-btn"
+            onClick={() => {
+              audioFeedback.playMicroTick();
+              handleToggleConfidenceInterval();
+            }}
+            className={`px-2.5 py-1.5 rounded-sm border text-[10px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+              isConfidenceIntervalActive
+                ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold shadow-sm ring-1 ring-emerald-500/40'
+                : 'bg-[#141414] border-[#F5F5F0]/15 text-[#F5F5F0]/50 hover:text-[#F5F5F0]'
+            }`}
+            title="Display shaded areas around trend lines representing the standard deviation and statistical confidence interval of visualized metrics"
+          >
+            <Activity className="w-3 h-3 text-emerald-400" />
+            <span>Confidence Interval (±σ): {isConfidenceIntervalActive ? 'ON' : 'OFF'}</span>
+          </button>
+
+          {/* Add Custom Annotation Button */}
+          <button
+            id="add-custom-annotation-btn"
+            onClick={() => handleOpenAddAnnotation()}
+            className="px-2.5 py-1.5 rounded-sm bg-[#16231A] hover:bg-[#1E3023] border border-emerald-500/60 text-emerald-300 hover:text-white text-[10px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer font-bold shadow-sm"
+            title="Add custom text label to explain sudden spikes or drops on the trend chart"
+          >
+            <MessageSquarePlus className="w-3 h-3 text-emerald-400" />
+            <span>+ Add Annotation</span>
+            {customAnnotations.length > 0 && (
+              <span className="px-1 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[9px]">
+                {customAnnotations.length}
+              </span>
+            )}
+          </button>
+
+          {/* Zoom to Selection Toggle Button */}
+          <button
+            id="toggle-zoom-select-mode-btn"
+            onClick={handleToggleZoomSelectMode}
+            className={`px-2.5 py-1.5 rounded-sm border text-[10px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+              isZoomSelectMode 
+                ? 'bg-[#2A2312] border-[#C5A059] text-[#C5A059] font-bold shadow-sm ring-1 ring-[#C5A059]/40' 
+                : 'bg-[#141414] border-[#F5F5F0]/15 text-[#F5F5F0]/50 hover:text-[#F5F5F0]'
+            }`}
+            title="Drag horizontally across the chart canvas to magnify a specific date range"
+          >
+            <ZoomIn className="w-3 h-3 text-[#C5A059]" />
+            <span>Zoom Selection: {isZoomSelectMode ? 'ACTIVE (Drag)' : 'OFF'}</span>
+          </button>
+
+          {/* Zoom Reset Button (Visible when chart is zoomed) */}
+          {zoomDomain && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-[#241e12] border border-[#C5A059]/50 text-[#C5A059] text-[10px] font-mono animate-in fade-in">
+              <span>Zoomed: M{zoomDomain[0].toFixed(1)} – M{zoomDomain[1].toFixed(1)}</span>
+              <button
+                onClick={handleResetZoom}
+                className="ml-1 px-1.5 py-0.5 rounded bg-black/60 hover:bg-black text-[#F5F5F0] border border-[#F5F5F0]/20 hover:text-white flex items-center gap-1 cursor-pointer text-[9px]"
+                title="Reset zoom to full 12-month timeline"
+              >
+                <ZoomOut className="w-2.5 h-2.5 text-[#C5A059]" />
+                <span>Reset</span>
+              </button>
+            </div>
+          )}
+
           {/* Crosshair HUD Toggle */}
           <button
             id="toggle-crosshair-hud-tool"
@@ -1920,6 +2431,72 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             <RotateCcw className="w-3 h-3" />
           </button>
         </div>
+      </div>
+
+      {/* Zoom to Selection Banner (Active Notice) */}
+      {isZoomSelectMode && (
+        <div className="px-3.5 py-2.5 rounded bg-[#1C170E] border border-[#C5A059]/50 text-[#C5A059] text-xs font-mono flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <ZoomIn className="w-4 h-4 text-[#C5A059] animate-pulse shrink-0" />
+            <span>
+              <strong>Zoom to Selection Active:</strong> Click and drag horizontally anywhere across the chart to magnify a date range.
+            </span>
+          </div>
+          {zoomDomain && (
+            <button
+              onClick={handleResetZoom}
+              className="px-2 py-0.5 rounded bg-[#C5A059] text-black font-bold text-[10px] hover:bg-[#d8b46e] transition-colors cursor-pointer"
+            >
+              Reset to Full Timeline
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Alert Presets Quick-Toggle Bar */}
+      <div className="p-3 rounded-sm bg-[#090C0A] border border-[#C5A059]/25 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-mono">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 text-[11px] text-[#C5A059] font-bold shrink-0">
+            <Bookmark className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span className="uppercase tracking-wider">ALERT PRESETS:</span>
+          </div>
+          {alertPresets.map(preset => {
+            const isActive = activePresetId === preset.id || (
+              alertThreshold.enabled &&
+              alertThreshold.metric === preset.config.metric &&
+              alertThreshold.condition === preset.config.condition &&
+              alertThreshold.value === preset.config.value
+            );
+            return (
+              <button
+                key={preset.id}
+                onClick={() => handleApplyAlertPreset(preset)}
+                className={`px-2.5 py-1 rounded-sm border text-[10px] font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isActive
+                    ? 'bg-[#2A2312] border-[#C5A059] text-[#C5A059] font-bold shadow-sm ring-1 ring-[#C5A059]/50'
+                    : 'bg-[#141414] border-[#F5F5F0]/10 text-[#F5F5F0]/70 hover:text-white hover:border-[#C5A059]/40'
+                }`}
+                title={`${preset.name}: ${preset.description}`}
+              >
+                <span>{preset.icon || '⚡'}</span>
+                <span>{preset.name}</span>
+                {isActive && <Check className="w-3 h-3 text-[#C5A059]" />}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => {
+            audioFeedback.playMicroTick();
+            setIsThresholdModalOpen(true);
+          }}
+          className="px-2.5 py-1 rounded-sm bg-[#1A1812] hover:bg-[#252219] border border-[#C5A059]/50 text-[#C5A059] hover:text-white text-[10px] font-mono font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0"
+          title="Open full Threshold & Alert Presets Manager"
+        >
+          <Sliders className="w-3 h-3 text-[#C5A059]" />
+          <span>Save / Manage Presets</span>
+        </button>
       </div>
 
       {/* 2. Active Threshold Alert Banner (When Limit Crossed) */}
@@ -2249,6 +2826,24 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
                         </span>
                       </div>
                     </div>
+
+                    {/* Confidence Interval (±σ) Band Stats if active */}
+                    {isConfidenceIntervalActive && (
+                      <div className="flex items-center justify-between text-[10px] text-emerald-300/90 pt-1 border-t border-white/5 font-mono">
+                        <span className="flex items-center gap-1">
+                          <Activity className="w-3 h-3 text-emerald-400" />
+                          95% Confidence Interval (±1σ)
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-emerald-400">
+                            Eco: ±{(3.6 - (displayPoint.monthIndex * 0.08)).toFixed(1)}%
+                          </span>
+                          <span className="text-[#C5A059]">
+                            Econ: ±{(3.0 - (displayPoint.monthIndex * 0.06)).toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -2368,6 +2963,13 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
                 <span className="text-rose-400">Moving Avg Stress Anomaly</span>
               </div>
             )}
+
+            {isConfidenceIntervalActive && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-2.5 bg-emerald-500/25 border border-emerald-500/60 border-dashed rounded-xs" />
+                <span className="text-emerald-300">Confidence Interval (±1σ Shaded Area)</span>
+              </div>
+            )}
           </div>
 
           <div className="text-[10px] text-[#F5F5F0]/50">
@@ -2421,7 +3023,20 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         isOpen={!!selectedAnnotation}
         onClose={() => setSelectedAnnotation(null)}
         onInspectProvenance={onInspectProvenance}
+        onDeleteAnnotation={handleDeleteCustomAnnotation}
       />
+
+      {/* Add Custom Annotation Modal (Labeling Spikes / Drops / Milestones) */}
+      {isAddAnnotationModalOpen && (
+        <AddAnnotationModal
+          isOpen={isAddAnnotationModalOpen}
+          onClose={() => setIsAddAnnotationModalOpen(false)}
+          availablePoints={primaryDataset}
+          preselectedMonthIndex={annotationTargetMonth}
+          activeBioregionName={selectedBioregionObjects[0]?.name}
+          onSaveAnnotation={handleSaveCustomAnnotation}
+        />
+      )}
 
       {/* Historical Anomaly Detail Modal (Moving Average Stress Breakdown) */}
       <AnomalyDetailModal
@@ -2445,17 +3060,31 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       {/* Threshold Alert Configuration Modal */}
       <ThresholdAlertModal
         isOpen={isThresholdModalOpen}
-        onClose={() => setIsThresholdModalOpen(false)}
+        onClose={() => {
+          setIsThresholdModalOpen(false);
+          setAlertPresets(loadAlertPresets());
+        }}
         config={alertThreshold}
         onSaveConfig={(newConfig) => {
           setAlertThreshold(newConfig);
           setIsThresholdModalOpen(false);
+          setAlertPresets(loadAlertPresets());
         }}
         currentMetrics={{
           latestEco: primaryDataset[primaryDataset.length - 1]?.ecologicalFlourishing || 0,
           latestEcon: primaryDataset[primaryDataset.length - 1]?.economicStability || 0,
           decouplingMargin: primaryDataset[primaryDataset.length - 1]?.decouplingMargin || 0
         }}
+      />
+
+      {/* Bioregional Comparator Modal */}
+      <BioregionalComparatorModal
+        isOpen={isBioregionalComparatorModalOpen}
+        onClose={() => setIsBioregionalComparatorModalOpen(false)}
+        selectedBioregionIds={activeBioregionIds}
+        onToggleBioregion={toggleBioregion}
+        onSelectAll={selectAllBioregions}
+        onResetBaseline={resetToDefaultBioregion}
       />
     </div>
   );

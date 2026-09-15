@@ -22,10 +22,200 @@ import {
   Radio,
   Sliders,
   ChevronRight,
-  Maximize2
+  Maximize2,
+  Flame,
+  Activity
 } from 'lucide-react';
 import { DataProvenance } from '../../types';
 import { audioFeedback } from '../../lib/audioFeedback';
+
+export type HeatmapMode = 'none' | 'ecological' | 'economic' | 'composite';
+
+export interface BioregionalHeatmapHotspot {
+  id: string;
+  name: string;
+  bioregionName: string;
+  coordinates: [number, number]; // [lng, lat]
+  category: 'ecological' | 'economic';
+  intensity: number; // 0 - 100
+  radiusKm: number;
+  activityLabel: string;
+  summary: string;
+  metricValue: string;
+  sensorQuorum: number;
+}
+
+export const BIOREGIONAL_HEATMAP_HOTSPOTS: BioregionalHeatmapHotspot[] = [
+  {
+    id: 'hm-mara-riparian',
+    name: 'Mara Basin Riparian Sinks',
+    bioregionName: 'Mara-Serengeti Savanna',
+    coordinates: [35.25, -1.50],
+    category: 'ecological',
+    intensity: 95,
+    radiusKm: 58,
+    activityLabel: 'Subterranean River Baseflow & Wildlife Corridor Vitality',
+    summary: 'High riparian vegetation saturation and year-round hydrological baseflow sustaining migration megafauna.',
+    metricValue: '184.2 m³/s River Baseflow (+34.8%)',
+    sensorQuorum: 1420
+  },
+  {
+    id: 'hm-aberdare-canopy',
+    name: 'Aberdare Cloud Forest Water Tower',
+    bioregionName: 'Aberdare Highlands',
+    coordinates: [36.70, -0.45],
+    category: 'ecological',
+    intensity: 98,
+    radiusKm: 52,
+    activityLabel: 'Montane Cloud Forest Precipitation Catchment',
+    summary: '0.82 NDVI canopy super-saturation intercepting orographic cloud mist to feed Nairobi and Tana rivers.',
+    metricValue: '1,420 mm/yr Precipitation Catchment (96.1% Retention)',
+    sensorQuorum: 980
+  },
+  {
+    id: 'hm-congo-peat',
+    name: 'Cuvette Centrale Peat Carbon Sink',
+    bioregionName: 'Congo Peatlands',
+    coordinates: [18.26, 0.04],
+    category: 'ecological',
+    intensity: 99,
+    radiusKm: 75,
+    activityLabel: 'Massive Subterranean Intact Peatland Hydration',
+    summary: 'Continuous satellite piezometer verification of saturated anaerobic water table preventing runaway methane combustion.',
+    metricValue: '4.2M tCO2e Subterranean Carbon Reservoir (99.2% Hydrated)',
+    sensorQuorum: 640
+  },
+  {
+    id: 'hm-rift-lakes',
+    name: 'Great Rift Valley Alkaline Sanctuary',
+    bioregionName: 'Rift Valley Lakes',
+    coordinates: [36.08, -0.35],
+    category: 'ecological',
+    intensity: 89,
+    radiusKm: 50,
+    activityLabel: 'Endorheic Lake Micro-Algae & Avian Bioacoustics',
+    summary: 'Acoustic bio-sensor arrays detecting 450+ bird species and recovering Spirulina biomass blooms.',
+    metricValue: '82.5 HSI Bioacoustic Vitality Index',
+    sensorQuorum: 820
+  },
+  {
+    id: 'hm-kilifi-mangrove',
+    name: 'Kilifi Blue Mangrove Estuary',
+    bioregionName: 'Kilifi Coast',
+    coordinates: [39.85, -3.63],
+    category: 'ecological',
+    intensity: 92,
+    radiusKm: 46,
+    activityLabel: 'Tidal Mangrove Blue Carbon & Artisanal Nursery',
+    summary: 'Dense Rhizophora mucronata mangrove fringe sequestering carbon 5x faster than terrestrial tropical forests.',
+    metricValue: '3,800 t/yr Blue Carbon Sink Rate',
+    sensorQuorum: 440
+  },
+  {
+    id: 'hm-sahel-wall',
+    name: 'Sahelian Agro-Forestry Regenerative Wall',
+    bioregionName: 'Sahel Belt',
+    coordinates: [2.10, 13.50],
+    category: 'ecological',
+    intensity: 91,
+    radiusKm: 65,
+    activityLabel: 'Farmer-Managed Natural Regeneration (FMNR) Corridor',
+    summary: 'Over 2.4M deep-rooted native Faidherbia albida trees fixing atmospheric nitrogen and moisture.',
+    metricValue: '+68% Soil Moisture Retention & Agroforestry Yield',
+    sensorQuorum: 760
+  },
+  {
+    id: 'hm-mt-kenya-headwaters',
+    name: 'Mount Kenya Afro-Alpine Headwaters',
+    bioregionName: 'Mount Kenya Catchment',
+    coordinates: [37.30, -0.15],
+    category: 'ecological',
+    intensity: 94,
+    radiusKm: 42,
+    activityLabel: 'Afro-Alpine Glacial Melt & Moorland Sponges',
+    summary: 'High-altitude tussock grass sponge ecosystems filtering glacial meltwater into pristine potable headwaters.',
+    metricValue: '99.4 Potable Purity Index',
+    sensorQuorum: 510
+  },
+  {
+    id: 'hm-turkana-solar',
+    name: 'Turkana Clean Energy & Solar Well Mesh',
+    bioregionName: 'Turkana Basin',
+    coordinates: [35.60, 3.12],
+    category: 'economic',
+    intensity: 96,
+    radiusKm: 62,
+    activityLabel: 'Decentralized Solar Generation & Pastoralist Boreholes',
+    summary: '4.8 GWh/yr solar microgrid array powering deep aquifer pumps, off-grid cold chains, and community clinics.',
+    metricValue: '4.8 GWh/yr Solar Clean Surplus (12 Solar Wells)',
+    sensorQuorum: 540
+  },
+  {
+    id: 'hm-kigali-housing',
+    name: 'Kigali LifeHouse Regenerative Housing Hub',
+    bioregionName: 'Central Great Lakes',
+    coordinates: [30.10, -1.97],
+    category: 'economic',
+    intensity: 93,
+    radiusKm: 45,
+    activityLabel: 'Mass-Timber Habitat Fabricators & Urban Sponge Economy',
+    summary: '450 modular compressed-earth and mass timber homes capturing rain runoff with zero cement footprint.',
+    metricValue: '450 Net-Negative Homes Deployed (94% Sponge Retention)',
+    sensorQuorum: 480
+  },
+  {
+    id: 'hm-mara-coop',
+    name: 'Maasai Mara Regenerative Commons',
+    bioregionName: 'Mara-Serengeti',
+    coordinates: [35.45, -1.35],
+    category: 'economic',
+    intensity: 89,
+    radiusKm: 48,
+    activityLabel: 'Direct Pastoralist Basic Dividend & Seed Banking',
+    summary: 'Decentralized digital ledger distributing carbon conservation dividends directly to pastoral families.',
+    metricValue: '$24.50/ha Regenerative Dividend Payout',
+    sensorQuorum: 890
+  },
+  {
+    id: 'hm-kilifi-trade',
+    name: 'Malindi & Kilifi Blue Commons Exchange',
+    bioregionName: 'Kilifi Coast',
+    coordinates: [40.12, -3.22],
+    category: 'economic',
+    intensity: 88,
+    radiusKm: 46,
+    activityLabel: 'Artisanal Fisheries Management & Solar Desalination',
+    summary: 'Community-governed Marine Protected Area trading verifiable blue credits and solar-powered fresh water.',
+    metricValue: '1.4B Liters Aquifer Replenishment',
+    sensorQuorum: 380
+  },
+  {
+    id: 'hm-tillaberi-baraza',
+    name: 'Tillabéri Agroforestry Peace Commons',
+    bioregionName: 'Sahel Belt',
+    coordinates: [1.45, 14.20],
+    category: 'economic',
+    intensity: 87,
+    radiusKm: 52,
+    activityLabel: 'Cross-Border Farmer-Herder Trade Assemblies',
+    summary: 'Shared grain reserves, solar drying cooperatives, and drought insurance pools preventing climate displacement.',
+    metricValue: '8,400 Families in Cooperative Commons',
+    sensorQuorum: 420
+  },
+  {
+    id: 'hm-mukono-modular',
+    name: 'Mukono LifeShield Modular Habitat Fabrication',
+    bioregionName: 'Lake Victoria Basin',
+    coordinates: [32.60, 0.35],
+    category: 'economic',
+    intensity: 92,
+    radiusKm: 40,
+    activityLabel: 'Rapid Climate Resilience Shelter Factory',
+    summary: '1,800 LifeShield deployable emergency shelters manufactured annually powered by 95% hydro microgrids.',
+    metricValue: '1,800 Units/yr Clean Modular Output',
+    sensorQuorum: 360
+  }
+];
 
 export interface RegenerativeImpactPoint {
   id: string;
@@ -327,11 +517,15 @@ const REGENERATIVE_IMPACT_POINTS: RegenerativeImpactPoint[] = [
 interface BioregionalImpactD3MapProps {
   onInspectProvenance?: (prov: DataProvenance) => void;
   onSelectBioregion?: (bioregionId: string) => void;
+  heatmapMode?: HeatmapMode;
+  onHeatmapModeChange?: (mode: HeatmapMode) => void;
 }
 
 export const BioregionalImpactD3Map: React.FC<BioregionalImpactD3MapProps> = ({
   onInspectProvenance,
-  onSelectBioregion
+  onSelectBioregion,
+  heatmapMode: propHeatmapMode,
+  onHeatmapModeChange
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -345,6 +539,22 @@ export const BioregionalImpactD3Map: React.FC<BioregionalImpactD3MapProps> = ({
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [telemetryPulseTick, setTelemetryPulseTick] = useState<number>(0);
   const [hazardFocusBanner, setHazardFocusBanner] = useState<{ title: string; lat: number; lng: number } | null>(null);
+
+  // Heatmap Overlay State
+  const [internalHeatmapMode, setInternalHeatmapMode] = useState<HeatmapMode>(propHeatmapMode || 'ecological');
+  const [heatmapIntensity, setHeatmapIntensity] = useState<number>(0.75);
+  const [hoveredHotspot, setHoveredHotspot] = useState<BioregionalHeatmapHotspot | null>(null);
+  const [hotspotTooltipPos, setHotspotTooltipPos] = useState<{ x: number; y: number } | null>(null);
+
+  const activeHeatmapMode = propHeatmapMode !== undefined ? propHeatmapMode : internalHeatmapMode;
+
+  const handleHeatmapModeSelect = (mode: HeatmapMode) => {
+    audioFeedback.playSubtleClick();
+    setInternalHeatmapMode(mode);
+    if (onHeatmapModeChange) {
+      onHeatmapModeChange(mode);
+    }
+  };
 
   // Zoom directly to target hazard coordinates [lat, lng]
   const zoomToHazardCoordinates = (lat: number, lng: number, scale = 4.2, title?: string) => {
@@ -501,6 +711,107 @@ export const BioregionalImpactD3Map: React.FC<BioregionalImpactD3MapProps> = ({
         .attr('opacity', 0.7);
     });
 
+    // 2.5 Bioregional Heatmap Layer (Ecological & Economic Activity Hotspots)
+    if (activeHeatmapMode !== 'none') {
+      const heatmapGroup = g.append('g').attr('class', 'heatmap-layer');
+
+      // 1. Ecological gradient
+      const ecoGrad = defs.append('radialGradient')
+        .attr('id', 'heatmap-grad-ecological')
+        .attr('cx', '50%')
+        .attr('cy', '50%')
+        .attr('r', '50%');
+      ecoGrad.append('stop').attr('offset', '0%').attr('stop-color', '#10B981').attr('stop-opacity', 0.85 * heatmapIntensity);
+      ecoGrad.append('stop').attr('offset', '35%').attr('stop-color', '#059669').attr('stop-opacity', 0.55 * heatmapIntensity);
+      ecoGrad.append('stop').attr('offset', '70%').attr('stop-color', '#06B6D4').attr('stop-opacity', 0.25 * heatmapIntensity);
+      ecoGrad.append('stop').attr('offset', '100%').attr('stop-color', '#06B6D4').attr('stop-opacity', 0);
+
+      // 2. Economic gradient
+      const econGrad = defs.append('radialGradient')
+        .attr('id', 'heatmap-grad-economic')
+        .attr('cx', '50%')
+        .attr('cy', '50%')
+        .attr('r', '50%');
+      econGrad.append('stop').attr('offset', '0%').attr('stop-color', '#F59E0B').attr('stop-opacity', 0.9 * heatmapIntensity);
+      econGrad.append('stop').attr('offset', '35%').attr('stop-color', '#D97706').attr('stop-opacity', 0.6 * heatmapIntensity);
+      econGrad.append('stop').attr('offset', '70%').attr('stop-color', '#EA580C').attr('stop-opacity', 0.3 * heatmapIntensity);
+      econGrad.append('stop').attr('offset', '100%').attr('stop-color', '#EA580C').attr('stop-opacity', 0);
+
+      const activeHotspots = BIOREGIONAL_HEATMAP_HOTSPOTS.filter(h => {
+        if (activeHeatmapMode === 'composite') return true;
+        return h.category === activeHeatmapMode;
+      });
+
+      activeHotspots.forEach(hotspot => {
+        const pt = projection(hotspot.coordinates);
+        if (!pt) return;
+        const [hx, hy] = pt;
+        const radius = Math.max(35, Math.min(95, hotspot.radiusKm * 0.9));
+
+        const hG = heatmapGroup.append('g')
+          .attr('class', `hotspot-node-${hotspot.id}`)
+          .attr('transform', `translate(${hx}, ${hy})`)
+          .style('cursor', 'pointer');
+
+        // Outer ambient thermal dispersal circle
+        hG.append('circle')
+          .attr('r', radius)
+          .attr('fill', `url(#heatmap-grad-${hotspot.category})`)
+          .attr('filter', 'url(#d3-glow)')
+          .attr('opacity', 0.92);
+
+        // Core thermal intensity dot
+        const coreColor = hotspot.category === 'ecological' ? '#34D399' : '#FBBF24';
+        const core = hG.append('circle')
+          .attr('r', 3.5)
+          .attr('fill', coreColor)
+          .attr('stroke', '#FFFFFF')
+          .attr('stroke-width', 1)
+          .attr('opacity', 0.95);
+
+        // Subtle core pulsing
+        const pulse = () => {
+          core.transition()
+            .duration(2000 + Math.random() * 800)
+            .attr('r', 5.5)
+            .attr('opacity', 0.6)
+            .transition()
+            .duration(2000 + Math.random() * 800)
+            .attr('r', 3.5)
+            .attr('opacity', 0.95)
+            .on('end', pulse);
+        };
+        pulse();
+
+        // Hotspot Interactivity
+        hG.on('mouseenter', (event) => {
+          audioFeedback.playMicroTick();
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setHotspotTooltipPos({
+              x: event.clientX - rect.left,
+              y: event.clientY - rect.top - 15
+            });
+          }
+          setHoveredHotspot(hotspot);
+        });
+
+        hG.on('mousemove', (event) => {
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setHotspotTooltipPos({
+              x: event.clientX - rect.left,
+              y: event.clientY - rect.top - 15
+            });
+          }
+        });
+
+        hG.on('mouseleave', () => {
+          setHoveredHotspot(null);
+        });
+      });
+    }
+
     // 3. Draw Causal Regenerative Flow Arcs & telemetry flow pulses between hubs
     const linksGroup = g.append('g').attr('class', 'links-group');
 
@@ -637,7 +948,7 @@ export const BioregionalImpactD3Map: React.FC<BioregionalImpactD3MapProps> = ({
       });
     });
 
-  }, [filteredPoints, selectedPoint, onSelectBioregion]);
+  }, [filteredPoints, selectedPoint, onSelectBioregion, activeHeatmapMode, heatmapIntensity]);
 
   // Zoom control helpers
   const handleZoomIn = () => {
@@ -690,6 +1001,51 @@ export const BioregionalImpactD3Map: React.FC<BioregionalImpactD3MapProps> = ({
 
         {/* Top Controls: Filter Chips & Telemetry Stream */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Heatmap Layer Mode Selector */}
+          <div className="flex items-center bg-black/60 border border-[#1B3022] rounded-lg p-0.5 text-xs font-mono">
+            <span className="px-2 text-[10px] text-white/50 flex items-center gap-1">
+              <Flame className="w-3 h-3 text-amber-400" /> Heatmap:
+            </span>
+            {[
+              { id: 'none', label: 'OFF' },
+              { id: 'ecological', label: '🌿 Ecological' },
+              { id: 'economic', label: '⚡ Economic' },
+              { id: 'composite', label: '🌐 Composite' }
+            ].map(hm => (
+              <button
+                key={hm.id}
+                onClick={() => handleHeatmapModeSelect(hm.id as HeatmapMode)}
+                className={`px-2 py-1 rounded text-[10px] font-mono transition-colors cursor-pointer ${
+                  activeHeatmapMode === hm.id
+                    ? hm.id === 'ecological'
+                      ? 'bg-emerald-950 text-emerald-300 font-bold border border-emerald-500/40'
+                      : hm.id === 'economic'
+                      ? 'bg-amber-950 text-amber-300 font-bold border border-amber-500/40'
+                      : hm.id === 'composite'
+                      ? 'bg-purple-950 text-purple-300 font-bold border border-purple-500/40'
+                      : 'bg-white/20 text-white font-bold'
+                    : 'text-white/50 hover:text-white'
+                }`}
+              >
+                {hm.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Heatmap Intensity selector if heatmap active */}
+          {activeHeatmapMode !== 'none' && (
+            <button
+              onClick={() => {
+                audioFeedback.playMicroTick();
+                setHeatmapIntensity(prev => prev === 0.75 ? 1.0 : prev === 1.0 ? 0.5 : 0.75);
+              }}
+              title="Toggle Heatmap Intensity"
+              className="px-2 py-1 rounded bg-black/60 border border-[#1B3022] hover:border-white/20 text-[10px] font-mono text-[#C5A059] cursor-pointer"
+            >
+              Int: {Math.round(heatmapIntensity * 100)}%
+            </button>
+          )}
+
           {/* Live Telemetry Stream Switch */}
           <button
             onClick={() => {
@@ -810,6 +1166,40 @@ export const BioregionalImpactD3Map: React.FC<BioregionalImpactD3MapProps> = ({
           </div>
         )}
 
+        {/* Hovered Heatmap Hotspot Tooltip */}
+        {hoveredHotspot && hotspotTooltipPos && (
+          <div
+            className="absolute pointer-events-none z-30 transform -translate-x-1/2 -translate-y-full px-3 py-2.5 bg-[#0A0D0B]/95 border border-[#C5A059]/60 rounded-lg shadow-2xl text-[#F5F5F0] text-xs font-mono space-y-1.5 backdrop-blur-md animate-in fade-in duration-100 min-w-[240px]"
+            style={{ left: hotspotTooltipPos.x, top: hotspotTooltipPos.y }}
+          >
+            <div className="flex items-center justify-between border-b border-white/10 pb-1">
+              <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded ${
+                hoveredHotspot.category === 'ecological' 
+                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40' 
+                  : 'bg-amber-950 text-amber-300 border border-amber-500/40'
+              }`}>
+                {hoveredHotspot.category === 'ecological' ? '🌿 Ecological Hotspot' : '⚡ Economic Hotspot'}
+              </span>
+              <span className="text-[10px] font-bold text-white">
+                {hoveredHotspot.intensity}/100 Density
+              </span>
+            </div>
+            <div className="font-bold text-white font-serif text-xs">
+              {hoveredHotspot.name}
+            </div>
+            <div className="text-[10px] text-[#C5A059]">
+              {hoveredHotspot.activityLabel}
+            </div>
+            <div className="text-[10px] text-emerald-300 font-mono">
+              {hoveredHotspot.metricValue}
+            </div>
+            <div className="text-[9px] text-white/50 border-t border-white/10 pt-1 flex justify-between">
+              <span>Sensor Quorum: {hoveredHotspot.sensorQuorum} nodes</span>
+              <span className="text-[#C5A059]">{hoveredHotspot.bioregionName}</span>
+            </div>
+          </div>
+        )}
+
         {/* Floating Legend / Stats Pill */}
         <div className="absolute bottom-3 left-3 bg-[#0A0E0C]/90 border border-[#1B3022] rounded-lg p-2.5 text-[10px] font-mono text-[#F5F5F0]/70 space-y-1.5 backdrop-blur-sm">
           <div className="text-[#C5A059] font-bold uppercase tracking-wider text-[9px] flex items-center gap-1">
@@ -822,6 +1212,25 @@ export const BioregionalImpactD3Map: React.FC<BioregionalImpactD3MapProps> = ({
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#8B5CF6]" /> Microgrid Solar</span>
           </div>
         </div>
+
+        {/* Floating Heatmap Density Legend Pill */}
+        {activeHeatmapMode !== 'none' && (
+          <div className="absolute bottom-3 right-3 bg-[#0A0E0C]/90 border border-[#1B3022] rounded-lg p-2.5 text-[10px] font-mono text-[#F5F5F0]/70 space-y-1.5 backdrop-blur-sm shadow-xl animate-in fade-in duration-150">
+            <div className="text-[#C5A059] font-bold uppercase tracking-wider text-[9px] flex items-center justify-between gap-3">
+              <span className="flex items-center gap-1">
+                <Flame className="w-3 h-3 text-amber-400" />
+                {activeHeatmapMode === 'ecological' ? 'Ecological Thermal Heatmap' : activeHeatmapMode === 'economic' ? 'Economic Hotspot Heatmap' : 'Composite Thermal Resonance'}
+              </span>
+              <span className="text-white/40">{Math.round(heatmapIntensity * 100)}% Opacity</span>
+            </div>
+            <div className="w-40 h-2 rounded bg-gradient-to-r from-emerald-950 via-cyan-600 via-amber-500 to-orange-500 border border-white/10" />
+            <div className="flex justify-between text-[8px] text-white/40">
+              <span>Low Intensity</span>
+              <span>Median</span>
+              <span>Super Hotspot</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Selected Impact Point Drawer / Detail Strip */}

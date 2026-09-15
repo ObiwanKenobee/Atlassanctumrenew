@@ -8,6 +8,7 @@ export interface AlertPreset {
   bioregionId?: string;
   config: AlertThresholdConfig;
   category: 'aridity' | 'decoupling' | 'liquidity' | 'equilibrium' | 'flourishing' | 'custom';
+  icon?: string;
   isCustom?: boolean;
   createdAt?: string;
 }

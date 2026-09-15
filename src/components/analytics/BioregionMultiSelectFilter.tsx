@@ -6,7 +6,8 @@ import {
   CheckCheck, 
   MapPin, 
   Activity, 
-  Filter 
+  Filter,
+  Plus
 } from 'lucide-react';
 import { BioregionOption, COMPARATIVE_BIOREGIONS } from './flourishingAnalyticsData';
 import { audioFeedback } from '../../lib/audioFeedback';
@@ -17,6 +18,7 @@ interface BioregionMultiSelectFilterProps {
   onToggle: (id: string) => void;
   onSelectAll: () => void;
   onResetToDefault: () => void;
+  onOpenComparator?: () => void;
 }
 
 export const BioregionMultiSelectFilter: React.FC<BioregionMultiSelectFilterProps> = ({
@@ -24,7 +26,8 @@ export const BioregionMultiSelectFilter: React.FC<BioregionMultiSelectFilterProp
   selectedIds,
   onToggle,
   onSelectAll,
-  onResetToDefault
+  onResetToDefault,
+  onOpenComparator
 }) => {
   const isAllSelected = selectedIds.length === bioregions.length;
   const isDefaultSelected = selectedIds.length === 1 && selectedIds[0] === 'pan-african';
@@ -46,6 +49,22 @@ export const BioregionMultiSelectFilter: React.FC<BioregionMultiSelectFilterProp
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
+          {onOpenComparator && (
+            <button
+              type="button"
+              id="filter-add-bioregion-persistent-btn"
+              onClick={() => {
+                audioFeedback.playMicroTick();
+                onOpenComparator();
+              }}
+              className="py-1 px-3 rounded bg-[#16291E] hover:bg-[#203D2C] text-emerald-300 hover:text-white border border-emerald-500/50 text-[10px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Add an additional bioregion to overlay on the trend chart for direct comparison"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-400" />
+              <span>+ Add Bioregion</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
