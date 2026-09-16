@@ -154,6 +154,15 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
           targetTab: 'reality-engine',
           badge: { text: 'IoT Mesh', variant: 'emerald' },
           analytics: { category: 'Navigation', action: 'navigate_reality_engine_dropdown' }
+        },
+        {
+          id: 'hackathon-alchemical-sanctum',
+          label: 'The Alchemical Sanctum (Magnum Opus)',
+          description: 'Wonder & Sacred Arts: Solfeggio Harmonics, Transmutation Crucible, Arcane Sigil Forge & 7 Archetypes',
+          icon: Sparkles,
+          targetTab: 'alchemical-sanctum',
+          badge: { text: 'Sacred Wonder', variant: 'gold', pulse: true },
+          analytics: { category: 'Navigation', action: 'navigate_alchemical_dropdown' }
         }
       ]
     },
@@ -167,6 +176,18 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
       icon: TreeDeciduous,
       targetTab: 'home',
       analytics: { category: 'Navigation', action: 'navigate_home' }
+    },
+
+    // 1a. The Alchemical Sanctum of Wonder & Sacred Arts
+    {
+      id: 'alchemical-sanctum',
+      label: 'Alchemical Sanctum',
+      labelKey: 'nav.alchemical_sanctum',
+      type: 'link',
+      icon: Sparkles,
+      targetTab: 'alchemical-sanctum',
+      badge: { text: '7 Archetypes', variant: 'gold', pulse: true },
+      analytics: { category: 'Navigation', action: 'navigate_alchemical_sanctum' }
     },
 
     // 1b. Autonomous Agent Mission Control (Google Cloud Summer Blockbuster Hackathon Showcase)

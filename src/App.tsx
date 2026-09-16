@@ -25,6 +25,7 @@ import { VerificationToastProvider } from './context/VerificationToastContext';
 import { VerificationNotificationContainer } from './components/verification/VerificationNotificationContainer';
 import { BioregionalHazardProvider } from './context/BioregionalHazardContext';
 import { BioregionalAlertSystem } from './components/bioregional/BioregionalAlertSystem';
+import { AmbientSeasonalityOverlay } from './components/AmbientSeasonalityOverlay';
 import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
@@ -57,6 +58,8 @@ const PlatformTourOverlay = React.lazy(() => import('./components/navigation/Pla
 const GoogleSitelinksEnhancementModal = React.lazy(() => import('./components/seo/GoogleSitelinksEnhancementModal').then(m => ({ default: m.GoogleSitelinksEnhancementModal })));
 const StartupErrorOverlay = React.lazy(() => import('./components/diagnostics/StartupErrorOverlay').then(m => ({ default: m.StartupErrorOverlay })));
 const AchievementCelebrationModal = React.lazy(() => import('./components/achievements/AchievementCelebrationModal').then(m => ({ default: m.AchievementCelebrationModal })));
+const StarMapView = React.lazy(() => import('./components/StarMapView').then(m => ({ default: m.StarMapView })));
+const PlanetaryOracleDrawer = React.lazy(() => import('./components/navigation/PlanetaryOracleDrawer').then(m => ({ default: m.PlanetaryOracleDrawer })));
 
 // Lazy-Loaded Views for instant code-splitting and progressive delivery
 const AtlasStewardView = React.lazy(() => import('./components/steward/AtlasStewardView').then(m => ({ default: m.AtlasStewardView })));
@@ -103,6 +106,7 @@ const GovernanceHubView = React.lazy(() => import('./components/views/Governance
 const EconomicsPricingView = React.lazy(() => import('./components/views/EconomicsPricingView').then(m => ({ default: m.EconomicsPricingView })));
 const AnalyticsReportView = React.lazy(() => import('./components/views/AnalyticsReportView').then(m => ({ default: m.AnalyticsReportView })));
 const CitizenProfileView = React.lazy(() => import('./components/views/CitizenProfileView').then(m => ({ default: m.CitizenProfileView })));
+const AlchemicalStudioView = React.lazy(() => import('./views/AlchemicalStudioView').then(m => ({ default: m.AlchemicalStudioView })));
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<PageView>('home');
@@ -119,6 +123,8 @@ export default function App() {
   const [voiceCommandOpen, setVoiceCommandOpen] = useState(false);
   const [platformTourOpen, setPlatformTourOpen] = useState(false);
   const [googleSitelinksOpen, setGoogleSitelinksOpen] = useState(false);
+  const [starMapOpen, setStarMapOpen] = useState(false);
+  const [oracleDrawerOpen, setOracleDrawerOpen] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState<string>('');
   const [commandCenterInitialQuery, setCommandCenterInitialQuery] = useState<string>('');
   const [provenanceModalData, setProvenanceModalData] = useState<DataProvenance | null>(null);
@@ -214,6 +220,12 @@ export default function App() {
         } else if (e.key.toLowerCase() === 'v') {
           e.preventDefault();
           setVoiceCommandOpen((prev) => !prev);
+        } else if (e.key === '*' || (e.shiftKey && e.key === '8') || ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's')) {
+          e.preventDefault();
+          setStarMapOpen((prev) => !prev);
+        } else if (e.key.toLowerCase() === 'o' && !e.metaKey && !e.ctrlKey) {
+          e.preventDefault();
+          setOracleDrawerOpen((prev) => !prev);
         }
       }
     };
@@ -224,6 +236,8 @@ export default function App() {
     const handleOpenCommandments = () => setCommandmentsModalOpen(true);
     const handleOpenSearch = () => setGlobalSearchOpen(true);
     const handleOpenShortcuts = () => setShortcutsModalOpen(true);
+    const handleOpenStarMap = () => setStarMapOpen(true);
+    const handleOpenOracle = () => setOracleDrawerOpen(true);
     const handleResetToHome = () => {
       setCurrentTab('home');
       setCommandCenterOpen(false);
@@ -260,6 +274,8 @@ export default function App() {
     window.addEventListener('open-commandments', handleOpenCommandments);
     window.addEventListener('open-global-search', handleOpenSearch);
     window.addEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
+    window.addEventListener('open-star-map', handleOpenStarMap);
+    window.addEventListener('open-bioregional-oracle', handleOpenOracle);
     window.addEventListener('atlas-reset-to-home', handleResetToHome);
     window.addEventListener('trigger-voice-command-search' as any, handleVoiceCommandSearch);
     const handleOpenTour = () => setPlatformTourOpen(true);
@@ -286,6 +302,8 @@ export default function App() {
       window.removeEventListener('open-commandments', handleOpenCommandments);
       window.removeEventListener('open-global-search', handleOpenSearch);
       window.removeEventListener('open-keyboard-shortcuts', handleOpenShortcuts);
+      window.removeEventListener('open-star-map', handleOpenStarMap);
+      window.removeEventListener('open-bioregional-oracle', handleOpenOracle);
       window.removeEventListener('open-platform-tour', handleOpenTour);
       window.removeEventListener('open-google-sitelinks-enhancement', handleOpenGoogleSitelinks);
       window.removeEventListener('atlas-navigate-tab' as any, handleNavigateTab);
@@ -353,6 +371,9 @@ export default function App() {
               activeView={currentTab}
             />
 
+            {/* Ambient Seasonality Overlay - Evoking Planetary Time via Subtle Color Shift */}
+            <AmbientSeasonalityOverlay />
+
             {/* Centralized High-Performance Loading Progress Bar */}
             <GlobalLoadingIndicator 
               isLoading={isTransitioning}
@@ -366,6 +387,8 @@ export default function App() {
               onOpenCommandCenter={() => setCommandCenterOpen(true)}
               onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
               onOpenCommandments={() => setCommandmentsModalOpen(true)}
+              onOpenStarMap={() => setStarMapOpen(true)}
+              onOpenOracle={() => setOracleDrawerOpen(true)}
             />
 
             {/* Non-Intrusive Bioregional Stress Alert Notification Banner */}
@@ -712,6 +735,10 @@ export default function App() {
                       onInspectProvenance={handleInspectProvenance}
                     />
                   )}
+
+                  {currentTab === 'alchemical-sanctum' && (
+                    <AlchemicalStudioView />
+                  )}
                 </Suspense>
               );
             })()}
@@ -864,6 +891,20 @@ export default function App() {
 
               {/* In-App Milestone Celebrations & Achievement Badges Drawer */}
               <AchievementCelebrationModal />
+
+              {/* Hidden Celestial Star Map (Constellations of Verified Impact Projects - Triggered by *) */}
+              <StarMapView
+                isOpen={starMapOpen}
+                onClose={() => setStarMapOpen(false)}
+                onSelectTab={handleSelectTab}
+              />
+
+              {/* Planetary Oracle Sidebar Drawer (Poetic Telemetry & Stewardship Lens) */}
+              <PlanetaryOracleDrawer
+                isOpen={oracleDrawerOpen}
+                onClose={() => setOracleDrawerOpen(false)}
+                onSelectTab={handleSelectTab}
+              />
             </Suspense>
 
             {/* Real-time Render & Performance Telemetry HUD */}

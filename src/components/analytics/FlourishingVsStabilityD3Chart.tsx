@@ -886,9 +886,27 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
 
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Dynamic X-Scale: 1 to 12 (or 1 to 18 if predictive forecast overlay is active), with Zoom to Selection support
+    // Smooth transition detection when toggling between raw and normalized modes
+    const didToggleNormalize = prevNormalizedRef.current !== isNormalized;
+    const wasNormalized = prevNormalizedRef.current;
+    prevNormalizedRef.current = isNormalized;
+
+    const TRANSITION_DURATION = 750;
+    const TRANSITION_EASE = d3.easeCubicInOut;
+
+    // Dynamic X-Scale: Focus on selected time range (30d -> Months 11-12, quarter -> Months 10-12, year -> 1-12, all -> 1-maxMonth)
     const maxMonth = showPredictiveForecast ? 18 : 12;
-    const effectiveDomain: [number, number] = zoomDomain ? zoomDomain : [1, maxMonth];
+    let defaultTimeRangeDomain: [number, number] = [1, maxMonth];
+    if (activeTimeRange === '30d') {
+      defaultTimeRangeDomain = [11, 12];
+    } else if (activeTimeRange === 'quarter') {
+      defaultTimeRangeDomain = [10, 12];
+    } else if (activeTimeRange === 'year') {
+      defaultTimeRangeDomain = [1, 12];
+    } else {
+      defaultTimeRangeDomain = [1, maxMonth];
+    }
+    const effectiveDomain: [number, number] = zoomDomain ? zoomDomain : defaultTimeRangeDomain;
     const xScale = d3.scaleLinear()
       .domain(effectiveDomain)
       .range([0, innerWidth]);
@@ -898,6 +916,22 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       .domain(isNormalized ? [0, 100] : [30, 102])
       .range([innerHeight, 0])
       .nice();
+
+    // Prior Y scale and normalization maps for smooth transition animation
+    const prevYScale = d3.scaleLinear()
+      .domain(wasNormalized ? [0, 100] : [30, 102])
+      .range([innerHeight, 0])
+      .nice();
+
+    const prevNormEco = (val: number) => wasNormalized ? normEco(val) : val;
+    const prevNormEcon = (val: number) => wasNormalized ? normEcon(val) : val;
+    const prevNormCounter = (val: number) => wasNormalized ? normCounter(val) : val;
+    const prevNormRegionEco = (val: number, rData: MonthlyTrendDataPoint[]) => wasNormalized ? normRegionEco(val, rData) : val;
+
+    const curNormEco = (val: number) => isNormalized ? normEco(val) : val;
+    const curNormEcon = (val: number) => isNormalized ? normEcon(val) : val;
+    const curNormCounter = (val: number) => isNormalized ? normCounter(val) : val;
+    const curNormRegionEco = (val: number, rData: MonthlyTrendDataPoint[]) => isNormalized ? normRegionEco(val, rData) : val;
 
     // Definitions: Gradients & Glow Filters
     const defs = svg.append('defs');
@@ -949,21 +983,39 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       .attr('stroke-width', 2)
       .attr('stroke-opacity', 0.35);
 
-    // Background Grid lines
+    // Background Grid lines with transition support
     const yAxisTicks = yScale.ticks(6);
-    g.append('g')
-      .attr('class', 'grid-lines')
-      .selectAll('line')
-      .data(yAxisTicks)
-      .enter()
-      .append('line')
-      .attr('x1', 0)
-      .attr('x2', innerWidth)
-      .attr('y1', d => yScale(d))
-      .attr('y2', d => yScale(d))
-      .attr('stroke', '#1E2420')
-      .attr('stroke-width', 1)
-      .attr('stroke-dasharray', '3 3');
+    const gridLinesG = g.append('g').attr('class', 'grid-lines');
+    if (didToggleNormalize) {
+      gridLinesG.selectAll('line')
+        .data(yAxisTicks)
+        .enter()
+        .append('line')
+        .attr('x1', 0)
+        .attr('x2', innerWidth)
+        .attr('y1', d => prevYScale(d))
+        .attr('y2', d => prevYScale(d))
+        .attr('stroke', '#1E2420')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3 3')
+        .transition()
+        .duration(TRANSITION_DURATION)
+        .ease(TRANSITION_EASE)
+        .attr('y1', d => yScale(d))
+        .attr('y2', d => yScale(d));
+    } else {
+      gridLinesG.selectAll('line')
+        .data(yAxisTicks)
+        .enter()
+        .append('line')
+        .attr('x1', 0)
+        .attr('x2', innerWidth)
+        .attr('y1', d => yScale(d))
+        .attr('y2', d => yScale(d))
+        .attr('stroke', '#1E2420')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3 3');
+    }
 
     // Clipped Plot Area for all data curves, forecast, anomalies, and threshold lines
     const plotG = g.append('g')
@@ -1180,33 +1232,58 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       });
     }
 
-    // Horizontal equilibrium baseline line
-    const equilibriumVal = isNormalized ? normEco(80) : 80;
-    if (equilibriumVal >= 0 && equilibriumVal <= 100) {
-      g.append('line')
+    // Horizontal equilibrium baseline line with smooth transition
+    const prevEquilibriumVal = wasNormalized ? normEco(80) : 80;
+    const newEquilibriumVal = isNormalized ? normEco(80) : 80;
+    const prevEquilibriumY = prevYScale(prevEquilibriumVal);
+    const newEquilibriumY = yScale(newEquilibriumVal);
+
+    if (newEquilibriumVal >= 0 && newEquilibriumVal <= 100) {
+      const eqLine = g.append('line')
         .attr('x1', 0)
         .attr('x2', innerWidth)
-        .attr('y1', yScale(equilibriumVal))
-        .attr('y2', yScale(equilibriumVal))
         .attr('stroke', '#C5A059')
         .attr('stroke-opacity', 0.25)
         .attr('stroke-width', 1.5)
         .attr('stroke-dasharray', '6 4');
 
-      g.append('text')
+      if (didToggleNormalize) {
+        eqLine
+          .attr('y1', prevEquilibriumY)
+          .attr('y2', prevEquilibriumY)
+          .transition()
+          .duration(TRANSITION_DURATION)
+          .ease(TRANSITION_EASE)
+          .attr('y1', newEquilibriumY)
+          .attr('y2', newEquilibriumY);
+      } else {
+        eqLine
+          .attr('y1', newEquilibriumY)
+          .attr('y2', newEquilibriumY);
+      }
+
+      const eqText = g.append('text')
         .attr('x', innerWidth - 6)
-        .attr('y', yScale(equilibriumVal) - 5)
+        .attr('y', didToggleNormalize ? prevEquilibriumY - 5 : newEquilibriumY - 5)
         .attr('text-anchor', 'end')
         .attr('fill', '#C5A059')
         .attr('font-size', '9px')
         .attr('font-family', 'monospace')
         .attr('opacity', 0.7)
         .text(isNormalized ? 'EQUILIBRIUM BASELINE (80 pts Normalized)' : 'REGENERATIVE EQUILIBRIUM THRESHOLD (80 pts)');
+
+      if (didToggleNormalize) {
+        eqText.transition()
+          .duration(TRANSITION_DURATION)
+          .ease(TRANSITION_EASE)
+          .attr('y', newEquilibriumY - 5);
+      }
     }
 
     // Interactive Alert on Threshold Guide Line with Drag-to-Define
     if (alertThreshold.enabled) {
       let thresholdScaled = alertThreshold.value;
+      let prevThresholdScaled = alertThreshold.value;
       if (isNormalized) {
         if (alertThreshold.metric === 'ecological') {
           thresholdScaled = normEco(alertThreshold.value);
@@ -1216,8 +1293,18 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           thresholdScaled = alertThreshold.value;
         }
       }
+      if (wasNormalized) {
+        if (alertThreshold.metric === 'ecological') {
+          prevThresholdScaled = normEco(alertThreshold.value);
+        } else if (alertThreshold.metric === 'economic') {
+          prevThresholdScaled = normEcon(alertThreshold.value);
+        } else {
+          prevThresholdScaled = alertThreshold.value;
+        }
+      }
 
       const thresholdY = yScale(thresholdScaled);
+      const prevThresholdY = prevYScale(prevThresholdScaled);
       if (thresholdY >= 0 && thresholdY <= innerHeight) {
         const alertGuideGroup = g.append('g')
           .attr('class', 'alert-threshold-guide')
@@ -1228,8 +1315,6 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           .attr('class', 'breach-alert-zone')
           .attr('x', 0)
           .attr('width', innerWidth)
-          .attr('y', alertThreshold.condition === 'below' ? thresholdY : 0)
-          .attr('height', alertThreshold.condition === 'below' ? Math.max(0, innerHeight - thresholdY) : thresholdY)
           .attr('fill', '#EF4444')
           .attr('opacity', 0.07)
           .attr('pointer-events', 'none');
@@ -1239,8 +1324,6 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           .attr('class', 'threshold-glow-line')
           .attr('x1', 0)
           .attr('x2', innerWidth)
-          .attr('y1', thresholdY)
-          .attr('y2', thresholdY)
           .attr('stroke', '#EF4444')
           .attr('stroke-width', 4)
           .attr('opacity', 0.25)
@@ -1251,8 +1334,6 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           .attr('class', 'threshold-main-line')
           .attr('x1', 0)
           .attr('x2', innerWidth)
-          .attr('y1', thresholdY)
-          .attr('y2', thresholdY)
           .attr('stroke', '#EF4444')
           .attr('stroke-width', 2)
           .attr('stroke-dasharray', '6 4')
@@ -1263,8 +1344,6 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           .attr('class', 'threshold-drag-hitbox')
           .attr('x1', 0)
           .attr('x2', innerWidth)
-          .attr('y1', thresholdY)
-          .attr('y2', thresholdY)
           .attr('stroke', 'transparent')
           .attr('stroke-width', 30)
           .attr('cursor', 'ns-resize')
@@ -1273,9 +1352,46 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         // Left Drag Handle Pill: [ ↕ DRAG THRESHOLD ]
         const leftHandle = alertGuideGroup.append('g')
           .attr('class', 'threshold-left-handle')
-          .attr('transform', `translate(4, ${thresholdY})`)
           .attr('cursor', 'ns-resize')
           .attr('pointer-events', 'all');
+
+        if (didToggleNormalize) {
+          breachZone
+            .attr('y', alertThreshold.condition === 'below' ? prevThresholdY : 0)
+            .attr('height', alertThreshold.condition === 'below' ? Math.max(0, innerHeight - prevThresholdY) : prevThresholdY)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('y', alertThreshold.condition === 'below' ? thresholdY : 0)
+            .attr('height', alertThreshold.condition === 'below' ? Math.max(0, innerHeight - thresholdY) : thresholdY);
+
+          glowLine
+            .attr('y1', prevThresholdY).attr('y2', prevThresholdY)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('y1', thresholdY).attr('y2', thresholdY);
+
+          thresholdLine
+            .attr('y1', prevThresholdY).attr('y2', prevThresholdY)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('y1', thresholdY).attr('y2', thresholdY);
+
+          dragHitbox
+            .attr('y1', prevThresholdY).attr('y2', prevThresholdY)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('y1', thresholdY).attr('y2', thresholdY);
+
+          leftHandle
+            .attr('transform', `translate(4, ${prevThresholdY})`)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('transform', `translate(4, ${thresholdY})`);
+        } else {
+          breachZone
+            .attr('y', alertThreshold.condition === 'below' ? thresholdY : 0)
+            .attr('height', alertThreshold.condition === 'below' ? Math.max(0, innerHeight - thresholdY) : thresholdY);
+
+          glowLine.attr('y1', thresholdY).attr('y2', thresholdY);
+          thresholdLine.attr('y1', thresholdY).attr('y2', thresholdY);
+          dragHitbox.attr('y1', thresholdY).attr('y2', thresholdY);
+          leftHandle.attr('transform', `translate(4, ${thresholdY})`);
+        }
 
         const leftHandleRect = leftHandle.append('rect')
           .attr('x', 0)
@@ -1302,9 +1418,17 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         const badgeX = Math.max(160, innerWidth - 145);
         const alertBadge = alertGuideGroup.append('g')
           .attr('class', 'threshold-badge-group')
-          .attr('transform', `translate(${badgeX}, ${thresholdY})`)
           .attr('cursor', 'ns-resize')
           .attr('pointer-events', 'all');
+
+        if (didToggleNormalize) {
+          alertBadge
+            .attr('transform', `translate(${badgeX}, ${prevThresholdY})`)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('transform', `translate(${badgeX}, ${thresholdY})`);
+        } else {
+          alertBadge.attr('transform', `translate(${badgeX}, ${thresholdY})`);
+        }
 
         const badgeRect = alertBadge.append('rect')
           .attr('x', -95)
@@ -1442,8 +1566,10 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
     }
 
     // Bottom X-Axis
+    const tickSpan = Math.max(1, Math.round(effectiveDomain[1] - effectiveDomain[0]));
+    const tickCount = Math.min(maxMonth, tickSpan + 1);
     const xAxis = d3.axisBottom(xScale)
-      .ticks(maxMonth)
+      .ticks(tickCount)
       .tickFormat((d) => {
         const num = Number(d);
         if (num <= 12) {
@@ -1467,12 +1593,23 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       .attr('font-family', 'monospace')
       .attr('font-weight', (d) => Number(d) > 12 ? 'bold' : 'normal');
 
-    // Left Y-Axis
+    // Left Y-Axis with smooth transition when toggling between raw and normalized modes
     const yAxis = d3.axisLeft(yScale)
       .ticks(6)
       .tickFormat(d => `${d}%`);
 
-    const yAxisGroup = g.append('g').call(yAxis);
+    let yAxisGroup;
+    if (didToggleNormalize) {
+      const prevYAxis = d3.axisLeft(prevYScale).ticks(6).tickFormat(d => `${d}%`);
+      yAxisGroup = g.append('g').call(prevYAxis);
+      yAxisGroup.transition()
+        .duration(TRANSITION_DURATION)
+        .ease(TRANSITION_EASE)
+        .call(yAxis);
+    } else {
+      yAxisGroup = g.append('g').call(yAxis);
+    }
+
     yAxisGroup.select('.domain').attr('stroke', '#333835');
     yAxisGroup.selectAll('.tick line').attr('stroke', '#333835');
     yAxisGroup.selectAll('.tick text')
@@ -1501,21 +1638,35 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       // Shaded Confidence Interval Envelope (±1σ / 95% CI) for each comparative bioregion
       if (isConfidenceIntervalActive) {
         selectedBioregionObjects.forEach((region) => {
-          const ciAreaGen = d3.area<MonthlyTrendDataPoint>()
+          const prevCiAreaGen = d3.area<MonthlyTrendDataPoint>()
             .x(d => xScale(d.monthIndex))
             .y0(d => {
               const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
               const lower = Math.max(0, d.ecologicalFlourishing - sigma);
-              return yScale(normRegionEco(lower, region.monthlyData));
+              return prevYScale(prevNormRegionEco(lower, region.monthlyData));
             })
             .y1(d => {
               const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
               const upper = Math.min(100, d.ecologicalFlourishing + sigma);
-              return yScale(normRegionEco(upper, region.monthlyData));
+              return prevYScale(prevNormRegionEco(upper, region.monthlyData));
             })
             .curve(d3.curveMonotoneX);
 
-          plotG.append('path')
+          const curCiAreaGen = d3.area<MonthlyTrendDataPoint>()
+            .x(d => xScale(d.monthIndex))
+            .y0(d => {
+              const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
+              const lower = Math.max(0, d.ecologicalFlourishing - sigma);
+              return yScale(curNormRegionEco(lower, region.monthlyData));
+            })
+            .y1(d => {
+              const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
+              const upper = Math.min(100, d.ecologicalFlourishing + sigma);
+              return yScale(curNormRegionEco(upper, region.monthlyData));
+            })
+            .curve(d3.curveMonotoneX);
+
+          const ciPath = plotG.append('path')
             .datum(region.monthlyData)
             .attr('class', `ci-band-${region.id}`)
             .attr('fill', region.color)
@@ -1523,86 +1674,165 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             .attr('stroke', region.color)
             .attr('stroke-width', 0.8)
             .attr('stroke-dasharray', '3 3')
-            .attr('stroke-opacity', 0.5)
-            .attr('d', ciAreaGen);
+            .attr('stroke-opacity', 0.5);
+
+          if (didToggleNormalize) {
+            ciPath
+              .attr('d', prevCiAreaGen)
+              .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+              .attr('d', curCiAreaGen);
+          } else {
+            ciPath.attr('d', curCiAreaGen);
+          }
         });
       }
 
       // MULTI-LINE COMPARISON MODE: Plot curves for each selected bioregion
       selectedBioregionObjects.forEach((region) => {
-        const lineGen = d3.line<MonthlyTrendDataPoint>()
+        const prevLineGen = d3.line<MonthlyTrendDataPoint>()
           .x(d => xScale(d.monthIndex))
-          .y(d => yScale(normRegionEco(d.ecologicalFlourishing, region.monthlyData)))
+          .y(d => prevYScale(prevNormRegionEco(d.ecologicalFlourishing, region.monthlyData)))
+          .curve(d3.curveMonotoneX);
+
+        const curLineGen = d3.line<MonthlyTrendDataPoint>()
+          .x(d => xScale(d.monthIndex))
+          .y(d => yScale(curNormRegionEco(d.ecologicalFlourishing, region.monthlyData)))
           .curve(d3.curveMonotoneX);
 
         // Bioregion line
-        plotG.append('path')
+        const regionLine = plotG.append('path')
           .datum(region.monthlyData)
           .attr('fill', 'none')
           .attr('stroke', region.color)
           .attr('stroke-width', 2.4)
           .attr('stroke-linecap', 'round')
-          .attr('opacity', 0.9)
-          .attr('d', lineGen);
+          .attr('opacity', 0.9);
+
+        if (didToggleNormalize) {
+          regionLine
+            .attr('d', prevLineGen)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('d', curLineGen);
+        } else {
+          regionLine.attr('d', curLineGen);
+        }
 
         // Bioregion dots
         region.monthlyData.forEach(d => {
-          plotG.append('circle')
+          const prevCy = prevYScale(prevNormRegionEco(d.ecologicalFlourishing, region.monthlyData));
+          const newCy = yScale(curNormRegionEco(d.ecologicalFlourishing, region.monthlyData));
+
+          const rCircle = plotG.append('circle')
             .attr('cx', xScale(d.monthIndex))
-            .attr('cy', yScale(normRegionEco(d.ecologicalFlourishing, region.monthlyData)))
-            .attr('r', 3)
+            .attr('r', 3.5)
             .attr('fill', region.color)
             .attr('stroke', '#0A0A0A')
-            .attr('stroke-width', 1.5);
+            .attr('stroke-width', 1.5)
+            .attr('cursor', 'pointer');
+
+          rCircle.append('title')
+            .text(`${region.name} - ${d.exactDate || d.calendarMonth}\nRaw: ${d.ecologicalFlourishing}%\nNorm: ${normRegionEco(d.ecologicalFlourishing, region.monthlyData).toFixed(1)}%`);
+
+          rCircle.on('mouseenter', () => updateCrosshairToPoint(d));
+
+          if (didToggleNormalize) {
+            rCircle
+              .attr('cy', prevCy)
+              .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+              .attr('cy', newCy);
+          } else {
+            rCircle.attr('cy', newCy);
+          }
         });
       });
     } else {
       // SINGLE BIOREGION DETAILED MODE: Ecological, Economic, Area Fills, Counterfactual
-      const ecoLine = d3.line<MonthlyTrendDataPoint>()
+      const prevEcoLine = d3.line<MonthlyTrendDataPoint>()
         .x(d => xScale(d.monthIndex))
-        .y(d => yScale(normEco(d.ecologicalFlourishing)))
+        .y(d => prevYScale(prevNormEco(d.ecologicalFlourishing)))
         .curve(d3.curveMonotoneX);
 
-      const econLine = d3.line<MonthlyTrendDataPoint>()
+      const curEcoLine = d3.line<MonthlyTrendDataPoint>()
         .x(d => xScale(d.monthIndex))
-        .y(d => yScale(normEcon(d.economicStability)))
+        .y(d => yScale(curNormEco(d.ecologicalFlourishing)))
         .curve(d3.curveMonotoneX);
 
-      const counterfactualLine = d3.line<MonthlyTrendDataPoint>()
+      const prevEconLine = d3.line<MonthlyTrendDataPoint>()
         .x(d => xScale(d.monthIndex))
-        .y(d => yScale(normCounter(d.extractiveCounterfactual)))
+        .y(d => prevYScale(prevNormEcon(d.economicStability)))
         .curve(d3.curveMonotoneX);
 
-      const ecoArea = d3.area<MonthlyTrendDataPoint>()
+      const curEconLine = d3.line<MonthlyTrendDataPoint>()
+        .x(d => xScale(d.monthIndex))
+        .y(d => yScale(curNormEcon(d.economicStability)))
+        .curve(d3.curveMonotoneX);
+
+      const prevCounterfactualLine = d3.line<MonthlyTrendDataPoint>()
+        .x(d => xScale(d.monthIndex))
+        .y(d => prevYScale(prevNormCounter(d.extractiveCounterfactual)))
+        .curve(d3.curveMonotoneX);
+
+      const curCounterfactualLine = d3.line<MonthlyTrendDataPoint>()
+        .x(d => xScale(d.monthIndex))
+        .y(d => yScale(curNormCounter(d.extractiveCounterfactual)))
+        .curve(d3.curveMonotoneX);
+
+      const prevEcoArea = d3.area<MonthlyTrendDataPoint>()
         .x(d => xScale(d.monthIndex))
         .y0(innerHeight)
-        .y1(d => yScale(normEco(d.ecologicalFlourishing)))
+        .y1(d => prevYScale(prevNormEco(d.ecologicalFlourishing)))
         .curve(d3.curveMonotoneX);
 
-      const econArea = d3.area<MonthlyTrendDataPoint>()
+      const curEcoArea = d3.area<MonthlyTrendDataPoint>()
         .x(d => xScale(d.monthIndex))
         .y0(innerHeight)
-        .y1(d => yScale(normEcon(d.economicStability)))
+        .y1(d => yScale(curNormEco(d.ecologicalFlourishing)))
+        .curve(d3.curveMonotoneX);
+
+      const prevEconArea = d3.area<MonthlyTrendDataPoint>()
+        .x(d => xScale(d.monthIndex))
+        .y0(innerHeight)
+        .y1(d => prevYScale(prevNormEcon(d.economicStability)))
+        .curve(d3.curveMonotoneX);
+
+      const curEconArea = d3.area<MonthlyTrendDataPoint>()
+        .x(d => xScale(d.monthIndex))
+        .y0(innerHeight)
+        .y1(d => yScale(curNormEcon(d.economicStability)))
         .curve(d3.curveMonotoneX);
 
       // Shaded Confidence Interval Envelopes (±1σ / 95% CI)
       if (isConfidenceIntervalActive) {
         if (activeSeries === 'both' || activeSeries === 'ecological') {
-          const ecoCIAreaGen = d3.area<MonthlyTrendDataPoint>()
+          const prevEcoCIAreaGen = d3.area<MonthlyTrendDataPoint>()
             .x(d => xScale(d.monthIndex))
             .y0(d => {
               const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
               const lower = Math.max(0, d.ecologicalFlourishing - sigma);
-              return yScale(normEco(lower));
+              return prevYScale(prevNormEco(lower));
             })
             .y1(d => {
               const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
               const upper = Math.min(100, d.ecologicalFlourishing + sigma);
-              return yScale(normEco(upper));
+              return prevYScale(prevNormEco(upper));
             })
             .curve(d3.curveMonotoneX);
 
-          plotG.append('path')
+          const curEcoCIAreaGen = d3.area<MonthlyTrendDataPoint>()
+            .x(d => xScale(d.monthIndex))
+            .y0(d => {
+              const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
+              const lower = Math.max(0, d.ecologicalFlourishing - sigma);
+              return yScale(curNormEco(lower));
+            })
+            .y1(d => {
+              const sigma = Number((3.6 - (d.monthIndex * 0.08)).toFixed(2));
+              const upper = Math.min(100, d.ecologicalFlourishing + sigma);
+              return yScale(curNormEco(upper));
+            })
+            .curve(d3.curveMonotoneX);
+
+          const ecoCIPath = plotG.append('path')
             .datum(primaryDataset)
             .attr('class', 'ci-band-eco')
             .attr('fill', '#10B981')
@@ -1610,26 +1840,48 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             .attr('stroke', '#10B981')
             .attr('stroke-width', 0.8)
             .attr('stroke-dasharray', '3 3')
-            .attr('stroke-opacity', 0.55)
-            .attr('d', ecoCIAreaGen);
+            .attr('stroke-opacity', 0.55);
+
+          if (didToggleNormalize) {
+            ecoCIPath
+              .attr('d', prevEcoCIAreaGen)
+              .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+              .attr('d', curEcoCIAreaGen);
+          } else {
+            ecoCIPath.attr('d', curEcoCIAreaGen);
+          }
         }
 
         if (activeSeries === 'both' || activeSeries === 'economic') {
-          const econCIAreaGen = d3.area<MonthlyTrendDataPoint>()
+          const prevEconCIAreaGen = d3.area<MonthlyTrendDataPoint>()
             .x(d => xScale(d.monthIndex))
             .y0(d => {
               const sigma = Number((3.0 - (d.monthIndex * 0.06)).toFixed(2));
               const lower = Math.max(0, d.economicStability - sigma);
-              return yScale(normEcon(lower));
+              return prevYScale(prevNormEcon(lower));
             })
             .y1(d => {
               const sigma = Number((3.0 - (d.monthIndex * 0.06)).toFixed(2));
               const upper = Math.min(100, d.economicStability + sigma);
-              return yScale(normEcon(upper));
+              return prevYScale(prevNormEcon(upper));
             })
             .curve(d3.curveMonotoneX);
 
-          plotG.append('path')
+          const curEconCIAreaGen = d3.area<MonthlyTrendDataPoint>()
+            .x(d => xScale(d.monthIndex))
+            .y0(d => {
+              const sigma = Number((3.0 - (d.monthIndex * 0.06)).toFixed(2));
+              const lower = Math.max(0, d.economicStability - sigma);
+              return yScale(curNormEcon(lower));
+            })
+            .y1(d => {
+              const sigma = Number((3.0 - (d.monthIndex * 0.06)).toFixed(2));
+              const upper = Math.min(100, d.economicStability + sigma);
+              return yScale(curNormEcon(upper));
+            })
+            .curve(d3.curveMonotoneX);
+
+          const econCIPath = plotG.append('path')
             .datum(primaryDataset)
             .attr('class', 'ci-band-econ')
             .attr('fill', '#C5A059')
@@ -1637,81 +1889,174 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             .attr('stroke', '#C5A059')
             .attr('stroke-width', 0.8)
             .attr('stroke-dasharray', '3 3')
-            .attr('stroke-opacity', 0.55)
-            .attr('d', econCIAreaGen);
+            .attr('stroke-opacity', 0.55);
+
+          if (didToggleNormalize) {
+            econCIPath
+              .attr('d', prevEconCIAreaGen)
+              .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+              .attr('d', curEconCIAreaGen);
+          } else {
+            econCIPath.attr('d', curEconCIAreaGen);
+          }
         }
       }
 
       // Extractive Counterfactual
       if (showCounterfactual) {
-        plotG.append('path')
+        const counterPath = plotG.append('path')
           .datum(primaryDataset)
           .attr('fill', 'none')
           .attr('stroke', '#EF4444')
           .attr('stroke-width', 1.5)
           .attr('stroke-dasharray', '4 4')
-          .attr('opacity', 0.5)
-          .attr('d', counterfactualLine);
+          .attr('opacity', 0.5);
+
+        if (didToggleNormalize) {
+          counterPath
+            .attr('d', prevCounterfactualLine)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('d', curCounterfactualLine);
+        } else {
+          counterPath.attr('d', curCounterfactualLine);
+        }
       }
 
       // Economic Stability
       if (activeSeries === 'both' || activeSeries === 'economic') {
         if (showAreaFill) {
-          plotG.append('path')
+          const econAreaPath = plotG.append('path')
             .datum(primaryDataset)
-            .attr('fill', 'url(#econ-stability-gradient)')
-            .attr('d', econArea);
+            .attr('fill', 'url(#econ-stability-gradient)');
+
+          if (didToggleNormalize) {
+            econAreaPath
+              .attr('d', prevEconArea)
+              .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+              .attr('d', curEconArea);
+          } else {
+            econAreaPath.attr('d', curEconArea);
+          }
         }
 
-        plotG.append('path')
+        const econPath = plotG.append('path')
           .datum(primaryDataset)
           .attr('fill', 'none')
           .attr('stroke', '#C5A059')
           .attr('stroke-width', 2.8)
-          .attr('stroke-linecap', 'round')
-          .attr('d', econLine);
+          .attr('stroke-linecap', 'round');
+
+        if (didToggleNormalize) {
+          econPath
+            .attr('d', prevEconLine)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('d', curEconLine);
+        } else {
+          econPath.attr('d', curEconLine);
+        }
       }
 
       // Ecological Flourishing
       if (activeSeries === 'both' || activeSeries === 'ecological') {
         if (showAreaFill) {
-          plotG.append('path')
+          const ecoAreaPath = plotG.append('path')
             .datum(primaryDataset)
-            .attr('fill', 'url(#eco-flourish-gradient)')
-            .attr('d', ecoArea);
+            .attr('fill', 'url(#eco-flourish-gradient)');
+
+          if (didToggleNormalize) {
+            ecoAreaPath
+              .attr('d', prevEcoArea)
+              .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+              .attr('d', curEcoArea);
+          } else {
+            ecoAreaPath.attr('d', curEcoArea);
+          }
         }
 
-        plotG.append('path')
+        const ecoPath = plotG.append('path')
           .datum(primaryDataset)
           .attr('fill', 'none')
           .attr('stroke', '#10B981')
           .attr('stroke-width', 2.8)
-          .attr('stroke-linecap', 'round')
-          .attr('d', ecoLine);
+          .attr('stroke-linecap', 'round');
+
+        if (didToggleNormalize) {
+          ecoPath
+            .attr('d', prevEcoLine)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('d', curEcoLine);
+        } else {
+          ecoPath.attr('d', curEcoLine);
+        }
       }
 
-      // Point Markers
+      // Point Markers with Hover Tooltip Details
       primaryDataset.forEach((d) => {
         const isSelected = selectedPoint.monthIndex === d.monthIndex;
+        const exactDateStr = d.exactDate || `${d.calendarMonth}, 2026`;
 
         if (activeSeries === 'both' || activeSeries === 'ecological') {
-          plotG.append('circle')
+          const prevCyEco = prevYScale(prevNormEco(d.ecologicalFlourishing));
+          const newCyEco = yScale(curNormEco(d.ecologicalFlourishing));
+
+          const ecoCircle = plotG.append('circle')
             .attr('cx', xScale(d.monthIndex))
-            .attr('cy', yScale(normEco(d.ecologicalFlourishing)))
             .attr('r', isSelected ? 5.5 : 3.5)
             .attr('fill', '#10B981')
             .attr('stroke', '#0A0A0A')
-            .attr('stroke-width', 2);
+            .attr('stroke-width', 2)
+            .attr('cursor', 'pointer');
+
+          ecoCircle.append('title')
+            .text(`${exactDateStr}\nEcological: Raw ${d.ecologicalFlourishing}% (Norm: ${normEco(d.ecologicalFlourishing).toFixed(1)}%)\nDecoupling: +${d.decouplingMargin} pts`);
+
+          ecoCircle.on('mouseenter', () => updateCrosshairToPoint(d));
+          ecoCircle.on('click', () => {
+            audioFeedback.playMicroTick();
+            setSelectedPoint(d);
+            onInspectPoint?.(d);
+          });
+
+          if (didToggleNormalize) {
+            ecoCircle
+              .attr('cy', prevCyEco)
+              .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+              .attr('cy', newCyEco);
+          } else {
+            ecoCircle.attr('cy', newCyEco);
+          }
         }
 
         if (activeSeries === 'both' || activeSeries === 'economic') {
-          plotG.append('circle')
+          const prevCyEcon = prevYScale(prevNormEcon(d.economicStability));
+          const newCyEcon = yScale(curNormEcon(d.economicStability));
+
+          const econCircle = plotG.append('circle')
             .attr('cx', xScale(d.monthIndex))
-            .attr('cy', yScale(normEcon(d.economicStability)))
             .attr('r', isSelected ? 5.5 : 3.5)
             .attr('fill', '#C5A059')
             .attr('stroke', '#0A0A0A')
-            .attr('stroke-width', 2);
+            .attr('stroke-width', 2)
+            .attr('cursor', 'pointer');
+
+          econCircle.append('title')
+            .text(`${exactDateStr}\nEconomic: Raw ${d.economicStability}% (Norm: ${normEcon(d.economicStability).toFixed(1)}%)\nDecoupling: +${d.decouplingMargin} pts`);
+
+          econCircle.on('mouseenter', () => updateCrosshairToPoint(d));
+          econCircle.on('click', () => {
+            audioFeedback.playMicroTick();
+            setSelectedPoint(d);
+            onInspectPoint?.(d);
+          });
+
+          if (didToggleNormalize) {
+            econCircle
+              .attr('cy', prevCyEcon)
+              .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+              .attr('cy', newCyEcon);
+          } else {
+            econCircle.attr('cy', newCyEcon);
+          }
         }
       });
     }
@@ -2072,6 +2417,9 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         }
       });
     }
+
+    // Ensure the draggable alert threshold guide is positioned above scrubbing and zoom overlays
+    g.select('.alert-threshold-guide').raise();
 
   }, [
     dimensions, 
@@ -2499,6 +2847,40 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         </button>
       </div>
 
+      {/* Real-Time Threshold Drag & Notification Setup Toast */}
+      {alertDragFeedback && (
+        <div 
+          id="threshold-drag-feedback-banner"
+          className="p-3 sm:p-3.5 rounded-md bg-[#162019] border border-emerald-500/60 text-emerald-200 text-xs font-mono flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200 shadow-lg"
+        >
+          <div className="flex items-center gap-2.5">
+            <Sliders className="w-4 h-4 text-emerald-400 animate-pulse flex-shrink-0" />
+            <span className="leading-snug">{alertDragFeedback}</span>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            {!isNotificationPermissionGranted && (
+              <button
+                type="button"
+                onClick={handleRequestNotificationPermission}
+                className="px-2.5 py-1 rounded-sm bg-emerald-900/90 hover:bg-emerald-800 text-white text-[11px] font-bold border border-emerald-400/50 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                title="Arm browser desktop push notifications for real-time breach alerts"
+              >
+                <Bell className="w-3 h-3 text-amber-300" />
+                <span>Enable Desktop Alerts</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setAlertDragFeedback(null)}
+              className="p-1 hover:bg-white/10 rounded text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              title="Dismiss notice"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 2. Active Threshold Alert Banner (When Limit Crossed) */}
       <ThresholdAlertBanner
         isTriggered={isAlertTriggered}
@@ -2513,6 +2895,8 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           setIsAlertDismissed(true);
         }}
         isDismissed={isAlertDismissed}
+        onEnablePush={handleRequestNotificationPermission}
+        isPushGranted={isNotificationPermissionGranted}
       />
 
       {/* 2. Bioregion Multi-Select Filter Component */}

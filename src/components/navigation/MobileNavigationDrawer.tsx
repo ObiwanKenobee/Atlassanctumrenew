@@ -30,6 +30,7 @@ import {
 import { isNavigationItemActive, trackNavigationEvent, getNavLabel } from '../../lib/navigationHelpers';
 import { UncertaintyOverlayToggle } from '../../context/UncertaintyOverlayContext';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { BioregionalOracle } from './BioregionalOracle';
 
 interface MobileNavigationDrawerProps {
   items: PrimaryNavigationItem[];
@@ -121,6 +122,14 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
           </button>
         )}
       </div>
+
+      {/* Bioregional Oracle Component - Mystical Interpretation of Living Telemetry */}
+      <BioregionalOracle 
+        onSelectTab={(tab) => {
+          onSelectTab(tab);
+          onClose();
+        }} 
+      />
 
       {/* Uncertainty Overlay Toggle in Mobile Drawer */}
       <div className="flex items-center justify-between p-3 bg-[#121212] border border-[#F5F5F0]/10 rounded-sm">

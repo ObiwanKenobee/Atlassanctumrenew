@@ -59,6 +59,8 @@ interface NavigationProps {
   onOpenCommandCenter: () => void;
   onOpenMoralSimulator: () => void;
   onOpenCommandments?: () => void;
+  onOpenStarMap?: () => void;
+  onOpenOracle?: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -66,7 +68,9 @@ export const Navigation: React.FC<NavigationProps> = ({
   onSelectTab,
   onOpenCommandCenter,
   onOpenMoralSimulator,
-  onOpenCommandments
+  onOpenCommandments,
+  onOpenStarMap,
+  onOpenOracle
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -761,6 +765,39 @@ export const Navigation: React.FC<NavigationProps> = ({
             <kbd className="px-1.5 py-0.5 text-[9px] bg-[#0A0A0A] border border-[#F5F5F0]/20 rounded text-[#C5A059] font-mono">
               ⌘K
             </kbd>
+          </button>
+
+          {/* Planetary Oracle Sidebar Trigger */}
+          <button
+            id="open-oracle-sidebar-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              if (onOpenOracle) onOpenOracle();
+              else window.dispatchEvent(new CustomEvent('open-bioregional-oracle'));
+            }}
+            aria-label="Open Planetary Oracle"
+            title="Consult the Bioregional Planetary Oracle (Mystical Telemetry)"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[38px] rounded-full bg-[#121212] hover:bg-[#1B261D] border border-[#C5A059]/35 hover:border-[#C5A059] transition-all text-xs font-mono text-[#C5A059] cursor-pointer shadow-sm group"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#C5A059] animate-pulse" />
+            <span className="hidden lg:inline text-[11px] font-bold">Oracle</span>
+          </button>
+
+          {/* Hidden Celestial Star Map Trigger (Hotkey: *) */}
+          <button
+            id="open-star-map-btn"
+            onClick={() => {
+              audioFeedback.playCovenantResonance();
+              if (onOpenStarMap) onOpenStarMap();
+              else window.dispatchEvent(new CustomEvent('open-star-map'));
+            }}
+            aria-label="Open Celestial Star Map (*)"
+            title="Celestial Star Map: Constellations of Verified Projects (Shortcut: *)"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[38px] rounded-full bg-[#101018] hover:bg-[#181828] border border-cyan-500/35 hover:border-cyan-400 transition-all text-xs font-mono text-cyan-300 cursor-pointer shadow-sm group"
+          >
+            <Compass className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-45 transition-transform" />
+            <span className="hidden xl:inline text-[11px] font-bold">Star Map</span>
+            <kbd className="hidden sm:inline px-1 text-[8px] bg-black/60 border border-cyan-500/30 rounded text-cyan-300 font-mono">*</kbd>
           </button>
 
           {/* Google Sitelinks & SERP Simulator Trigger */}

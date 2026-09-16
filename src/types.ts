@@ -49,7 +49,8 @@ export type PageView =
   | 'about'
   | 'economics-pricing'
   | 'analytics-report'
-  | 'citizen-profile';
+  | 'citizen-profile'
+  | 'alchemical-sanctum';
 
 // AI Engineering & Epistemic Insights Types
 export interface AIEpistemicAuditResult {

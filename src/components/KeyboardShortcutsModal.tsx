@@ -25,7 +25,9 @@ const SHORTCUT_CATEGORIES: ShortcutCategory[] = [
       { keys: ['⌘', 'K'], description: 'Open Atlas Command Center & Query Intelligence' },
       { keys: ['/'], description: 'Open Global Epistemic Fuzzy Search' },
       { keys: ['ESC'], description: 'Close any active modal, drawer, or search overlay' },
-      { keys: ['U'], description: 'Toggle Uncertainty & Epistemic Confidence Overlay' }
+      { keys: ['U'], description: 'Toggle Uncertainty & Epistemic Confidence Overlay' },
+      { keys: ['*'], description: 'Open Hidden Celestial Star Map (Constellations of Verified Projects)' },
+      { keys: ['O'], description: 'Consult Bioregional Planetary Oracle (Poetic Telemetry in Sidebar)' }
     ]
   },
   {

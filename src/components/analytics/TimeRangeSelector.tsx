@@ -153,14 +153,16 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
         )}
       </div>
 
-      {/* Optional Inline Quick-Pills for 1-Click Access */}
+      {/* Quick-Set Buttons for 1-Click Access */}
       {showQuickPills && (
-        <div className="hidden lg:flex items-center bg-[#070908] p-0.5 border border-[#F5F5F0]/15 rounded-sm">
+        <div className="flex items-center bg-[#070908] p-0.5 border border-[#F5F5F0]/15 rounded-sm">
           {TIME_RANGE_OPTIONS.map((option) => {
             const isSelected = option.id === value;
             return (
               <button
                 key={option.id}
+                id={`quick-set-timerange-${option.id}`}
+                data-testid={`quick-set-timerange-${option.id}`}
                 type="button"
                 onClick={() => {
                   audioFeedback.playMicroTick();
@@ -171,7 +173,8 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
                     ? 'bg-[#1B3022] text-emerald-300 border border-emerald-500/40 shadow-xs'
                     : 'text-[#F5F5F0]/50 hover:text-white'
                 }`}
-                title={option.durationDesc}
+                title={`Quick-set: ${option.label} (${option.durationDesc})`}
+                aria-label={`Quick-set ${option.label}`}
               >
                 {option.shortLabel}
               </button>

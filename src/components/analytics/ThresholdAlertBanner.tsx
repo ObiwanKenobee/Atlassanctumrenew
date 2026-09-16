@@ -10,6 +10,8 @@ interface ThresholdAlertBannerProps {
   onOpenSettings: () => void;
   onDismiss: () => void;
   isDismissed: boolean;
+  onEnablePush?: () => void;
+  isPushGranted?: boolean;
 }
 
 export const ThresholdAlertBanner: React.FC<ThresholdAlertBannerProps> = ({
@@ -18,7 +20,9 @@ export const ThresholdAlertBanner: React.FC<ThresholdAlertBannerProps> = ({
   currentValue,
   onOpenSettings,
   onDismiss,
-  isDismissed
+  isDismissed,
+  onEnablePush,
+  isPushGranted
 }) => {
   if (!isTriggered || !config.enabled || isDismissed) return null;
 
@@ -48,6 +52,11 @@ export const ThresholdAlertBanner: React.FC<ThresholdAlertBannerProps> = ({
             <span className="text-[10px] font-mono text-[#F5F5F0]/60">
               {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
+            {isPushGranted && (
+              <span className="text-[9px] font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded flex items-center gap-1">
+                <Bell className="w-2.5 h-2.5 text-emerald-400" /> Desktop Push Active
+              </span>
+            )}
           </div>
 
           <p className="text-xs sm:text-sm font-sans text-[#F5F5F0]/95 font-medium">
@@ -61,7 +70,21 @@ export const ThresholdAlertBanner: React.FC<ThresholdAlertBannerProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+      <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+        {!isPushGranted && onEnablePush && (
+          <button
+            onClick={() => {
+              audioFeedback.playMicroTick();
+              onEnablePush();
+            }}
+            className="px-2.5 py-1.5 rounded-sm bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-300 hover:text-white text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Arm browser push notifications for real-time breach alerts"
+          >
+            <Bell className="w-3.5 h-3.5 text-amber-400" />
+            <span>Enable Push</span>
+          </button>
+        )}
+
         <button
           onClick={() => {
             audioFeedback.playMicroTick();

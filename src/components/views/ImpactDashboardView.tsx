@@ -283,13 +283,14 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
 
           {/* Export to CSV Button */}
           <button
-            id="export-trend-data-csv-btn"
+            id="export-to-csv-btn"
+            data-testid="export-trend-data-csv-btn"
             onClick={handleExportTrendCSV}
             className="px-3.5 py-2 bg-[#171612] hover:bg-[#26241b] border border-[#C5A059] text-[#C5A059] hover:text-white rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer"
             title="Download currently visualized longitudinal trend data (with applied normalizations and exact timestamps) as CSV"
           >
             <Download className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Export CSV</span>
+            <span>Export to CSV</span>
           </button>
 
           {/* Batch Export Option for All Bioregions */}

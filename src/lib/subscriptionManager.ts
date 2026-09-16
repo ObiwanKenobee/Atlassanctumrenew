@@ -124,7 +124,8 @@ export const ATLAS_TIERS: Record<SubscriptionTier, TierDefinition> = {
       'lifehouse',
       'industrial',
       'impact-dashboard',
-      'academy'
+      'academy',
+      'alchemical-sanctum'
     ],
     offerings: [
       { id: 'f1', name: 'Open Public Observatory', category: 'Commons', description: 'Planetary indicators, multispectral satellite feeds, and macro ecosystem telemetry.' },
@@ -227,7 +228,8 @@ export const ATLAS_TIERS: Record<SubscriptionTier, TierDefinition> = {
       'regenerative-mission',
       'failure-ledger',
       'ethics-review',
-      'mission-analytics'
+      'mission-analytics',
+      'alchemical-sanctum'
     ],
     offerings: [
       { id: 'e1', name: 'Sovereign Institutional Deployment', category: 'Enterprise', description: 'Private VPC or on-premise air-gapped deployment under your sovereign jurisdiction.', highlight: true },

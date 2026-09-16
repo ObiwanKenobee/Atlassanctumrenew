@@ -376,6 +376,7 @@ export const MODULE_METADATA_REGISTRY: Record<PageView, ViewMetadata> = {
   'about': createGenericViewMeta('about', 'About Atlas Sanctum', 'Mission, Philosophy & Civilization Operating System Architecture', 'Core'),
   'analytics-report': createGenericViewMeta('analytics-report', 'Bioregional Telemetry Report', 'Comprehensive Macro Health & Ecological Impact Audit', 'Core'),
   'citizen-profile': createGenericViewMeta('citizen-profile', 'Citizen Steward Profile', 'Verified Credentials, Active Roles & Planetary Reputation', 'Core'),
+  'alchemical-sanctum': createGenericViewMeta('alchemical-sanctum', 'The Alchemical Sanctum', 'Sacred Wonder, Solfeggio Harmonics, Transmutation Crucible & The Seven Archetypes', 'Commons'),
 };
 
 function createGenericViewMeta(
