@@ -626,6 +626,7 @@ export default function App() {
                     <ImpactDashboardView
                       onInspectProvenance={handleInspectProvenance}
                       onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
+                      onSelectTab={(tab) => setCurrentTab(tab as any)}
                     />
                   )}
 

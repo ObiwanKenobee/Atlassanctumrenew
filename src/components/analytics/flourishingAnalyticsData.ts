@@ -560,3 +560,202 @@ export const DEFAULT_PREDICTIVE_FORECAST: ForecastDataPoint[] = [
     keyDrivers: ['Long rain harvesting', 'Self-sustaining biophysical biomass parity']
   }
 ];
+
+// -------------------------------------------------------------
+// 5. HISTORICAL PRIOR YEAR DATASET (Oct 2024 - Sep 2025) FOR LONGITUDINAL COMPARISON
+// -------------------------------------------------------------
+export const HISTORICAL_PRIOR_YEAR_INTERVAL_DATA: MonthlyTrendDataPoint[] = [
+  {
+    monthIndex: 1,
+    monthLabel: 'Prior Year M01 (Oct 2024)',
+    shortMonth: 'PY-M01',
+    calendarMonth: 'Oct 2024',
+    exactDate: 'October 15, 2024',
+    isoDate: '2024-10-15',
+    ecologicalFlourishing: 46.2,
+    economicStability: 44.0,
+    extractiveCounterfactual: 48.5,
+    decouplingMargin: -2.3,
+    milestone: 'Pre-covenant baseline: high groundwater depletion',
+    verifiedSensorCount: 420,
+    cryptographicHash: '0x10a829148bc74120'
+  },
+  {
+    monthIndex: 2,
+    monthLabel: 'Prior Year M02 (Nov 2024)',
+    shortMonth: 'PY-M02',
+    calendarMonth: 'Nov 2024',
+    exactDate: 'November 14, 2024',
+    isoDate: '2024-11-14',
+    ecologicalFlourishing: 47.8,
+    economicStability: 45.2,
+    extractiveCounterfactual: 48.0,
+    decouplingMargin: -0.2,
+    milestone: 'Initial soil desiccation survey & baraza deliberation',
+    verifiedSensorCount: 510,
+    cryptographicHash: '0x22c91834910ab381'
+  },
+  {
+    monthIndex: 3,
+    monthLabel: 'Prior Year M03 (Dec 2024)',
+    shortMonth: 'PY-M03',
+    calendarMonth: 'Dec 2024',
+    exactDate: 'December 16, 2024',
+    isoDate: '2024-12-16',
+    ecologicalFlourishing: 49.5,
+    economicStability: 46.8,
+    extractiveCounterfactual: 47.5,
+    decouplingMargin: 2.0,
+    milestone: 'Pilot contour berms constructed along seasonal gulley',
+    verifiedSensorCount: 680,
+    cryptographicHash: '0x33e89124018bc991'
+  },
+  {
+    monthIndex: 4,
+    monthLabel: 'Prior Year M04 (Jan 2025)',
+    shortMonth: 'PY-M04',
+    calendarMonth: 'Jan 2025',
+    exactDate: 'January 18, 2025',
+    isoDate: '2025-01-18',
+    ecologicalFlourishing: 51.2,
+    economicStability: 48.0,
+    extractiveCounterfactual: 47.1,
+    decouplingMargin: 4.1,
+    milestone: 'Dry season irrigation rationing protocol tested',
+    verifiedSensorCount: 790,
+    cryptographicHash: '0x44fa901289bc1023'
+  },
+  {
+    monthIndex: 5,
+    monthLabel: 'Prior Year M05 (Feb 2025)',
+    shortMonth: 'PY-M05',
+    calendarMonth: 'Feb 2025',
+    exactDate: 'February 15, 2025',
+    isoDate: '2025-02-15',
+    ecologicalFlourishing: 52.4,
+    economicStability: 49.2,
+    extractiveCounterfactual: 46.8,
+    decouplingMargin: 5.6,
+    milestone: 'Early thermal stress anomaly identified in open rangelands',
+    verifiedSensorCount: 880,
+    cryptographicHash: '0x55bc102948ca7712'
+  },
+  {
+    monthIndex: 6,
+    monthLabel: 'Prior Year M06 (Mar 2025)',
+    shortMonth: 'PY-M06',
+    calendarMonth: 'Mar 2025',
+    exactDate: 'March 14, 2025',
+    isoDate: '2025-03-14',
+    ecologicalFlourishing: 54.0,
+    economicStability: 50.8,
+    extractiveCounterfactual: 46.2,
+    decouplingMargin: 7.8,
+    milestone: 'First community nursery batch seeded for riparian trees',
+    verifiedSensorCount: 950,
+    cryptographicHash: '0x66de201849ab8821'
+  },
+  {
+    monthIndex: 7,
+    monthLabel: 'Prior Year M07 (Apr 2025)',
+    shortMonth: 'PY-M07',
+    calendarMonth: 'Apr 2025',
+    exactDate: 'April 16, 2025',
+    isoDate: '2025-04-16',
+    ecologicalFlourishing: 55.6,
+    economicStability: 52.1,
+    extractiveCounterfactual: 45.9,
+    decouplingMargin: 9.7,
+    milestone: 'Long rains runoff diverted into swale infiltration tests',
+    verifiedSensorCount: 1040,
+    cryptographicHash: '0x77ab301958cf9932'
+  },
+  {
+    monthIndex: 8,
+    monthLabel: 'Prior Year M08 (May 2025)',
+    shortMonth: 'PY-M08',
+    calendarMonth: 'May 2025',
+    exactDate: 'May 19, 2025',
+    isoDate: '2025-05-19',
+    ecologicalFlourishing: 57.0,
+    economicStability: 53.4,
+    extractiveCounterfactual: 45.4,
+    decouplingMargin: 11.6,
+    milestone: 'Soil carbon respiration baseline established',
+    verifiedSensorCount: 1120,
+    cryptographicHash: '0x88fc401869de1123'
+  },
+  {
+    monthIndex: 9,
+    monthLabel: 'Prior Year M09 (Jun 2025)',
+    shortMonth: 'PY-M09',
+    calendarMonth: 'Jun 2025',
+    exactDate: 'June 17, 2025',
+    isoDate: '2025-06-17',
+    ecologicalFlourishing: 58.4,
+    economicStability: 54.6,
+    extractiveCounterfactual: 45.0,
+    decouplingMargin: 13.4,
+    milestone: 'Early ZK verification node prototype deployed in Narok',
+    verifiedSensorCount: 1180,
+    cryptographicHash: '0x99ea501970ea2234'
+  },
+  {
+    monthIndex: 10,
+    monthLabel: 'Prior Year M10 (Jul 2025)',
+    shortMonth: 'PY-M10',
+    calendarMonth: 'Jul 2025',
+    exactDate: 'July 15, 2025',
+    isoDate: '2025-07-15',
+    ecologicalFlourishing: 59.8,
+    economicStability: 55.9,
+    extractiveCounterfactual: 44.5,
+    decouplingMargin: 15.3,
+    milestone: 'Preliminary microgrid inverter testing in pilot homesteads',
+    verifiedSensorCount: 1250,
+    cryptographicHash: '0xaabb601081fb3345'
+  },
+  {
+    monthIndex: 11,
+    monthLabel: 'Prior Year M11 (Aug 2025)',
+    shortMonth: 'PY-M11',
+    calendarMonth: 'Aug 2025',
+    exactDate: 'August 14, 2025',
+    isoDate: '2025-08-14',
+    ecologicalFlourishing: 60.9,
+    economicStability: 56.8,
+    extractiveCounterfactual: 44.1,
+    decouplingMargin: 16.8,
+    milestone: 'Pre-charter assembly consensus drafted across 12 elders',
+    verifiedSensorCount: 1310,
+    cryptographicHash: '0xbbcc702192ac4456'
+  },
+  {
+    monthIndex: 12,
+    monthLabel: 'Prior Year M12 (Sep 2025)',
+    shortMonth: 'PY-M12',
+    calendarMonth: 'Sep 2025',
+    exactDate: 'September 12, 2025',
+    isoDate: '2025-09-12',
+    ecologicalFlourishing: 62.0,
+    economicStability: 57.8,
+    extractiveCounterfactual: 43.8,
+    decouplingMargin: 18.2,
+    milestone: 'Final pre-covenant audit: handoff to inaugural Atlas cycle',
+    verifiedSensorCount: 1390,
+    cryptographicHash: '0xccdd803203bd5567'
+  }
+];
+
+export function getBioregionHistoricalData(bioregionId: string): MonthlyTrendDataPoint[] {
+  const currentRegion = COMPARATIVE_BIOREGIONS.find(b => b.id === bioregionId) || COMPARATIVE_BIOREGIONS[0];
+  const scaleFactor = (currentRegion.monthlyData[0]?.ecologicalFlourishing || 61.2) / 61.2;
+
+  return HISTORICAL_PRIOR_YEAR_INTERVAL_DATA.map(pt => ({
+    ...pt,
+    ecologicalFlourishing: Number((pt.ecologicalFlourishing * scaleFactor * 0.96).toFixed(1)),
+    economicStability: Number((pt.economicStability * scaleFactor * 0.97).toFixed(1)),
+    decouplingMargin: Number(((pt.ecologicalFlourishing * scaleFactor * 0.96) - pt.extractiveCounterfactual).toFixed(1))
+  }));
+}
+

@@ -3,28 +3,32 @@ import { AlertTriangle, Bell, X, Sliders, ShieldAlert, ArrowRight } from 'lucide
 import { audioFeedback } from '../../lib/audioFeedback';
 import { AlertThresholdConfig } from './ThresholdAlertModal';
 
-interface ThresholdAlertBannerProps {
-  isTriggered: boolean;
+export interface ThresholdAlertBannerProps {
+  isTriggered?: boolean;
   config: AlertThresholdConfig;
   currentValue: number;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
+  onConfigure?: () => void;
   onDismiss: () => void;
-  isDismissed: boolean;
+  isDismissed?: boolean;
   onEnablePush?: () => void;
   isPushGranted?: boolean;
 }
 
 export const ThresholdAlertBanner: React.FC<ThresholdAlertBannerProps> = ({
-  isTriggered,
+  isTriggered = true,
   config,
   currentValue,
   onOpenSettings,
+  onConfigure,
   onDismiss,
-  isDismissed,
+  isDismissed = false,
   onEnablePush,
   isPushGranted
 }) => {
   if (!isTriggered || !config.enabled || isDismissed) return null;
+
+  const handleOpenSettings = onConfigure || onOpenSettings || (() => {});
 
   const metricLabel = config.metric === 'ecological' 
     ? 'Ecological Flourishing' 
@@ -88,7 +92,7 @@ export const ThresholdAlertBanner: React.FC<ThresholdAlertBannerProps> = ({
         <button
           onClick={() => {
             audioFeedback.playMicroTick();
-            onOpenSettings();
+            handleOpenSettings();
           }}
           className="px-3 py-1.5 rounded-sm bg-[#1A1414] hover:bg-[#2A1E1E] border border-rose-500/50 text-rose-300 hover:text-white text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
         >

@@ -78,7 +78,30 @@ export const EvidenceLedgerView: React.FC<EvidenceLedgerViewProps> = ({
   onOpenCommandCenter
 }) => {
   const { activeMission, advanceMissionStage, loadDiagnosisIntoPipeline } = useActiveMission();
-  const [entries, setEntries] = useState<EvidenceLedgerEntry[]>(ENRICHED_LEDGER_ENTRIES);
+  const [entries, setEntries] = useState<EvidenceLedgerEntry[]>(() => {
+    try {
+      const stored = localStorage.getItem('atlas_evidence_ledger_custom_entries');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return [...parsed, ...ENRICHED_LEDGER_ENTRIES];
+        }
+      }
+    } catch (_) {}
+    return ENRICHED_LEDGER_ENTRIES;
+  });
+
+  // Listen for exported evidence events
+  React.useEffect(() => {
+    const handleNewExport = (e: any) => {
+      if (e.detail) {
+        setEntries(prev => [e.detail, ...prev.filter(p => p.id !== e.detail.id)]);
+        setSelectedEntry(e.detail);
+      }
+    };
+    window.addEventListener('atlas-evidence-exported', handleNewExport);
+    return () => window.removeEventListener('atlas-evidence-exported', handleNewExport);
+  }, []);
   const [selectedEntry, setSelectedEntry] = useState<EvidenceLedgerEntry>(ENRICHED_LEDGER_ENTRIES[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');

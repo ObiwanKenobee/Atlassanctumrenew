@@ -27,15 +27,22 @@ import {
   Columns,
   Sliders,
   Camera,
-  Plus
+  Plus,
+  Star,
+  Search,
+  Bell,
+  GitCompare,
+  X,
+  SlidersHorizontal
 } from 'lucide-react';
+import { alchemicalAudio } from '../../lib/alchemicalAudio';
 import { INTELLIGENCE_LAYERS, CIVILIZATION_METRICS, SAMPLE_PROVENANCE } from '../../data/mockCivilizationData';
 import { CivilizationMetric } from '../../types';
 import { CausalImpactD3Graph } from '../CausalImpactD3Graph';
 import { HumanFlourishingTimelineChart } from '../analytics/HumanFlourishingTimelineChart';
 import { ProjectFlourishingD3Network } from '../analytics/ProjectFlourishingD3Network';
 import { RegenerativeProgressD3Chart } from '../analytics/RegenerativeProgressD3Chart';
-import { FlourishingVsStabilityD3Chart } from '../analytics/FlourishingVsStabilityD3Chart';
+import { FlourishingVsStabilityD3Chart, MonthlyTrendDataPoint } from '../analytics/FlourishingVsStabilityD3Chart';
 import { KnowledgeGraphStudio } from '../intelligence/KnowledgeGraphStudio';
 import { BioregionalHazardMonitor } from '../bioregional/BioregionalHazardMonitor';
 import { BioregionalImpactD3Map, HeatmapMode } from '../bioregional/BioregionalImpactD3Map';
@@ -46,13 +53,19 @@ import { DataQualityBadge } from '../analytics/DataQualityBadge';
 import { BioregionalSplitPaneView } from '../analytics/BioregionalSplitPaneView';
 import { PredictiveForecastingSection } from '../analytics/PredictiveForecastingSection';
 import { BioregionalComparatorModal } from '../analytics/BioregionalComparatorModal';
+import { PlanetaryPulseVisualizer } from '../analytics/PlanetaryPulseVisualizer';
+import { EvidenceExportModal } from '../analytics/EvidenceExportModal';
+import { ThresholdAlertModal, AlertThresholdConfig } from '../analytics/ThresholdAlertModal';
+import { ThresholdAlertBanner } from '../analytics/ThresholdAlertBanner';
+import { EpistemicObservationModal } from '../analytics/EpistemicObservationModal';
+import { audioAlchemist } from '../../lib/audioAlchemist';
 import { generateImpactArchivalPDF } from '../../lib/generateImpactArchivalPDF';
 import { generateEnvironmentalSnapshotPDF } from '../../lib/generateEnvironmentalSnapshotPDF';
 import { audioFeedback } from '../../lib/audioFeedback';
 import { TimeRangeOption, exportVisualizedTrendCSV, exportBatchAllBioregionsCSV } from '../analytics/trendExportUtils';
 import { TimeRangeSelector } from '../analytics/TimeRangeSelector';
 import { TWELVE_MONTH_INTERVAL_DATA } from '../analytics/FlourishingVsStabilityD3Chart';
-import { COMPARATIVE_BIOREGIONS } from '../analytics/flourishingAnalyticsData';
+import { COMPARATIVE_BIOREGIONS, getBioregionHistoricalData } from '../analytics/flourishingAnalyticsData';
 
 const IMPACT_DASHBOARD_CACHE_KEY = 'atlas_sanctum_impact_dashboard_cache_v2';
 
@@ -64,16 +77,20 @@ interface ImpactDashboardCachedState {
   selectedLayerId?: string;
   isPredictiveForecastingEnabled?: boolean;
   heatmapMode?: HeatmapMode;
+  showHistoricalComparison?: boolean;
+  alertThreshold?: AlertThresholdConfig;
 }
 
 interface ImpactDashboardViewProps {
   onInspectProvenance: (prov: any) => void;
   onOpenMoralSimulator: () => void;
+  onSelectTab?: (tabId: string) => void;
 }
 
 export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
   onInspectProvenance,
-  onOpenMoralSimulator
+  onOpenMoralSimulator,
+  onSelectTab
 }) => {
   // Load cached settings from localStorage
   const [cachedState] = useState<ImpactDashboardCachedState | null>(() => {
@@ -109,6 +126,127 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
   const [selectedBioregions, setSelectedBioregions] = useState<string[]>(() => cachedState?.selectedBioregions ?? ['pan-african']);
   const [triggerInsightsCounter, setTriggerInsightsCounter] = useState<number>(0);
 
+  // Celestial Alignment & Ritual Cleanse States
+  const [isCelestialAlignment, setIsCelestialAlignment] = useState<boolean>(false);
+  const [isDataPurified, setIsDataPurified] = useState<boolean>(false);
+  const [isRitualCleansing, setIsRitualCleansing] = useState<boolean>(false);
+  const [ritualCleanseSuccess, setRitualCleanseSuccess] = useState<string | null>(null);
+
+  // Evidence Export & Audio Alchemist States
+  const [isEvidenceExportModalOpen, setIsEvidenceExportModalOpen] = useState<boolean>(false);
+  const [isAudioAlchemistActive, setIsAudioAlchemistActive] = useState<boolean>(false);
+  const [audioAlchemistVolume, setAudioAlchemistVolume] = useState<number>(0.6);
+
+  // Historical Longitudinal Comparison State (Overlay Prior Year vs Current Year)
+  const [isCompareHistorical, setIsCompareHistorical] = useState<boolean>(() => cachedState?.showHistoricalComparison ?? false);
+
+  // Threshold Alerts Configuration & Warning States
+  const [alertThreshold, setAlertThreshold] = useState<AlertThresholdConfig>(() => {
+    if (cachedState?.alertThreshold) return cachedState.alertThreshold;
+    try {
+      const saved = localStorage.getItem('atlas_impact_custom_threshold_alerts');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Could not read saved alert threshold', e);
+    }
+    return {
+      enabled: true,
+      metric: 'ecological',
+      condition: 'below',
+      value: 75
+    };
+  });
+  const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
+  const [isAlertDismissed, setIsAlertDismissed] = useState<boolean>(false);
+
+  const handleSaveAlertConfig = (newConfig: AlertThresholdConfig) => {
+    setAlertThreshold(newConfig);
+    setIsAlertDismissed(false);
+    audioFeedback.playSuccessChime();
+    try {
+      localStorage.setItem('atlas_impact_custom_threshold_alerts', JSON.stringify(newConfig));
+    } catch (e) {
+      console.warn('Failed to save alert threshold to localStorage', e);
+    }
+  };
+
+  // Search Bar State for filtering bioregional metrics by name or ecological zone
+  const [metricSearchQuery, setMetricSearchQuery] = useState<string>('');
+  const [selectedEcologicalZone, setSelectedEcologicalZone] = useState<string>('all');
+
+  // Epistemic Observation Modal State (Recording manual field notes to Evidence Ledger)
+  const [isEpistemicObservationModalOpen, setIsEpistemicObservationModalOpen] = useState<boolean>(false);
+  const [epistemicObservationTargetPoint, setEpistemicObservationTargetPoint] = useState<MonthlyTrendDataPoint | null>(null);
+
+  const handleOpenEpistemicObservation = (pt?: MonthlyTrendDataPoint) => {
+    audioFeedback.playMicroTick();
+    setEpistemicObservationTargetPoint(pt || TWELVE_MONTH_INTERVAL_DATA[TWELVE_MONTH_INTERVAL_DATA.length - 1]);
+    setIsEpistemicObservationModalOpen(true);
+  };
+
+  // Active bioregion and latest telemetry for threshold evaluation
+  const activeBioregionObj = COMPARATIVE_BIOREGIONS.find(b => selectedBioregions.includes(b.id)) || COMPARATIVE_BIOREGIONS[0];
+  const activeDataset = activeBioregionObj.monthlyData;
+  const latestDataPoint = activeDataset[activeDataset.length - 1] || TWELVE_MONTH_INTERVAL_DATA[TWELVE_MONTH_INTERVAL_DATA.length - 1];
+
+  const currentMetricValue = alertThreshold.metric === 'ecological'
+    ? latestDataPoint.ecologicalFlourishing
+    : alertThreshold.metric === 'economic'
+      ? latestDataPoint.economicStability
+      : latestDataPoint.decouplingMargin;
+
+  const isThresholdBreached = alertThreshold.enabled && !isAlertDismissed && (
+    alertThreshold.condition === 'below'
+      ? currentMetricValue < alertThreshold.value
+      : currentMetricValue > alertThreshold.value
+  );
+
+  const handleToggleAudioAlchemist = () => {
+    audioFeedback.playMicroTick();
+    if (isAudioAlchemistActive) {
+      audioAlchemist.stopSoundscape();
+      setIsAudioAlchemistActive(false);
+    } else {
+      audioAlchemist.startSoundscape();
+      setIsAudioAlchemistActive(true);
+      const latestPoint = TWELVE_MONTH_INTERVAL_DATA[TWELVE_MONTH_INTERVAL_DATA.length - 1];
+      const prevPoint = TWELVE_MONTH_INTERVAL_DATA[TWELVE_MONTH_INTERVAL_DATA.length - 2];
+      const variance = Math.abs(latestPoint.ecologicalFlourishing - prevPoint.ecologicalFlourishing) / 100;
+      audioAlchemist.updateMetrics(latestPoint.ecologicalFlourishing, latestPoint.economicStability, variance);
+    }
+  };
+
+  useEffect(() => {
+    if (isAudioAlchemistActive) {
+      const latestPoint = TWELVE_MONTH_INTERVAL_DATA[TWELVE_MONTH_INTERVAL_DATA.length - 1];
+      const prevPoint = TWELVE_MONTH_INTERVAL_DATA[TWELVE_MONTH_INTERVAL_DATA.length - 2];
+      const variance = Math.abs(latestPoint.ecologicalFlourishing - prevPoint.ecologicalFlourishing) / 100;
+      audioAlchemist.updateMetrics(latestPoint.ecologicalFlourishing, latestPoint.economicStability, variance);
+    }
+  }, [isAudioAlchemistActive, selectedBioregions, timeRange]);
+
+  useEffect(() => {
+    return () => {
+      audioAlchemist.stopSoundscape();
+    };
+  }, []);
+
+  const handleTriggerRitualCleanse = () => {
+    if (isRitualCleansing) return;
+    setIsRitualCleansing(true);
+    audioFeedback.playCovenantResonance();
+    alchemicalAudio.playSingingBowl(528, 3.5);
+
+    setTimeout(() => {
+      setIsRitualCleansing(false);
+      setIsDataPurified(true);
+      alchemicalAudio.playTransmutationPulse('albedo');
+      audioFeedback.playSuccessChime();
+      setRitualCleanseSuccess('Ablutio Complete: Noise filtered from longitudinal stream via stardust purification.');
+      setTimeout(() => setRitualCleanseSuccess(null), 6000);
+    }, 2800);
+  };
+
   // Save filter settings, selected bioregions and view states to localStorage
   useEffect(() => {
     try {
@@ -119,13 +257,15 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         activeTab,
         selectedLayerId,
         isPredictiveForecastingEnabled,
-        heatmapMode
+        heatmapMode,
+        showHistoricalComparison: isCompareHistorical,
+        alertThreshold
       };
       localStorage.setItem(IMPACT_DASHBOARD_CACHE_KEY, JSON.stringify(stateToCache));
     } catch (e) {
       console.warn('Failed to cache impact dashboard state to localStorage:', e);
     }
-  }, [timeRange, isNormalized, selectedBioregions, activeTab, selectedLayerId, isPredictiveForecastingEnabled, heatmapMode]);
+  }, [timeRange, isNormalized, selectedBioregions, activeTab, selectedLayerId, isPredictiveForecastingEnabled, heatmapMode, isCompareHistorical, alertThreshold]);
 
   const handleExportTrendCSV = () => {
     audioFeedback.playSubtleClick();
@@ -202,6 +342,41 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
   const activeLayer = INTELLIGENCE_LAYERS.find(l => l.id === selectedLayerId) || INTELLIGENCE_LAYERS[0];
   const layerMetrics = CIVILIZATION_METRICS;
 
+  // Search filter matching for bioregions and ecological metrics
+  const filteredBioregions = COMPARATIVE_BIOREGIONS.filter(bioregion => {
+    const query = metricSearchQuery.toLowerCase().trim();
+    const matchesSearch = query === '' || 
+      bioregion.name.toLowerCase().includes(query) ||
+      bioregion.biome.toLowerCase().includes(query) ||
+      bioregion.location.toLowerCase().includes(query) ||
+      bioregion.code.toLowerCase().includes(query);
+
+    const matchesZone = selectedEcologicalZone === 'all' || 
+      bioregion.biome.toLowerCase().includes(selectedEcologicalZone.toLowerCase()) ||
+      (selectedEcologicalZone === 'savanna' && bioregion.biome.toLowerCase().includes('savanna')) ||
+      (selectedEcologicalZone === 'montane' && bioregion.biome.toLowerCase().includes('montane')) ||
+      (selectedEcologicalZone === 'lakes' && bioregion.biome.toLowerCase().includes('lake')) ||
+      (selectedEcologicalZone === 'arid' && bioregion.biome.toLowerCase().includes('arid')) ||
+      (selectedEcologicalZone === 'rainforest' && bioregion.biome.toLowerCase().includes('rainforest')) ||
+      (selectedEcologicalZone === 'mangrove' && bioregion.biome.toLowerCase().includes('mangrove'));
+
+    return matchesSearch && matchesZone;
+  });
+
+  const filteredCivilizationMetrics = CIVILIZATION_METRICS.filter(metric => {
+    const query = metricSearchQuery.toLowerCase().trim();
+    const matchesSearch = query === '' || 
+      metric.name.toLowerCase().includes(query) ||
+      metric.category.toLowerCase().includes(query) ||
+      metric.description.toLowerCase().includes(query);
+
+    const matchesZone = selectedEcologicalZone === 'all' ||
+      metric.category.toLowerCase().includes(selectedEcologicalZone.toLowerCase()) ||
+      metric.name.toLowerCase().includes(selectedEcologicalZone.toLowerCase());
+
+    return matchesSearch && matchesZone;
+  });
+
   return (
     <div className="w-full bg-[#0A0A0A] text-[#F5F5F0] min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
       {/* Header */}
@@ -222,22 +397,103 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Predictive Forecasting Toggle Button */}
+          {/* Audio Alchemist Ambient Soundscape Toggle */}
           <button
-            id="header-predictive-forecasting-toggle-btn"
+            id="header-audio-alchemist-btn"
+            onClick={handleToggleAudioAlchemist}
+            className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
+              isAudioAlchemistActive
+                ? 'bg-gradient-to-r from-amber-600 via-yellow-600 to-[#C5A059] text-black border-[#C5A059] font-bold shadow-lg ring-1 ring-[#C5A059]/50 animate-pulse'
+                : 'bg-[#141414] hover:bg-[#1f1f1f] text-[#C5A059] border-[#C5A059]/40 hover:border-[#C5A059]'
+            }`}
+            title="Toggle Audio Alchemist: Generative ambient soundscape mapping data variance to subtle musical harmonies"
+          >
+            <Radio className={`w-3.5 h-3.5 ${isAudioAlchemistActive ? 'text-black animate-spin' : 'text-[#C5A059]'}`} />
+            <span>Audio Alchemist: {isAudioAlchemistActive ? '108Hz [ON]' : 'OFF'}</span>
+          </button>
+
+          {/* Epistemic Forecast Toggle Button (Gemini-Powered) */}
+          <button
+            id="header-epistemic-forecast-toggle-btn"
             onClick={() => {
               setIsPredictiveForecastingEnabled(prev => !prev);
               audioFeedback.playMicroTick();
             }}
             className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
               isPredictiveForecastingEnabled
-                ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-black border-emerald-400 font-bold shadow-lg ring-1 ring-emerald-400/50'
-                : 'bg-[#141414] hover:bg-[#1f1f1f] text-emerald-400 border-emerald-500/40 hover:border-emerald-400'
+                ? 'bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 text-black border-cyan-400 font-bold shadow-lg ring-1 ring-cyan-400/50'
+                : 'bg-[#141414] hover:bg-[#1f1f1f] text-cyan-400 border-cyan-500/40 hover:border-cyan-400'
             }`}
-            title="Toggle Predictive Trends OLS Regression Engine projecting future trends over the next quarter"
+            title="Toggle Gemini-powered Epistemic Forecast model visualizing future trajectories for bioregional metrics"
           >
-            <Sparkles className={`w-3.5 h-3.5 ${isPredictiveForecastingEnabled ? 'animate-spin text-black' : 'text-emerald-400'}`} />
-            <span>Forecasting: {isPredictiveForecastingEnabled ? 'NEXT-QTR [ON]' : 'OFF'}</span>
+            <Sparkles className={`w-3.5 h-3.5 ${isPredictiveForecastingEnabled ? 'animate-spin text-black' : 'text-cyan-400'}`} />
+            <span>Epistemic Forecast: {isPredictiveForecastingEnabled ? 'GEMINI 6-MO [ON]' : 'OFF'}</span>
+          </button>
+
+          {/* Evidence Export Button */}
+          <button
+            id="header-evidence-export-btn"
+            onClick={() => {
+              setIsEvidenceExportModalOpen(true);
+              audioFeedback.playSubtleClick();
+            }}
+            className="px-3.5 py-2 bg-gradient-to-r from-[#C5A059] to-[#E0C070] hover:from-[#d4b068] hover:to-[#ebcc7f] text-black border border-[#C5A059] rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ring-1 ring-[#C5A059]/40"
+            title="Generate a cryptographic summary of current session impact metrics and anchor to the Evidence Ledger"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-black" />
+            <span>Evidence Export</span>
+          </button>
+
+          {/* Historical Longitudinal Comparison Toggle Button */}
+          <button
+            id="header-historical-compare-toggle-btn"
+            onClick={() => {
+              setIsCompareHistorical(prev => !prev);
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
+              isCompareHistorical
+                ? 'bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 text-white border-blue-400 font-bold shadow-lg ring-1 ring-blue-400/50'
+                : 'bg-[#141414] hover:bg-[#1f1f1f] text-blue-400 border-blue-500/40 hover:border-blue-400'
+            }`}
+            title="Toggle Compare: Overlay historical prior year baseline ranges (2024-25) onto current metric charts for longitudinal analysis"
+          >
+            <GitCompare className={`w-3.5 h-3.5 ${isCompareHistorical ? 'text-white' : 'text-blue-400'}`} />
+            <span>Compare: {isCompareHistorical ? 'Prior Year [ON]' : 'OFF'}</span>
+          </button>
+
+          {/* Custom Threshold Alerts Configuration Button */}
+          <button
+            id="header-threshold-alerts-btn"
+            onClick={() => {
+              setIsThresholdModalOpen(true);
+              audioFeedback.playSubtleClick();
+            }}
+            className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
+              isThresholdBreached
+                ? 'bg-rose-950/90 text-rose-200 border-rose-500 font-bold animate-pulse shadow-rose-900/50 shadow-md ring-1 ring-rose-500/50'
+                : alertThreshold.enabled
+                  ? 'bg-[#181310] hover:bg-[#241c17] text-amber-300 border-amber-500/40 hover:border-amber-400'
+                  : 'bg-[#141414] text-[#F5F5F0]/50 border-[#F5F5F0]/20'
+            }`}
+            title="Configure custom threshold alerts for ecological metrics to trigger visual warnings"
+          >
+            <Bell className={`w-3.5 h-3.5 ${isThresholdBreached ? 'text-rose-400 animate-bounce' : 'text-amber-400'}`} />
+            <span>Alerts: {alertThreshold.enabled ? `${alertThreshold.metric.toUpperCase().slice(0,3)} ${alertThreshold.condition === 'below' ? '<' : '>'}${alertThreshold.value}%` : 'OFF'}</span>
+            {isThresholdBreached && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+            )}
+          </button>
+
+          {/* Quick Epistemic Observation Button (Manual Notes to Ledger) */}
+          <button
+            id="header-add-epistemic-observation-btn"
+            onClick={() => handleOpenEpistemicObservation()}
+            className="px-3.5 py-2 bg-[#221A0F] hover:bg-[#302515] border border-amber-500/60 text-amber-300 hover:text-white rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ring-1 ring-amber-500/30"
+            title="Record an Epistemic Observation or manual empirical note to the project's evidence ledger"
+          >
+            <FileText className="w-3.5 h-3.5 text-amber-400" />
+            <span>+ Epistemic Note</span>
           </button>
 
           {/* Quick-Set Time Range Selector for Trend Analytics */}
@@ -279,6 +535,44 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           >
             <Brain className="w-3.5 h-3.5 text-purple-400" />
             <span>AI Insights</span>
+          </button>
+
+          {/* Celestial Alignment Toggle */}
+          <button
+            id="header-celestial-alignment-toggle-btn"
+            onClick={() => {
+              setActiveTab('flourishing-vs-stability');
+              setIsCelestialAlignment(prev => !prev);
+              audioFeedback.playCovenantResonance();
+            }}
+            className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
+              isCelestialAlignment
+                ? 'bg-gradient-to-r from-amber-950 via-sky-950 to-purple-950 text-amber-200 border-[#C5A059] ring-1 ring-[#C5A059]/60 shadow-lg'
+                : 'bg-[#141414] hover:bg-[#1f1f1f] text-[#C5A059] border-[#C5A059]/40 hover:border-[#C5A059]'
+            }`}
+            title="Map historical milestone data points onto the Star Map coordinate system, visually connecting impactful events across different bioregions as a celestial constellation"
+          >
+            <Star className={`w-3.5 h-3.5 ${isCelestialAlignment ? 'text-[#C5A059] fill-[#C5A059] animate-pulse' : 'text-[#C5A059]'}`} />
+            <span>Celestial: {isCelestialAlignment ? 'ALIGNED [ON]' : 'OFF'}</span>
+          </button>
+
+          {/* Ritual Cleanse Button */}
+          <button
+            id="header-ritual-cleanse-btn"
+            onClick={() => {
+              setActiveTab('flourishing-vs-stability');
+              handleTriggerRitualCleanse();
+            }}
+            disabled={isRitualCleansing}
+            className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
+              isDataPurified
+                ? 'bg-[#0E2016] border-emerald-500/70 text-emerald-300 ring-1 ring-emerald-500/40'
+                : 'bg-gradient-to-r from-[#1c180f] to-[#252014] hover:from-[#2a2417] hover:to-[#332b1a] border-[#C5A059] text-[#F5F5F0]'
+            }`}
+            title="Filter out chart noise via a stardust transition effect, symbolizing the purification of data for insight clarity"
+          >
+            <Sparkles className={`w-3.5 h-3.5 text-[#C5A059] ${isRitualCleansing ? 'animate-spin' : ''}`} />
+            <span>{isRitualCleansing ? 'Cleansing Noise...' : isDataPurified ? 'Ritual Purified' : 'Ritual Cleanse'}</span>
           </button>
 
           {/* Export to CSV Button */}
@@ -403,6 +697,212 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           </span>
         </div>
       )}
+
+      {/* Threshold Alert Warning Banner (Breach Notification) */}
+      {isThresholdBreached && (
+        <ThresholdAlertBanner
+          config={alertThreshold}
+          currentValue={currentMetricValue}
+          onDismiss={() => setIsAlertDismissed(true)}
+          onConfigure={() => setIsThresholdModalOpen(true)}
+        />
+      )}
+
+      {/* Longitudinal Comparison Mode (Prior Year Overlay Active HUD) */}
+      {isCompareHistorical && (
+        <div 
+          id="longitudinal-comparison-hud-banner"
+          className="p-3.5 bg-gradient-to-r from-blue-950/80 via-indigo-950/70 to-slate-950/80 border border-blue-400/60 rounded text-xs font-mono shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center text-blue-300 shrink-0">
+              <GitCompare className="w-4 h-4 text-blue-400" />
+            </div>
+            <div>
+              <div className="text-blue-200 font-bold flex items-center gap-2 flex-wrap">
+                <span>LONGITUDINAL COMPARISON ACTIVE:</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-blue-900/80 text-blue-200 border border-blue-400/40 font-bold">
+                  PRIOR YEAR (2024–2025) VS CURRENT CYCLE (2025–2026)
+                </span>
+              </div>
+              <div className="text-[11px] text-blue-100/70 pt-0.5">
+                Baseline Trajectory: Prior year ecological floor was <strong>62.0%</strong> • Current cycle achieved <strong>92.4%</strong> (+30.4 pts YoY decoupling expansion). Shaded delta area visualized on chart.
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="px-2.5 py-1 rounded bg-blue-900/60 text-blue-300 border border-blue-400/40 text-[10px] font-bold">
+              DELTA: +30.4% GAIN
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setIsCompareHistorical(false);
+                audioFeedback.playMicroTick();
+              }}
+              className="px-2.5 py-1 bg-black/50 hover:bg-black/80 border border-blue-400/40 text-blue-200 hover:text-white rounded text-[10px] font-mono cursor-pointer transition-colors"
+            >
+              Disable Compare
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bioregional Metric Search Bar & Ecological Zone Filter */}
+      <div 
+        id="bioregional-metric-search-container"
+        className="bg-[#111412] border border-[#C5A059]/30 rounded-sm p-4 space-y-3.5 shadow-lg"
+      >
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          {/* Search text input */}
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-[#C5A059] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              id="bioregional-metric-search-input"
+              type="text"
+              value={metricSearchQuery}
+              onChange={(e) => setMetricSearchQuery(e.target.value)}
+              placeholder="Search bioregional metrics by name or ecological zone (e.g. Mara, Mangrove, Cloud Forest, Carbon, Aquifer)..."
+              className="w-full bg-[#0A0D0B] border border-[#F5F5F0]/15 focus:border-[#C5A059] text-xs font-mono text-[#F5F5F0] pl-9 pr-8 py-2.5 rounded-sm outline-hidden transition-all placeholder:text-[#F5F5F0]/30"
+            />
+            {metricSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setMetricSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#F5F5F0]/40 hover:text-white cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Quick Clear / Reset if filtering */}
+          {(metricSearchQuery || selectedEcologicalZone !== 'all') && (
+            <button
+              id="reset-search-filters-btn"
+              type="button"
+              onClick={() => {
+                setMetricSearchQuery('');
+                setSelectedEcologicalZone('all');
+                audioFeedback.playMicroTick();
+              }}
+              className="px-3 py-2 bg-[#1A1812] hover:bg-[#2A2418] border border-[#C5A059]/40 text-[#C5A059] text-xs font-mono rounded-sm flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+            >
+              <X className="w-3 h-3" />
+              <span>Reset Filters ({filteredBioregions.length + filteredCivilizationMetrics.length} matches)</span>
+            </button>
+          )}
+        </div>
+
+        {/* Ecological Zone Chips Filter */}
+        <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+          <span className="text-[#F5F5F0]/50 text-[11px] font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
+            <SlidersHorizontal className="w-3 h-3 text-[#C5A059]" />
+            <span>Ecological Zones:</span>
+          </span>
+          {[
+            { id: 'all', label: 'All Zones' },
+            { id: 'savanna', label: 'Savanna Grasslands' },
+            { id: 'montane', label: 'Montane Cloud Forest' },
+            { id: 'lakes', label: 'Endorheic Lakes' },
+            { id: 'arid', label: 'Arid Sun Belt' },
+            { id: 'rainforest', label: 'Tropical Rainforest' },
+            { id: 'mangrove', label: 'Tidal Mangrove' }
+          ].map(zone => {
+            const isSelected = selectedEcologicalZone === zone.id;
+            return (
+              <button
+                key={zone.id}
+                type="button"
+                onClick={() => {
+                  setSelectedEcologicalZone(zone.id);
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-2.5 py-1 rounded-sm border text-[10px] font-mono transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#2A2312] border-[#C5A059] text-[#C5A059] font-bold shadow-xs ring-1 ring-[#C5A059]/40'
+                    : 'bg-[#141414] border-[#F5F5F0]/10 text-[#F5F5F0]/60 hover:text-[#F5F5F0] hover:border-[#F5F5F0]/20'
+                }`}
+              >
+                {zone.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Dynamic Search Results & Quick Selection Bar */}
+        {(metricSearchQuery || selectedEcologicalZone !== 'all') && (
+          <div className="pt-3 border-t border-[#F5F5F0]/10 space-y-2.5 animate-in fade-in">
+            <div className="flex items-center justify-between text-[11px] font-mono text-[#F5F5F0]/60">
+              <span>Matching Bioregions ({filteredBioregions.length}):</span>
+              <span className="text-[10px] text-[#C5A059]">Click a bioregion to set as active in chart</span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {filteredBioregions.length > 0 ? (
+                filteredBioregions.map(b => {
+                  const isCurActive = selectedBioregions.includes(b.id);
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBioregions([b.id]);
+                        setActiveTab('flourishing-vs-stability');
+                        audioFeedback.playMicroTick();
+                      }}
+                      className={`px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-all flex items-center gap-2 cursor-pointer ${
+                        isCurActive
+                          ? 'bg-emerald-950/80 border-emerald-400 text-emerald-200 font-bold ring-1 ring-emerald-400/40 shadow-sm'
+                          : 'bg-[#141414] border-[#F5F5F0]/15 text-[#F5F5F0]/80 hover:text-white hover:border-[#C5A059]/50'
+                      }`}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: b.color }} />
+                      <span className="font-bold">{b.name}</span>
+                      <span className="text-[10px] text-neutral-400 bg-black/40 px-1.5 py-0.2 rounded font-normal">{b.biome}</span>
+                    </button>
+                  );
+                })
+              ) : (
+                <span className="text-xs font-mono text-neutral-500 italic">No bioregions match "{metricSearchQuery}" in {selectedEcologicalZone} zone.</span>
+              )}
+            </div>
+
+            {filteredCivilizationMetrics.length > 0 && (
+              <div className="pt-2">
+                <div className="text-[11px] font-mono text-[#F5F5F0]/60 pb-1.5">
+                  Matching Ecological Civilization Metrics ({filteredCivilizationMetrics.length}):
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {filteredCivilizationMetrics.slice(0, 8).map(metric => (
+                    <button
+                      key={metric.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedMetric(metric);
+                        onInspectProvenance({
+                          ...metric.provenance,
+                          metricName: metric.name,
+                          rawSensorReading: `${metric.value} ${metric.unit}`,
+                          epistemicTier: metric.category.toUpperCase()
+                        });
+                        audioFeedback.playMicroTick();
+                      }}
+                      className="px-2 py-1 rounded bg-[#161B18] hover:bg-[#1f2622] border border-[#C5A059]/20 hover:border-[#C5A059] text-[11px] font-mono text-[#F5F5F0] flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title={`${metric.name} • ${metric.description} (Click to inspect provenance)`}
+                    >
+                      <span className="text-emerald-400">●</span>
+                      <span>{metric.name}</span>
+                      <span className="text-[9px] text-[#C5A059] font-bold">[{metric.category}]</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* View Switcher: Recharts Flourishing Timeline vs Restoration Mesh D3 vs Knowledge Graph Studio vs Interactive Causal D3 Graph vs Telemetry Matrix */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F5F5F0]/10 pb-3">
@@ -647,6 +1147,126 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
       {/* Primary Tab: D3 Multi-Line 12-Month Trend Comparison: Ecological Flourishing vs Economic Stability */}
       {activeTab === 'flourishing-vs-stability' && (
         <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Audio Alchemist Soundscape Active HUD */}
+          {isAudioAlchemistActive && (
+            <div className="p-3 bg-gradient-to-r from-amber-950/80 via-[#18140C] to-emerald-950/80 border border-[#C5A059]/60 rounded text-xs font-mono shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-full bg-[#C5A059]/20 border border-[#C5A059] flex items-center justify-center text-[#C5A059]">
+                  <Radio className="w-4 h-4 animate-spin text-[#C5A059]" />
+                </div>
+                <div>
+                  <div className="text-[#C5A059] font-bold flex items-center gap-2">
+                    <span>AUDIO ALCHEMIST SOUNDSCAPE</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-900/60 text-amber-200 border border-amber-500/40">
+                      LIVE ORGANIC MODULATION
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#F5F5F0]/60">
+                    Fundamental: <strong>108 Hz</strong> (Earth Subharmonic) • Data Variance Harmonic Tuning
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Volume slider */}
+                <div className="flex items-center gap-1.5 bg-[#0A0D0B] px-2.5 py-1 rounded border border-[#F5F5F0]/10 text-[10px]">
+                  <span className="text-[#F5F5F0]/50">VOL:</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={audioAlchemistVolume}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      setAudioAlchemistVolume(v);
+                      audioAlchemist.setVolume(v);
+                    }}
+                    className="w-16 h-1 accent-[#C5A059] cursor-pointer"
+                  />
+                  <span className="text-[#C5A059] font-mono">{Math.round(audioAlchemistVolume * 100)}%</span>
+                </div>
+
+                {/* Trigger Solfeggio Chime */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    audioAlchemist.triggerChime(1.0, true);
+                    audioFeedback.playMicroTick();
+                  }}
+                  className="px-2.5 py-1 bg-[#1F190D] hover:bg-[#2F2514] border border-[#C5A059]/60 text-[#C5A059] hover:text-white rounded text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Trigger Solfeggio Transmutation Overtones (528 Hz Love/Transformation Harmonic)"
+                >
+                  <Sparkles className="w-3 h-3 text-[#C5A059]" />
+                  <span>528Hz Chime</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleAudioAlchemist}
+                  className="px-2 py-1 bg-[#141414] hover:bg-[#202020] border border-[#F5F5F0]/15 text-[#F5F5F0]/70 hover:text-white rounded text-[10px] font-mono cursor-pointer"
+                >
+                  Mute
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Epistemic Forecast Active HUD Banner */}
+          {isPredictiveForecastingEnabled && (
+            <div className="p-3 bg-gradient-to-r from-cyan-950/70 via-teal-950/60 to-emerald-950/70 border border-cyan-500/50 rounded text-xs font-mono shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 animate-in fade-in">
+              <div className="flex items-center gap-2 text-cyan-200">
+                <Sparkles className="w-4 h-4 text-cyan-400 animate-spin" />
+                <span>
+                  <strong className="text-white">EPISTEMIC FORECAST ACTIVE:</strong> Gemini 3.8 Flash multi-horizon reasoning projecting Months 13–18 trajectory based on covenant restoration velocity.
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] text-cyan-300 font-bold">
+                <span className="px-2 py-0.5 rounded bg-cyan-900/60 border border-cyan-400/40">HORIZON: 6 MONTHS</span>
+                <span className="px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-200 border border-emerald-400/40">CI: 95% CONE</span>
+              </div>
+            </div>
+          )}
+
+          {/* Celestial Alignment Active Notice Banner */}
+          {isCelestialAlignment && (
+            <div className="p-3 bg-gradient-to-r from-amber-950/70 via-sky-950/60 to-purple-950/70 border border-[#C5A059]/60 rounded text-xs font-mono flex items-center justify-between shadow-lg animate-in fade-in">
+              <div className="flex items-center gap-2 text-amber-200">
+                <Star className="w-4 h-4 text-[#C5A059] animate-pulse fill-[#C5A059]" />
+                <span>
+                  <strong className="text-white">CELESTIAL ALIGNMENT ACTIVE:</strong> 12 Bioregional Historical Milestones are mapped as the constellation <em>Via Regeneratio</em> across cosmic coordinates.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('open-star-map'));
+                  audioFeedback.playCovenantResonance();
+                }}
+                className="px-2.5 py-1 bg-[#1A1812] hover:bg-[#2A2418] border border-[#C5A059] text-[#C5A059] hover:text-white rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <span>Launch Star Map</span>
+                <span>→</span>
+              </button>
+            </div>
+          )}
+
+          {/* Stardust Ritual Cleanse Success Notice */}
+          {ritualCleanseSuccess && (
+            <div className="p-2.5 bg-emerald-950/70 border border-emerald-500/60 rounded text-xs font-mono text-emerald-300 flex items-center gap-2 animate-in fade-in">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <span>{ritualCleanseSuccess}</span>
+            </div>
+          )}
+
+          {/* Planetary Pulse D3 Animated Waveform & Biospheric Vital Signs */}
+          <PlanetaryPulseVisualizer 
+            ecologicalFlourishing={92.4}
+            economicStability={89.2}
+            bioregionName={COMPARATIVE_BIOREGIONS.find(b => selectedBioregions.includes(b.id))?.name || 'Pan-African Green Corridor'}
+            isPurified={isDataPurified}
+          />
+
           <FlourishingVsStabilityD3Chart 
             timeRange={timeRange}
             onTimeRangeChange={setTimeRange}
@@ -658,6 +1278,20 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             onConfidenceIntervalToggle={setIsConfidenceIntervalActive}
             onAddBioregionClick={() => setIsComparatorModalOpen(true)}
             triggerInsightsCounter={triggerInsightsCounter}
+            isCelestialAlignment={isCelestialAlignment}
+            onToggleCelestialAlignment={setIsCelestialAlignment}
+            isDataPurified={isDataPurified}
+            onPurifiedChange={setIsDataPurified}
+            isRitualCleansing={isRitualCleansing}
+            onTriggerRitualCleanse={handleTriggerRitualCleanse}
+            showPredictiveForecast={isPredictiveForecastingEnabled}
+            onPredictiveForecastChange={setIsPredictiveForecastingEnabled}
+            showHistoricalComparison={isCompareHistorical}
+            onHistoricalComparisonChange={setIsCompareHistorical}
+            alertThreshold={alertThreshold}
+            onAlertThresholdChange={handleSaveAlertConfig}
+            onOpenEpistemicObservation={handleOpenEpistemicObservation}
+            onSelectTab={onSelectTab}
             onInspectPoint={(pt) => {
               onInspectProvenance({
                 ...SAMPLE_PROVENANCE,
@@ -1006,6 +1640,54 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         }}
         onResetBaseline={() => {
           setSelectedBioregions(['pan-african']);
+        }}
+      />
+
+      {/* Cryptographic Evidence Export Modal */}
+      <EvidenceExportModal
+        isOpen={isEvidenceExportModalOpen}
+        onClose={() => setIsEvidenceExportModalOpen(false)}
+        sessionMetrics={{
+          bioregionName: activeBioregionObj.name,
+          ecologicalFlourishing: latestDataPoint.ecologicalFlourishing,
+          economicStability: latestDataPoint.economicStability,
+          decouplingMargin: latestDataPoint.decouplingMargin,
+          timeRange,
+          sensorCount: 1248,
+          isPurified: isDataPurified,
+          isCelestialAlignment
+        }}
+        onNavigateToLedger={() => {
+          if (onSelectTab) {
+            onSelectTab('evidence-ledger');
+          }
+        }}
+      />
+
+      {/* Threshold Alert Configuration Modal */}
+      <ThresholdAlertModal
+        isOpen={isThresholdModalOpen}
+        onClose={() => setIsThresholdModalOpen(false)}
+        config={alertThreshold}
+        onSaveConfig={handleSaveAlertConfig}
+        currentMetrics={{
+          latestEco: latestDataPoint.ecologicalFlourishing,
+          latestEcon: latestDataPoint.economicStability,
+          decouplingMargin: latestDataPoint.decouplingMargin
+        }}
+      />
+
+      {/* Epistemic Observation Modal (Manual Notes to Evidence Ledger) */}
+      <EpistemicObservationModal
+        isOpen={isEpistemicObservationModalOpen}
+        onClose={() => setIsEpistemicObservationModalOpen(false)}
+        point={epistemicObservationTargetPoint}
+        bioregionName={activeBioregionObj.name}
+        bioregionId={activeBioregionObj.id}
+        onNavigateToLedger={() => {
+          if (onSelectTab) {
+            onSelectTab('evidence-ledger');
+          }
         }}
       />
     </div>

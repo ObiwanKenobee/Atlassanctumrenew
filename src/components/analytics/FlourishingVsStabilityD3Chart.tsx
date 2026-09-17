@@ -43,9 +43,20 @@ import {
   Plus,
   MoveVertical,
   Volume2,
-  X
+  X,
+  Star,
+  GitBranch,
+  GitCompare,
+  FileText
 } from 'lucide-react';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { StardustRitualCleanseOverlay } from './StardustRitualCleanseOverlay';
+import { AlchemicalTooltipBadge } from './AlchemicalTooltipBadge';
+import { 
+  CELESTIAL_HISTORICAL_ALIGNMENTS, 
+  CONSTELLATION_VECTOR_PAIRS 
+} from '../../lib/alchemicalTrends';
+import { alchemicalAudio } from '../../lib/alchemicalAudio';
 import { 
   COMPARATIVE_BIOREGIONS, 
   HISTORICAL_ANNOTATIONS, 
@@ -54,10 +65,13 @@ import {
   TimelineAnnotationMarker,
   HistoricalAnomalyEvent,
   BioregionOption,
-  ForecastDataPoint
+  ForecastDataPoint,
+  getBioregionHistoricalData,
+  HISTORICAL_PRIOR_YEAR_INTERVAL_DATA
 } from './flourishingAnalyticsData';
 import { AnnotationDetailModal } from './AnnotationDetailModal';
 import { AddAnnotationModal } from './AddAnnotationModal';
+import { EpistemicObservationModal } from './EpistemicObservationModal';
 import { AnomalyDetailModal } from './AnomalyDetailModal';
 import { BioregionMultiSelectFilter } from './BioregionMultiSelectFilter';
 import { BioregionalComparatorModal } from './BioregionalComparatorModal';
@@ -283,6 +297,7 @@ interface CachedChartState {
   forecastScenario?: 'balanced_covenant' | 'regenerative_acceleration' | 'climate_stress_shock';
   alertThreshold?: AlertThresholdConfig;
   isConfidenceIntervalActive?: boolean;
+  showHistoricalComparison?: boolean;
   lastSavedTimestamp?: number;
 }
 
@@ -334,6 +349,20 @@ interface FlourishingVsStabilityD3ChartProps {
   isConfidenceIntervalActive?: boolean;
   onConfidenceIntervalToggle?: (active: boolean) => void;
   onAddBioregionClick?: () => void;
+  isCelestialAlignment?: boolean;
+  onToggleCelestialAlignment?: (active: boolean) => void;
+  isDataPurified?: boolean;
+  onPurifiedChange?: (purified: boolean) => void;
+  isRitualCleansing?: boolean;
+  onTriggerRitualCleanse?: () => void;
+  showPredictiveForecast?: boolean;
+  onPredictiveForecastChange?: (show: boolean) => void;
+  showHistoricalComparison?: boolean;
+  onHistoricalComparisonChange?: (show: boolean) => void;
+  onOpenEpistemicObservation?: (point: MonthlyTrendDataPoint) => void;
+  alertThreshold?: AlertThresholdConfig;
+  onAlertThresholdChange?: (config: AlertThresholdConfig) => void;
+  onSelectTab?: (tabId: string) => void;
 }
 
 export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3ChartProps> = ({
@@ -349,13 +378,68 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
   onNormalizeChange,
   isConfidenceIntervalActive: externalConfidenceInterval,
   onConfidenceIntervalToggle,
-  onAddBioregionClick
+  onAddBioregionClick,
+  isCelestialAlignment: externalCelestialAlignment,
+  onToggleCelestialAlignment,
+  isDataPurified: externalIsPurified,
+  onPurifiedChange,
+  isRitualCleansing: externalIsRitualCleansing,
+  onTriggerRitualCleanse,
+  showPredictiveForecast: externalPredictiveForecast,
+  onPredictiveForecastChange,
+  showHistoricalComparison: externalHistoricalComparison,
+  onHistoricalComparisonChange,
+  onOpenEpistemicObservation,
+  alertThreshold: externalAlertThreshold,
+  onAlertThresholdChange,
+  onSelectTab
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Load cached view state from localStorage
   const savedState = useMemo(() => loadSavedChartState(), []);
+
+  // Celestial Alignment & Ritual Cleanse state
+  const [internalCelestialAlignment, setInternalCelestialAlignment] = useState<boolean>(false);
+  const isCelestialAlignment = externalCelestialAlignment !== undefined ? externalCelestialAlignment : internalCelestialAlignment;
+
+  const [internalIsPurified, setInternalIsPurified] = useState<boolean>(false);
+  const isDataPurified = externalIsPurified !== undefined ? externalIsPurified : internalIsPurified;
+
+  const [internalIsRitualCleansing, setInternalIsRitualCleansing] = useState<boolean>(false);
+  const isRitualCleansing = externalIsRitualCleansing !== undefined ? externalIsRitualCleansing : internalIsRitualCleansing;
+
+  const handleToggleCelestial = () => {
+    audioFeedback.playCovenantResonance();
+    const nextVal = !isCelestialAlignment;
+    if (onToggleCelestialAlignment) {
+      onToggleCelestialAlignment(nextVal);
+    } else {
+      setInternalCelestialAlignment(nextVal);
+    }
+  };
+
+  const handleCleanse = () => {
+    if (isRitualCleansing) return;
+    audioFeedback.playCovenantResonance();
+    if (onTriggerRitualCleanse) {
+      onTriggerRitualCleanse();
+    } else {
+      setInternalIsRitualCleansing(true);
+    }
+  };
+
+  const handleCleanseComplete = () => {
+    if (onTriggerRitualCleanse) {
+      // Handled by parent
+    } else {
+      setInternalIsRitualCleansing(false);
+      setInternalIsPurified(true);
+      onPurifiedChange?.(true);
+      audioFeedback.playSuccessChime();
+    }
+  };
 
   // Time Range selection (synced with parent prop if provided)
   const [internalTimeRange, setInternalTimeRange] = useState<TimeRangeOption>(() => savedState?.timeRange ?? 'all');
@@ -437,7 +521,18 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
   const [isPinned, setIsPinned] = useState<boolean>(false);
   const [showAnomalies, setShowAnomalies] = useState<boolean>(() => savedState?.showAnomalies ?? true);
   const [showAnnotations, setShowAnnotations] = useState<boolean>(() => savedState?.showAnnotations ?? true);
-  const [showPredictiveForecast, setShowPredictiveForecast] = useState<boolean>(() => savedState?.showPredictiveForecast ?? true);
+  const [internalPredictiveForecast, setInternalPredictiveForecast] = useState<boolean>(() => savedState?.showPredictiveForecast ?? true);
+  const showPredictiveForecast = externalPredictiveForecast !== undefined ? externalPredictiveForecast : internalPredictiveForecast;
+
+  const handleTogglePredictiveForecast = () => {
+    audioFeedback.playMicroTick();
+    const nextVal = !showPredictiveForecast;
+    if (onPredictiveForecastChange) {
+      onPredictiveForecastChange(nextVal);
+    } else {
+      setInternalPredictiveForecast(nextVal);
+    }
+  };
 
   // Normalize Data Toggle (0-100% relative range, synced with parent prop if provided)
   const [internalIsNormalized, setInternalIsNormalized] = useState<boolean>(() => savedState?.isNormalized ?? false);
@@ -468,18 +563,57 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
   // Bioregional Comparator Modal State
   const [isBioregionalComparatorModalOpen, setIsBioregionalComparatorModalOpen] = useState<boolean>(false);
 
+  // Historical Longitudinal Comparison State (synced with parent prop if provided)
+  const [internalShowHistoricalComparison, setInternalShowHistoricalComparison] = useState<boolean>(() => savedState?.showHistoricalComparison ?? false);
+  const showHistoricalComparison = externalHistoricalComparison !== undefined ? externalHistoricalComparison : internalShowHistoricalComparison;
+
+  const handleToggleHistoricalComparison = () => {
+    audioFeedback.playMicroTick();
+    const nextVal = !showHistoricalComparison;
+    if (onHistoricalComparisonChange) {
+      onHistoricalComparisonChange(nextVal);
+    } else {
+      setInternalShowHistoricalComparison(nextVal);
+    }
+  };
+
+  // Epistemic Observation Modal State
+  const [isEpistemicModalOpen, setIsEpistemicModalOpen] = useState<boolean>(false);
+  const [epistemicTargetPoint, setEpistemicTargetPoint] = useState<MonthlyTrendDataPoint | null>(null);
+
+  const handleOpenEpistemicObservation = (pt?: MonthlyTrendDataPoint) => {
+    audioFeedback.playMicroTick();
+    const target = pt || selectedPoint || primaryDataset[primaryDataset.length - 1];
+    if (onOpenEpistemicObservation) {
+      onOpenEpistemicObservation(target);
+    } else {
+      setEpistemicTargetPoint(target);
+      setIsEpistemicModalOpen(true);
+    }
+  };
+
   // References for tracking state changes and triggering smooth D3 transitions
   const prevNormalizedRef = useRef<boolean>(isNormalized);
   const prevTimeRangeRef = useRef<TimeRangeOption>(activeTimeRange);
   const hasMountedRef = useRef<boolean>(false);
 
-  // Alert on Threshold State
-  const [alertThreshold, setAlertThreshold] = useState<AlertThresholdConfig>(() => savedState?.alertThreshold ?? {
+  // Alert on Threshold State (synced with parent if provided)
+  const [internalAlertThreshold, setInternalAlertThreshold] = useState<AlertThresholdConfig>(() => savedState?.alertThreshold ?? {
     enabled: true,
     metric: 'ecological',
     condition: 'below',
     value: 75
   });
+  const alertThreshold = externalAlertThreshold !== undefined ? externalAlertThreshold : internalAlertThreshold;
+
+  const setAlertThreshold = (cfgOrFn: AlertThresholdConfig | ((prev: AlertThresholdConfig) => AlertThresholdConfig)) => {
+    const nextVal = typeof cfgOrFn === 'function' ? cfgOrFn(alertThreshold) : cfgOrFn;
+    if (onAlertThresholdChange) {
+      onAlertThresholdChange(nextVal);
+    }
+    setInternalAlertThreshold(nextVal);
+  };
+
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState<boolean>(false);
   const [isAlertDismissed, setIsAlertDismissed] = useState<boolean>(false);
   const lastAlertFiredRef = useRef<boolean>(false);
@@ -635,7 +769,8 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
     setShowAreaFill(true);
     setShowAnomalies(true);
     setShowAnnotations(true);
-    setShowPredictiveForecast(true);
+    setInternalPredictiveForecast(true);
+    onPredictiveForecastChange?.(true);
     setForecastScenario('balanced_covenant');
     setAlertThreshold({
       enabled: true,
@@ -982,6 +1117,20 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
       .attr('stroke', '#EF4444')
       .attr('stroke-width', 2)
       .attr('stroke-opacity', 0.35);
+
+    // Celestial Star Glow Filter for Constellation & Purified Lines
+    const starGlowFilter = defs.append('filter')
+      .attr('id', 'celestial-star-glow')
+      .attr('x', '-50%')
+      .attr('y', '-50%')
+      .attr('width', '200%')
+      .attr('height', '200%');
+    starGlowFilter.append('feGaussianBlur')
+      .attr('stdDeviation', 2.5)
+      .attr('result', 'coloredBlur');
+    const starMerge = starGlowFilter.append('feMerge');
+    starMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    starMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
     // Background Grid lines with transition support
     const yAxisTicks = yScale.ticks(6);
@@ -1942,9 +2091,13 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         const econPath = plotG.append('path')
           .datum(primaryDataset)
           .attr('fill', 'none')
-          .attr('stroke', '#C5A059')
-          .attr('stroke-width', 2.8)
+          .attr('stroke', isDataPurified ? '#E0C070' : '#C5A059')
+          .attr('stroke-width', isDataPurified ? 3.2 : 2.8)
           .attr('stroke-linecap', 'round');
+
+        if (isDataPurified) {
+          econPath.attr('filter', 'url(#celestial-star-glow)');
+        }
 
         if (didToggleNormalize) {
           econPath
@@ -1976,9 +2129,13 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         const ecoPath = plotG.append('path')
           .datum(primaryDataset)
           .attr('fill', 'none')
-          .attr('stroke', '#10B981')
-          .attr('stroke-width', 2.8)
+          .attr('stroke', isDataPurified ? '#34D399' : '#10B981')
+          .attr('stroke-width', isDataPurified ? 3.2 : 2.8)
           .attr('stroke-linecap', 'round');
+
+        if (isDataPurified) {
+          ecoPath.attr('filter', 'url(#celestial-star-glow)');
+        }
 
         if (didToggleNormalize) {
           ecoPath
@@ -1988,6 +2145,75 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         } else {
           ecoPath.attr('d', curEcoLine);
         }
+      }
+
+      // Historical Prior Year (Longitudinal Analysis Overlay)
+      if (showHistoricalComparison) {
+        const histData = getBioregionHistoricalData(selectedBioregionObjects[0]?.id || 'pan-african');
+
+        const prevHistLine = d3.line<MonthlyTrendDataPoint>()
+          .x(d => xScale(d.monthIndex))
+          .y(d => prevYScale(prevNormEco(d.ecologicalFlourishing)))
+          .curve(d3.curveMonotoneX);
+
+        const curHistLine = d3.line<MonthlyTrendDataPoint>()
+          .x(d => xScale(d.monthIndex))
+          .y(d => yScale(curNormEco(d.ecologicalFlourishing)))
+          .curve(d3.curveMonotoneX);
+
+        // Shaded comparison delta
+        const longitudinalArea = d3.area<MonthlyTrendDataPoint>()
+          .x(d => xScale(d.monthIndex))
+          .y0((d, i) => yScale(curNormEco(histData[i]?.ecologicalFlourishing || d.ecologicalFlourishing)))
+          .y1(d => yScale(curNormEco(d.ecologicalFlourishing)))
+          .curve(d3.curveMonotoneX);
+
+        plotG.append('path')
+          .datum(primaryDataset)
+          .attr('class', 'longitudinal-delta-area')
+          .attr('fill', '#3B82F6')
+          .attr('fill-opacity', 0.12)
+          .attr('d', longitudinalArea);
+
+        const histLinePath = plotG.append('path')
+          .datum(histData)
+          .attr('class', 'historical-prior-year-line')
+          .attr('fill', 'none')
+          .attr('stroke', '#60A5FA')
+          .attr('stroke-width', 2.2)
+          .attr('stroke-dasharray', '6 4')
+          .attr('opacity', 0.85);
+
+        if (didToggleNormalize) {
+          histLinePath
+            .attr('d', prevHistLine)
+            .transition().duration(TRANSITION_DURATION).ease(TRANSITION_EASE)
+            .attr('d', curHistLine);
+        } else {
+          histLinePath.attr('d', curHistLine);
+        }
+
+        // Add node dots for historical points
+        histData.forEach((hd) => {
+          const cyVal = yScale(curNormEco(hd.ecologicalFlourishing));
+          const cxVal = xScale(hd.monthIndex);
+          const histCircle = plotG.append('circle')
+            .attr('cx', cxVal)
+            .attr('cy', cyVal)
+            .attr('r', 3.5)
+            .attr('fill', '#0B0F19')
+            .attr('stroke', '#60A5FA')
+            .attr('stroke-width', 1.8)
+            .attr('cursor', 'pointer');
+
+          histCircle.append('title')
+            .text(`Historical Prior Year Baseline (${hd.calendarMonth}):\nEcological: ${hd.ecologicalFlourishing}%\nEconomic: ${hd.economicStability}%\nDecoupling: ${hd.decouplingMargin > 0 ? '+' : ''}${hd.decouplingMargin} pts\nMilestone: ${hd.milestone}\n[Click to record Epistemic Observation]`);
+
+          histCircle.on('click', () => {
+            audioFeedback.playMicroTick();
+            handleOpenEpistemicObservation(hd);
+          });
+        });
       }
 
       // Point Markers with Hover Tooltip Details
@@ -2008,13 +2234,17 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             .attr('cursor', 'pointer');
 
           ecoCircle.append('title')
-            .text(`${exactDateStr}\nEcological: Raw ${d.ecologicalFlourishing}% (Norm: ${normEco(d.ecologicalFlourishing).toFixed(1)}%)\nDecoupling: +${d.decouplingMargin} pts`);
+            .text(`${exactDateStr}\nEcological: Raw ${d.ecologicalFlourishing}% (Norm: ${normEco(d.ecologicalFlourishing).toFixed(1)}%)\nDecoupling: +${d.decouplingMargin} pts\n[Double-click to add Epistemic Observation]`);
 
           ecoCircle.on('mouseenter', () => updateCrosshairToPoint(d));
           ecoCircle.on('click', () => {
             audioFeedback.playMicroTick();
             setSelectedPoint(d);
             onInspectPoint?.(d);
+          });
+          ecoCircle.on('dblclick', () => {
+            audioFeedback.playMicroTick();
+            handleOpenEpistemicObservation(d);
           });
 
           if (didToggleNormalize) {
@@ -2040,13 +2270,17 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             .attr('cursor', 'pointer');
 
           econCircle.append('title')
-            .text(`${exactDateStr}\nEconomic: Raw ${d.economicStability}% (Norm: ${normEcon(d.economicStability).toFixed(1)}%)\nDecoupling: +${d.decouplingMargin} pts`);
+            .text(`${exactDateStr}\nEconomic: Raw ${d.economicStability}% (Norm: ${normEcon(d.economicStability).toFixed(1)}%)\nDecoupling: +${d.decouplingMargin} pts\n[Double-click to add Epistemic Observation]`);
 
           econCircle.on('mouseenter', () => updateCrosshairToPoint(d));
           econCircle.on('click', () => {
             audioFeedback.playMicroTick();
             setSelectedPoint(d);
             onInspectPoint?.(d);
+          });
+          econCircle.on('dblclick', () => {
+            audioFeedback.playMicroTick();
+            handleOpenEpistemicObservation(d);
           });
 
           if (didToggleNormalize) {
@@ -2184,6 +2418,87 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
               .text(badgeContent);
           }
         }
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 4B. CELESTIAL ALIGNMENT (Bioregional Milestone Constellation Map)
+    // -------------------------------------------------------------
+    if (isCelestialAlignment) {
+      const celestialG = plotG.append('g').attr('class', 'celestial-constellation-alignment-layer');
+
+      // Draw dashed stardust constellation lines between connected bioregional milestones
+      CONSTELLATION_VECTOR_PAIRS.forEach(([fromMonth, toMonth]) => {
+        const p1 = primaryDataset.find(p => p.monthIndex === fromMonth);
+        const p2 = primaryDataset.find(p => p.monthIndex === toMonth);
+        if (!p1 || !p2) return;
+
+        const x1 = xScale(p1.monthIndex);
+        const y1 = yScale(curNormEco(p1.ecologicalFlourishing));
+        const x2 = xScale(p2.monthIndex);
+        const y2 = yScale(curNormEco(p2.ecologicalFlourishing));
+
+        celestialG.append('line')
+          .attr('x1', x1)
+          .attr('y1', y1)
+          .attr('x2', x2)
+          .attr('y2', y2)
+          .attr('stroke', '#E0C070')
+          .attr('stroke-width', 1.8)
+          .attr('stroke-dasharray', '4 3')
+          .attr('stroke-opacity', 0.85)
+          .attr('filter', 'url(#celestial-star-glow)');
+      });
+
+      // Draw celestial star glyphs and magnitude halos at each data point
+      primaryDataset.forEach(d => {
+        const align = CELESTIAL_HISTORICAL_ALIGNMENTS.find(a => a.monthIndex === d.monthIndex);
+        if (!align) return;
+        const cx = xScale(d.monthIndex);
+        const cy = yScale(curNormEco(d.ecologicalFlourishing));
+
+        const starG = celestialG.append('g')
+          .attr('transform', `translate(${cx}, ${cy})`)
+          .attr('cursor', 'pointer')
+          .on('click', () => {
+            alchemicalAudio.playSingingBowl(528, 2.8);
+            setSelectedPoint(d);
+            setHoveredPoint(d);
+            setIsCrosshairActive(true);
+            setIsPinned(true);
+            setCrosshairPos({
+              x: cx + margin.left,
+              yEco: cy + margin.top,
+              yEcon: yScale(curNormEcon(d.economicStability)) + margin.top,
+              innerWidth
+            });
+          });
+
+        // Outer pulsing halo
+        starG.append('circle')
+          .attr('r', 10)
+          .attr('fill', align.constellationColor)
+          .attr('fill-opacity', 0.18)
+          .attr('stroke', align.constellationColor)
+          .attr('stroke-width', 0.8)
+          .attr('stroke-opacity', 0.65);
+
+        // 4-pointed diamond star glyph
+        starG.append('path')
+          .attr('d', 'M0,-7 L2,-2 L7,0 L2,2 L0,7 L-2,2 L-7,0 L-2,-2 Z')
+          .attr('fill', '#FFFFFF')
+          .attr('stroke', align.constellationColor)
+          .attr('stroke-width', 0.8);
+
+        // Celestial callout label above
+        starG.append('text')
+          .attr('y', -12)
+          .attr('text-anchor', 'middle')
+          .attr('fill', align.constellationColor)
+          .attr('font-size', '8px')
+          .attr('font-family', 'monospace')
+          .attr('font-weight', 'bold')
+          .text(align.starName.split(':')[0]);
       });
     }
 
@@ -2526,6 +2841,37 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             <span>Normalize: {isNormalized ? '0-100%' : 'RAW'}</span>
           </button>
 
+          {/* Celestial Alignment Toggle */}
+          <button
+            id="chart-celestial-alignment-btn"
+            onClick={handleToggleCelestial}
+            className={`px-2.5 py-1.5 rounded-sm border text-[10px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+              isCelestialAlignment
+                ? 'bg-gradient-to-r from-amber-950 via-sky-950 to-purple-950 border-[#C5A059] text-amber-200 shadow-md ring-1 ring-[#C5A059]/50'
+                : 'bg-[#141414] border-[#F5F5F0]/15 text-[#F5F5F0]/50 hover:text-[#F5F5F0]'
+            }`}
+            title="Map historical milestone data points onto the Star Map coordinate system as an interconnected celestial constellation"
+          >
+            <Star className={`w-3 h-3 ${isCelestialAlignment ? 'text-[#C5A059] fill-[#C5A059]' : 'text-neutral-400'}`} />
+            <span>Celestial: {isCelestialAlignment ? 'ON' : 'OFF'}</span>
+          </button>
+
+          {/* Ritual Cleanse Button */}
+          <button
+            id="chart-ritual-cleanse-btn"
+            onClick={handleCleanse}
+            disabled={isRitualCleansing}
+            className={`px-2.5 py-1.5 rounded-sm border text-[10px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+              isDataPurified
+                ? 'bg-emerald-950/80 border-emerald-500/60 text-emerald-200 shadow-sm ring-1 ring-emerald-500/30'
+                : 'bg-[#18150F] border-[#C5A059]/40 text-[#C5A059] hover:text-white'
+            }`}
+            title="Filter out chart noise via a stardust transition effect, purifying the data stream for enhanced epistemic clarity"
+          >
+            <Sparkles className={`w-3 h-3 ${isRitualCleansing ? 'text-[#C5A059] animate-spin' : isDataPurified ? 'text-emerald-400' : 'text-[#C5A059]'}`} />
+            <span>{isRitualCleansing ? 'Cleansing...' : isDataPurified ? 'Purified' : 'Ritual Cleanse'}</span>
+          </button>
+
           {/* Threshold Alert Configuration */}
           <button
             id="configure-threshold-alert-btn"
@@ -2638,18 +2984,20 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           <button
             id="toggle-predictive-forecast-btn"
             onClick={() => {
-              audioFeedback.playMicroTick();
-              setShowPredictiveForecast(!showPredictiveForecast);
+              handleTogglePredictiveForecast();
+              if (!showPredictiveForecast) {
+                handleRunGeminiSimulation();
+              }
             }}
             className={`px-2.5 py-1.5 rounded-sm border text-[10px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
               showPredictiveForecast 
                 ? 'bg-cyan-950/70 border-cyan-500/50 text-cyan-300' 
                 : 'bg-[#141414] border-[#F5F5F0]/15 text-[#F5F5F0]/50'
             }`}
-            title="Toggle Gemini 6-month simulation window overlay"
+            title="Toggle Gemini 6-month Epistemic Forecast simulation window overlay"
           >
             <Sparkles className="w-3 h-3 text-cyan-400" />
-            <span>6-Mo Forecast: {showPredictiveForecast ? 'ON' : 'OFF'}</span>
+            <span>Epistemic Forecast: {showPredictiveForecast ? 'ON' : 'OFF'}</span>
           </button>
 
           {/* Bioregional Comparator: Persistent Add Bioregion Button */}
@@ -2702,6 +3050,32 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
                 {customAnnotations.length}
               </span>
             )}
+          </button>
+
+          {/* Historical Comparison Toggle (Prior Year vs Current Year) */}
+          <button
+            id="toggle-historical-comparison-btn"
+            onClick={handleToggleHistoricalComparison}
+            className={`px-2.5 py-1.5 rounded-sm border text-[10px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+              showHistoricalComparison
+                ? 'bg-[#0F1C2E] border-blue-400 text-blue-200 font-bold shadow-sm ring-1 ring-blue-400/40'
+                : 'bg-[#141414] border-[#F5F5F0]/15 text-[#F5F5F0]/50 hover:text-[#F5F5F0]'
+            }`}
+            title="Overlay historical prior year data ranges (2024-2025) onto current metric charts for longitudinal analysis"
+          >
+            <GitCompare className="w-3 h-3 text-blue-400" />
+            <span>Compare: {showHistoricalComparison ? 'Prior Year [ON]' : 'OFF'}</span>
+          </button>
+
+          {/* Add Epistemic Observation Button */}
+          <button
+            id="add-epistemic-observation-chart-btn"
+            onClick={() => handleOpenEpistemicObservation()}
+            className="px-2.5 py-1.5 rounded-sm bg-gradient-to-r from-amber-950/90 to-[#221A0F] hover:from-amber-900 hover:to-[#332512] border border-amber-500/60 text-amber-300 hover:text-white text-[10px] font-mono transition-all flex items-center gap-1.5 cursor-pointer font-bold shadow-sm"
+            title="Record an Epistemic Observation or manual field note anchored to the Evidence Ledger"
+          >
+            <FileText className="w-3 h-3 text-amber-400" />
+            <span>+ Epistemic Note</span>
           </button>
 
           {/* Zoom to Selection Toggle Button */}
@@ -3057,6 +3431,14 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
         ref={containerRef}
         className="w-full relative bg-[#070908] rounded border border-[#F5F5F0]/10 p-2 sm:p-4 overflow-hidden"
       >
+        {/* Stardust Ritual Cleanse Canvas Overlay */}
+        <StardustRitualCleanseOverlay 
+          isActive={isRitualCleansing}
+          onComplete={handleCleanseComplete}
+          width={dimensions.width}
+          height={dimensions.height}
+        />
+
         <svg 
           ref={svgRef}
           width={dimensions.width}
@@ -3232,6 +3614,14 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
                 )}
               </div>
 
+              {/* Mystical & Alchemical Symbolism Badge (Esoteric Meaning & Hermetic Dynamics) */}
+              <AlchemicalTooltipBadge 
+                currentPoint={displayPoint}
+                previousPoint={displayPoint.monthIndex > 1 ? primaryDataset[displayPoint.monthIndex - 2] : undefined}
+                isCelestialActive={isCelestialAlignment}
+                isPurified={isDataPurified}
+              />
+
               {/* Provenance Metadata */}
               <div className="space-y-1 bg-[#050706] p-2 rounded border border-[#F5F5F0]/5 text-[10px]">
                 <div className="text-[9px] text-[#C5A059] uppercase tracking-wider font-bold flex items-center justify-between">
@@ -3341,6 +3731,13 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
               </div>
             )}
 
+            {showHistoricalComparison && (
+              <div className="flex items-center gap-1.5">
+                <span className="w-4 h-0.5 border-t-2 border-dashed border-blue-400" />
+                <span className="text-blue-300 font-bold">Historical Prior Year Baseline (2024-25)</span>
+              </div>
+            )}
+
             {showAnomalies && (
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 bg-rose-950/60 border border-rose-500/40 rounded-sm" />
@@ -3357,7 +3754,7 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           </div>
 
           <div className="text-[10px] text-[#F5F5F0]/50">
-            Click diamonds for external provenance • Click anomaly zones to inspect biophysical safeguards
+            Click points for external provenance • Double-click any point to add Epistemic Observation
           </div>
         </div>
       </div>
@@ -3384,7 +3781,7 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             </div>
           </div>
 
-          <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-4 shrink-0 flex-wrap">
             <div className="text-right">
               <span className="text-[10px] text-emerald-400 block font-bold">Ecological Index</span>
               <span className="text-lg font-bold text-white">{displayPoint.ecologicalFlourishing}%</span>
@@ -3397,6 +3794,18 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
               <span className="text-[10px] text-cyan-400 block font-bold">Decoupling Gain</span>
               <span className="text-lg font-bold text-cyan-300">+{displayPoint.decouplingMargin.toFixed(1)}</span>
             </div>
+
+            {/* Direct Epistemic Note Button on Active Card */}
+            <button
+              id="inspector-add-epistemic-observation-btn"
+              type="button"
+              onClick={() => handleOpenEpistemicObservation(displayPoint)}
+              className="px-3 py-1.5 rounded bg-gradient-to-r from-amber-500 to-[#C5A059] hover:from-amber-400 hover:to-[#d4b068] text-black font-bold text-[11px] flex items-center gap-1.5 transition-all shadow cursor-pointer uppercase tracking-wider font-mono shrink-0 ml-2"
+              title="Record manual field note or Epistemic Observation to Evidence Ledger for this point"
+            >
+              <FileText className="w-3.5 h-3.5 text-black" />
+              <span>+ Epistemic Note</span>
+            </button>
           </div>
         </div>
       )}
@@ -3421,6 +3830,20 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
           onSaveAnnotation={handleSaveCustomAnnotation}
         />
       )}
+
+      {/* Epistemic Observation Modal (Manual Notes to Evidence Ledger) */}
+      <EpistemicObservationModal
+        isOpen={isEpistemicModalOpen}
+        onClose={() => setIsEpistemicModalOpen(false)}
+        point={epistemicTargetPoint}
+        bioregionName={selectedBioregionObjects[0]?.name || 'Pan-African Green Corridor'}
+        bioregionId={selectedBioregionObjects[0]?.id || 'pan-african'}
+        onNavigateToLedger={() => {
+          if (onSelectTab) {
+            onSelectTab('evidence-ledger');
+          }
+        }}
+      />
 
       {/* Historical Anomaly Detail Modal (Moving Average Stress Breakdown) */}
       <AnomalyDetailModal
