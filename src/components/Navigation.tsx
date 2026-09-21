@@ -507,60 +507,10 @@ export const Navigation: React.FC<NavigationProps> = ({
                     </div>
                   </button>
 
-                  <button
-                    onClick={() => {
-                      onSelectTab('agent-mission-control');
-                      setInnovationsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all ${
-                      currentTab === 'agent-mission-control'
-                        ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]'
-                        : 'hover:bg-[#141414] border border-transparent text-[#F5F5F0]'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-md bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <Radio className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-serif font-bold text-white">Agent Mission Control</span>
-                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-purple-950/80 text-purple-300 border border-purple-500/40 font-mono font-bold">
-                          GCP Swarm
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Autonomous Swarm Orchestration</p>
-                    </div>
-                  </button>
-
                   {/* Category 2: AI Engineering & Systems Studios */}
                   <div className="px-2 pt-2 text-[9px] font-mono uppercase text-blue-400/80 font-bold tracking-wider border-t border-[#F5F5F0]/10">
                     🔬 Next-Gen Studios & Causal Engines
                   </div>
-
-                  <button
-                    onClick={() => {
-                      onSelectTab('ai-engineering');
-                      setInnovationsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all ${
-                      currentTab === 'ai-engineering'
-                        ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]'
-                        : 'hover:bg-[#141414] border border-transparent text-[#F5F5F0]'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <Cpu className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-serif font-bold text-white">AI Engineering Studio</span>
-                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-blue-950/80 text-blue-300 border border-blue-500/40 font-mono font-bold">
-                          Gemini 3.7
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Multimodal Workbench & Live Voice</p>
-                    </div>
-                  </button>
 
                   <button
                     onClick={() => {

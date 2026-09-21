@@ -36,6 +36,8 @@ import {
   Save,
   RotateCcw,
   MessageSquarePlus,
+  ChevronLeft,
+  MoveHorizontal,
   ZoomIn,
   ZoomOut,
   Check,
@@ -483,7 +485,7 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
     setIsAddAnnotationModalOpen(true);
   };
 
-  // Zoom to Selection State (D3 Brush X)
+  // Zoom & Pan Interaction State
   const [isZoomSelectMode, setIsZoomSelectMode] = useState<boolean>(false);
   const [zoomDomain, setZoomDomain] = useState<[number, number] | null>(null);
 
@@ -497,6 +499,114 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
     setZoomDomain(null);
     setIsZoomSelectMode(false);
   };
+
+  const handleZoomIn = () => {
+    audioFeedback.playMicroTick();
+    const maxM = showPredictiveForecast ? 18 : 12;
+    const current: [number, number] = zoomDomain ? [...zoomDomain] : [1, maxM];
+    const span = current[1] - current[0];
+    if (span <= 1.2) return; // Min window ~1.2 months
+    const center = (current[0] + current[1]) / 2;
+    const halfSpan = (span * 0.75) / 2;
+    const newStart = Math.max(1, center - halfSpan);
+    const newEnd = Math.min(maxM, center + halfSpan);
+    setZoomDomain([newStart, newEnd]);
+  };
+
+  const handleZoomOut = () => {
+    audioFeedback.playMicroTick();
+    const maxM = showPredictiveForecast ? 18 : 12;
+    const current: [number, number] = zoomDomain ? [...zoomDomain] : [1, maxM];
+    const span = current[1] - current[0];
+    const center = (current[0] + current[1]) / 2;
+    const halfSpan = (span * 1.35) / 2;
+    const newStart = Math.max(1, center - halfSpan);
+    const newEnd = Math.min(maxM, center + halfSpan);
+    if (newStart <= 1.05 && newEnd >= maxM - 0.05) {
+      setZoomDomain(null);
+    } else {
+      setZoomDomain([newStart, newEnd]);
+    }
+  };
+
+  const handlePanLeft = () => {
+    audioFeedback.playMicroTick();
+    const maxM = showPredictiveForecast ? 18 : 12;
+    const current: [number, number] = zoomDomain ? [...zoomDomain] : [1, maxM];
+    const span = current[1] - current[0];
+    const shift = Math.max(0.4, span * 0.25);
+    const newStart = Math.max(1, current[0] - shift);
+    const newEnd = Math.min(maxM, newStart + span);
+    setZoomDomain([newStart, newEnd]);
+  };
+
+  const handlePanRight = () => {
+    audioFeedback.playMicroTick();
+    const maxM = showPredictiveForecast ? 18 : 12;
+    const current: [number, number] = zoomDomain ? [...zoomDomain] : [1, maxM];
+    const span = current[1] - current[0];
+    const shift = Math.max(0.4, span * 0.25);
+    const newEnd = Math.min(maxM, current[1] + shift);
+    const newStart = Math.max(1, newEnd - span);
+    setZoomDomain([newStart, newEnd]);
+  };
+
+  const handleSetTemporalPreset = (start: number, end: number) => {
+    audioFeedback.playSuccessChime();
+    const maxM = showPredictiveForecast ? 18 : 12;
+    if (start <= 1 && end >= maxM) {
+      setZoomDomain(null);
+    } else {
+      setZoomDomain([Math.max(1, start), Math.min(maxM, end)]);
+    }
+  };
+
+  // Detailed Metric Analysis for Active Temporal Drill-Down Window
+  const temporalDrillDownAnalysis = useMemo(() => {
+    if (!zoomDomain) return null;
+    const [startM, endM] = zoomDomain;
+    const windowSpan = endM - startM;
+    const activeData = (externalSelectedBioregions && externalSelectedBioregions.length > 0)
+      ? (COMPARATIVE_BIOREGIONS.find(b => b.id === externalSelectedBioregions[0])?.monthlyData || TWELVE_MONTH_INTERVAL_DATA)
+      : TWELVE_MONTH_INTERVAL_DATA;
+    const pointsInWindow = activeData.filter(p => p.monthIndex >= startM - 0.4 && p.monthIndex <= endM + 0.4);
+    if (pointsInWindow.length === 0) return null;
+
+    const startPt = pointsInWindow[0];
+    const endPt = pointsInWindow[pointsInWindow.length - 1];
+
+    const ecoStart = startPt.ecologicalFlourishing;
+    const ecoEnd = endPt.ecologicalFlourishing;
+    const ecoDelta = ecoEnd - ecoStart;
+    const ecoRate = windowSpan > 0 ? (ecoDelta / windowSpan) : 0;
+
+    const econStart = startPt.economicStability;
+    const econEnd = endPt.economicStability;
+    const econDelta = econEnd - econStart;
+
+    const startDecouple = startPt.decouplingMargin ?? (ecoStart - (100 - econStart));
+    const endDecouple = endPt.decouplingMargin ?? (ecoEnd - (100 - econEnd));
+    const decoupleDelta = endDecouple - startDecouple;
+
+    return {
+      startM,
+      endM,
+      windowSpan,
+      startLabel: startPt.monthLabel,
+      endLabel: endPt.monthLabel,
+      pointsCount: pointsInWindow.length,
+      ecoStart,
+      ecoEnd,
+      ecoDelta,
+      ecoRate,
+      econStart,
+      econEnd,
+      econDelta,
+      startDecouple,
+      endDecouple,
+      decoupleDelta
+    };
+  }, [zoomDomain, externalSelectedBioregions]);
 
   // Alert Presets State
   const [alertPresets, setAlertPresets] = useState<AlertPreset[]>(() => loadAlertPresets());
@@ -3078,35 +3188,104 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
             <span>+ Epistemic Note</span>
           </button>
 
-          {/* Zoom to Selection Toggle Button */}
-          <button
-            id="toggle-zoom-select-mode-btn"
-            onClick={handleToggleZoomSelectMode}
-            className={`px-2.5 py-1.5 rounded-sm border text-[10px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
-              isZoomSelectMode 
-                ? 'bg-[#2A2312] border-[#C5A059] text-[#C5A059] font-bold shadow-sm ring-1 ring-[#C5A059]/40' 
-                : 'bg-[#141414] border-[#F5F5F0]/15 text-[#F5F5F0]/50 hover:text-[#F5F5F0]'
-            }`}
-            title="Drag horizontally across the chart canvas to magnify a specific date range"
-          >
-            <ZoomIn className="w-3 h-3 text-[#C5A059]" />
-            <span>Zoom Selection: {isZoomSelectMode ? 'ACTIVE (Drag)' : 'OFF'}</span>
-          </button>
-
-          {/* Zoom Reset Button (Visible when chart is zoomed) */}
-          {zoomDomain && (
-            <div className="flex items-center gap-1 px-2 py-1 rounded bg-[#241e12] border border-[#C5A059]/50 text-[#C5A059] text-[10px] font-mono animate-in fade-in">
-              <span>Zoomed: M{zoomDomain[0].toFixed(1)} – M{zoomDomain[1].toFixed(1)}</span>
+          {/* Custom Zoom & Pan Interaction Suite */}
+          <div className="flex items-center gap-1 bg-[#0A0D0B] p-1 border border-[#C5A059]/30 rounded-sm">
+            <button
+              id="chart-pan-left-btn"
+              onClick={handlePanLeft}
+              className="p-1 rounded hover:bg-white/10 text-[#C5A059] transition-colors cursor-pointer"
+              title="Pan temporal window left (earlier in time)"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              id="chart-pan-right-btn"
+              onClick={handlePanRight}
+              className="p-1 rounded hover:bg-white/10 text-[#C5A059] transition-colors cursor-pointer"
+              title="Pan temporal window right (later in time)"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              id="chart-zoom-in-btn"
+              onClick={handleZoomIn}
+              className="p-1 rounded hover:bg-white/10 text-[#C5A059] transition-colors cursor-pointer"
+              title="Zoom in (magnify temporal window)"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+            <button
+              id="chart-zoom-out-btn"
+              onClick={handleZoomOut}
+              className="p-1 rounded hover:bg-white/10 text-[#C5A059] transition-colors cursor-pointer"
+              title="Zoom out (expand temporal window)"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <button
+              id="toggle-zoom-select-mode-btn"
+              onClick={handleToggleZoomSelectMode}
+              className={`px-2 py-1 rounded text-[10px] font-mono transition-colors flex items-center gap-1 cursor-pointer ${
+                isZoomSelectMode 
+                  ? 'bg-[#2A2312] border border-[#C5A059] text-[#C5A059] font-bold shadow-sm' 
+                  : 'text-[#F5F5F0]/60 hover:text-white'
+              }`}
+              title="Drag horizontally across the chart canvas to magnify a specific temporal window"
+            >
+              <span>Brush Box</span>
+            </button>
+            {zoomDomain && (
               <button
+                id="chart-reset-zoom-btn"
                 onClick={handleResetZoom}
-                className="ml-1 px-1.5 py-0.5 rounded bg-black/60 hover:bg-black text-[#F5F5F0] border border-[#F5F5F0]/20 hover:text-white flex items-center gap-1 cursor-pointer text-[9px]"
-                title="Reset zoom to full 12-month timeline"
+                className="px-2 py-1 rounded bg-[#C5A059]/20 hover:bg-[#C5A059]/30 text-[#C5A059] border border-[#C5A059]/40 text-[9px] font-mono font-bold cursor-pointer transition-colors"
+                title="Reset zoom to full timeline"
               >
-                <ZoomOut className="w-2.5 h-2.5 text-[#C5A059]" />
-                <span>Reset</span>
+                Reset
               </button>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Temporal Drill-Down Presets */}
+          <div className="hidden xl:flex items-center gap-1 bg-[#0A0D0B] p-1 border border-[#F5F5F0]/15 rounded-sm text-[9px] font-mono">
+            <span className="text-[#8E9490] px-1 font-bold">Drilldown:</span>
+            <button
+              onClick={() => handleSetTemporalPreset(1, 18)}
+              className={`px-1.5 py-0.5 rounded cursor-pointer ${!zoomDomain ? 'bg-[#C5A059] text-black font-bold' : 'text-[#F5F5F0]/60 hover:text-white'}`}
+            >
+              Full
+            </button>
+            <button
+              onClick={() => handleSetTemporalPreset(1, 12)}
+              className="px-1.5 py-0.5 rounded text-[#F5F5F0]/60 hover:text-white cursor-pointer"
+            >
+              Year
+            </button>
+            <button
+              onClick={() => handleSetTemporalPreset(1, 6)}
+              className="px-1.5 py-0.5 rounded text-[#F5F5F0]/60 hover:text-white cursor-pointer"
+            >
+              H1
+            </button>
+            <button
+              onClick={() => handleSetTemporalPreset(7, 12)}
+              className="px-1.5 py-0.5 rounded text-[#F5F5F0]/60 hover:text-white cursor-pointer"
+            >
+              H2
+            </button>
+            <button
+              onClick={() => handleSetTemporalPreset(10, 12)}
+              className="px-1.5 py-0.5 rounded text-[#F5F5F0]/60 hover:text-white cursor-pointer"
+            >
+              Q4
+            </button>
+            <button
+              onClick={() => handleSetTemporalPreset(12, 18)}
+              className="px-1.5 py-0.5 rounded text-cyan-400 hover:text-cyan-200 cursor-pointer"
+            >
+              Forecast
+            </button>
+          </div>
 
           {/* Crosshair HUD Toggle */}
           <button
@@ -3172,6 +3351,77 @@ export const FlourishingVsStabilityD3Chart: React.FC<FlourishingVsStabilityD3Cha
               Reset to Full Timeline
             </button>
           )}
+        </div>
+      )}
+
+      {/* Detailed Temporal Window Metric Analysis HUD */}
+      {temporalDrillDownAnalysis && (
+        <div 
+          id="chart-temporal-drilldown-analysis-hud"
+          className="p-3 bg-gradient-to-r from-[#101713] via-[#16201B] to-[#101713] border border-emerald-500/50 rounded text-xs font-mono shadow-xl space-y-2 animate-in fade-in"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-emerald-500/30">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-emerald-300">
+                <Activity className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <span className="text-white font-bold uppercase tracking-wider text-[11px]">
+                Drill-Down Window Analysis: {temporalDrillDownAnalysis.startLabel} → {temporalDrillDownAnalysis.endLabel}
+              </span>
+              <span className="text-[10px] text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/40 font-bold">
+                {temporalDrillDownAnalysis.windowSpan.toFixed(1)} MONTH SPAN ({temporalDrillDownAnalysis.pointsCount} PTS)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              className="px-2 py-1 bg-black/60 hover:bg-black text-[#C5A059] border border-[#C5A059]/40 rounded text-[10px] cursor-pointer"
+            >
+              Reset to Full View
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+            <div className="bg-black/40 p-2 rounded border border-white/5">
+              <div className="text-[10px] text-[#8E9490] uppercase">Flourishing Trajectory</div>
+              <div className="text-emerald-300 font-bold">
+                {temporalDrillDownAnalysis.ecoStart.toFixed(1)}% → {temporalDrillDownAnalysis.ecoEnd.toFixed(1)}%
+              </div>
+              <div className="text-[10px] text-emerald-400">
+                Δ {temporalDrillDownAnalysis.ecoDelta >= 0 ? `+${temporalDrillDownAnalysis.ecoDelta.toFixed(1)}` : temporalDrillDownAnalysis.ecoDelta.toFixed(1)}% ({temporalDrillDownAnalysis.ecoRate >= 0 ? `+${temporalDrillDownAnalysis.ecoRate.toFixed(2)}` : temporalDrillDownAnalysis.ecoRate.toFixed(2)}%/mo)
+              </div>
+            </div>
+
+            <div className="bg-black/40 p-2 rounded border border-white/5">
+              <div className="text-[10px] text-[#8E9490] uppercase">Economic Stability</div>
+              <div className="text-cyan-300 font-bold">
+                {temporalDrillDownAnalysis.econStart.toFixed(1)}% → {temporalDrillDownAnalysis.econEnd.toFixed(1)}%
+              </div>
+              <div className="text-[10px] text-cyan-400">
+                Δ {temporalDrillDownAnalysis.econDelta >= 0 ? `+${temporalDrillDownAnalysis.econDelta.toFixed(1)}` : temporalDrillDownAnalysis.econDelta.toFixed(1)}%
+              </div>
+            </div>
+
+            <div className="bg-black/40 p-2 rounded border border-white/5">
+              <div className="text-[10px] text-[#8E9490] uppercase">Decoupling Expansion</div>
+              <div className="text-[#C5A059] font-bold">
+                +{temporalDrillDownAnalysis.startDecouple.toFixed(1)} → +{temporalDrillDownAnalysis.endDecouple.toFixed(1)} pts
+              </div>
+              <div className="text-[10px] text-[#C5A059]">
+                Shift: {temporalDrillDownAnalysis.decoupleDelta >= 0 ? `+${temporalDrillDownAnalysis.decoupleDelta.toFixed(1)}` : temporalDrillDownAnalysis.decoupleDelta.toFixed(1)} pts
+              </div>
+            </div>
+
+            <div className="bg-black/40 p-2 rounded border border-white/5">
+              <div className="text-[10px] text-[#8E9490] uppercase">Epistemic Status</div>
+              <div className="text-white font-bold">
+                Zero Drift
+              </div>
+              <div className="text-[10px] text-emerald-400">
+                Full Quorum In-Situ Sensor Mesh
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

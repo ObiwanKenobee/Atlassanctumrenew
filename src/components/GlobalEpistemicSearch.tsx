@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Sparkles, X, ArrowRight, Layers, FileText, AlertTriangle, ShieldCheck, Database, Compass, Zap, Bot, Globe2, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import { Search, Sparkles, X, ArrowRight, Layers, FileText, AlertTriangle, ShieldCheck, Database, Compass, Zap, Bot, Globe2, ExternalLink, TrendingUp, RefreshCw } from 'lucide-react';
 import { SearchableItem, fuzzySearch } from '../lib/fuzzySearch';
 import { PageView } from '../types';
 import { FAILURE_LEDGER_ENTRIES } from '../data/failureLedgerData';
 import { MISSION_ANALYTICS_DATA } from '../data/missionAnalyticsData';
 import { ATLAS_GOOGLE_SITELINKS } from '../data/googleSitelinksData';
 import { audioFeedback } from '../lib/audioFeedback';
+
+// Lazy-loaded Trending Epistemic Insights Component to keep modal performant
+const TrendingEpistemicInsights = lazy(() => import('./epistemic/TrendingEpistemicInsights'));
 
 interface GlobalEpistemicSearchProps {
   isOpen: boolean;
@@ -258,6 +261,47 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
     return list;
   }, [searchIndex, query, activeCategory]);
 
+  // Real-time autocomplete suggestions categorized into views and ledger entries
+  const autocompleteSuggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return { views: [], ledgers: [], topMatchText: '' };
+
+    const matchedViews = searchIndex
+      .filter((item) => 
+        (item.category === 'view' || item.category === 'agent' || item.category === 'moral' || item.category === 'capital') && (
+          item.title.toLowerCase().includes(q) ||
+          (item.tags && item.tags.some(t => t.toLowerCase().includes(q))) ||
+          (item.subtitle && item.subtitle.toLowerCase().includes(q))
+        )
+      )
+      .slice(0, 4);
+
+    const matchedLedgers = searchIndex
+      .filter((item) => 
+        (item.category === 'ledger' || item.category === 'failure' || item.category === 'evidence') && (
+          item.title.toLowerCase().includes(q) ||
+          (item.tags && item.tags.some(t => t.toLowerCase().includes(q))) ||
+          (item.subtitle && item.subtitle.toLowerCase().includes(q))
+        )
+      )
+      .slice(0, 4);
+
+    // Predict top matching phrase for ghost autocomplete
+    let topMatchText = '';
+    const topCandidate = matchedViews[0] || matchedLedgers[0];
+    if (topCandidate) {
+      const words = topCandidate.title.split(/[\s(]+/);
+      const matchedWord = words.find((w) => w.toLowerCase().startsWith(q));
+      if (matchedWord && matchedWord.length > q.length) {
+        topMatchText = matchedWord;
+      } else if (topCandidate.title.toLowerCase().startsWith(q)) {
+        topMatchText = topCandidate.title.split('(')[0].trim();
+      }
+    }
+
+    return { views: matchedViews, ledgers: matchedLedgers, topMatchText };
+  }, [query, searchIndex]);
+
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -271,6 +315,9 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
 
       if (e.key === 'Escape') {
         onClose();
+      } else if (e.key === 'Tab' && autocompleteSuggestions.topMatchText) {
+        e.preventDefault();
+        setQuery(autocompleteSuggestions.topMatchText);
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex((prev) => (prev < filteredResults.length - 1 ? prev + 1 : 0));
@@ -285,7 +332,7 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, filteredResults, selectedIndex]);
+  }, [isOpen, filteredResults, selectedIndex, autocompleteSuggestions]);
 
   const handleSelect = (item: SearchableItem) => {
     audioFeedback.play('softClick');
@@ -299,6 +346,7 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
 
   const categories = [
     { id: 'all', label: 'All Knowledge' },
+    { id: 'trending', label: '⚡ Trending Search Grounding' },
     { id: 'agent', label: 'Autonomous Agents' },
     { id: 'view', label: 'Views & Modules' },
     { id: 'ledger', label: 'Ledgers' },
@@ -362,6 +410,66 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
           </button>
         </div>
 
+        {/* Real-Time Autocomplete Suggestion Shelf */}
+        {query.trim().length > 0 && (autocompleteSuggestions.views.length > 0 || autocompleteSuggestions.ledgers.length > 0) && (
+          <div 
+            id="epistemic-search-autocomplete-shelf"
+            className="px-4 py-2.5 bg-[#0A100C] border-b border-[#C5A059]/30 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150"
+          >
+            <div className="flex items-center justify-between text-[10px] font-mono">
+              <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[#C5A059]">
+                <Sparkles className="w-3.5 h-3.5 text-[#C5A059] animate-pulse" />
+                Real-Time Autocomplete Suggestions
+              </span>
+              {autocompleteSuggestions.topMatchText && (
+                <span className="text-[#F5F5F0]/50 text-[10px] hidden sm:inline">
+                  Press <kbd className="px-1 py-0.5 rounded bg-white/10 text-white font-mono text-[9px]">Tab</kbd> to complete &quot;<span className="text-[#C5A059]">{autocompleteSuggestions.topMatchText}</span>&quot;
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              {/* Suggested Views */}
+              {autocompleteSuggestions.views.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[9px] font-mono uppercase text-[#8FB8DE] font-bold shrink-0">Views:</span>
+                  {autocompleteSuggestions.views.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => handleSelect(v)}
+                      className="px-2 py-0.5 rounded bg-cyan-950/70 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-200 text-[11px] font-mono flex items-center gap-1 transition-all cursor-pointer group shadow-xs"
+                      title={`Jump to view: ${v.title}`}
+                    >
+                      <Compass className="w-3 h-3 text-cyan-400 group-hover:rotate-45 transition-transform" />
+                      <span className="font-semibold">{v.title.split('(')[0].trim()}</span>
+                      <ArrowRight className="w-2.5 h-2.5 text-cyan-400 opacity-60 group-hover:opacity-100" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Suggested Ledgers */}
+              {autocompleteSuggestions.ledgers.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[9px] font-mono uppercase text-amber-400/80 font-bold shrink-0">Ledgers:</span>
+                  {autocompleteSuggestions.ledgers.map((l) => (
+                    <button
+                      key={l.id}
+                      onClick={() => handleSelect(l)}
+                      className="px-2 py-0.5 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-500/40 text-amber-200 text-[11px] font-mono flex items-center gap-1 transition-all cursor-pointer group shadow-xs"
+                      title={`Open ledger record: ${l.title}`}
+                    >
+                      <FileText className="w-3 h-3 text-amber-400" />
+                      <span className="font-semibold truncate max-w-[200px]">{l.title}</span>
+                      <ArrowRight className="w-2.5 h-2.5 text-amber-400 opacity-60 group-hover:opacity-100" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Category Pills */}
         <div className="flex items-center gap-1.5 px-4 py-2 bg-[#0A0A0A] border-b border-[#F5F5F0]/10 overflow-x-auto text-[11px] font-mono scrollbar-none">
           {categories.map((c) => (
@@ -424,6 +532,23 @@ export const GlobalEpistemicSearch: React.FC<GlobalEpistemicSearchProps> = ({
               ))}
             </div>
           </div>
+        )}
+
+        {/* Real-time Trending Epistemic Insights (Lazy-loaded component with Google Search Grounding) */}
+        {(!query || activeCategory === 'trending') && (
+          <Suspense fallback={
+            <div className="p-4 bg-[#0F1412] border-b border-[#C5A059]/30 flex items-center justify-center gap-2 text-xs font-mono text-[#C5A059]">
+              <Sparkles className="w-3.5 h-3.5 animate-spin" />
+              <span>Lazy-loading Trending Epistemic Insights...</span>
+            </div>
+          }>
+            <TrendingEpistemicInsights
+              onApplyQuery={(q) => {
+                setQuery(q);
+                setSelectedIndex(0);
+              }}
+            />
+          </Suspense>
         )}
 
         {/* Search Results List */}

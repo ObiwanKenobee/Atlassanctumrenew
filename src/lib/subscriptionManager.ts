@@ -426,7 +426,6 @@ export function checkViewAccess(targetView: PageView, currentTier: SubscriptionT
     'opportunity-matchmaker',
     'opportunity-graph',
     'bioregional-twin',
-    'bioregional-ledger',
     'living-reality',
     'flourishing-index',
     'sentinel',

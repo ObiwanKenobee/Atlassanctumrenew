@@ -421,28 +421,43 @@ export const TEMPORAL_EPOCH_TIMELINE: TemporalEpochPoint[] = [
   }
 ];
 
-interface TemporalSliderProps {
-  currentEpochIndex: number; // 1 - 24
+export const TEMPORAL_EPOCH_DATA = TEMPORAL_EPOCH_TIMELINE;
+
+export interface TemporalSliderProps {
+  currentEpochIndex?: number; // 1 - 24
+  activeEpochIndex?: number; // 0 - 23 or 1 - 24
   onEpochChange: (point: TemporalEpochPoint) => void;
+  onInspectPoint?: (point: TemporalEpochPoint) => void;
   className?: string;
 }
 
 export const TemporalSlider: React.FC<TemporalSliderProps> = ({
-  currentEpochIndex = 12,
+  currentEpochIndex,
+  activeEpochIndex: activeEpochProp,
   onEpochChange,
+  onInspectPoint,
   className = ''
 }) => {
+  const normalizedInitial = typeof activeEpochProp === 'number'
+    ? (activeEpochProp < 1 ? activeEpochProp + 1 : activeEpochProp)
+    : (currentEpochIndex ?? 12);
+
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 0.5x, 1x, 2x
-  const [activeEpochIndex, setActiveEpochIndex] = useState<number>(currentEpochIndex);
+  const [activeEpochIndex, setActiveEpochIndex] = useState<number>(normalizedInitial);
   const playTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const activePoint = TEMPORAL_EPOCH_TIMELINE.find(p => p.monthIndex === activeEpochIndex) || TEMPORAL_EPOCH_TIMELINE[11];
 
   // Sync internal state when prop changes
   useEffect(() => {
-    setActiveEpochIndex(currentEpochIndex);
-  }, [currentEpochIndex]);
+    const val = typeof activeEpochProp === 'number' 
+      ? (activeEpochProp < 1 ? activeEpochProp + 1 : activeEpochProp)
+      : currentEpochIndex;
+    if (typeof val === 'number') {
+      setActiveEpochIndex(val);
+    }
+  }, [currentEpochIndex, activeEpochProp]);
 
   // Automated playback loop
   useEffect(() => {
@@ -718,9 +733,13 @@ export const TemporalSlider: React.FC<TemporalSliderProps> = ({
           <span className="text-[9px] text-[#F5F5F0]/40">Vs Extractive Line</span>
         </div>
 
-        <div>
-          <span className="text-[10px] text-[#F5F5F0]/50 block uppercase">SHA-256 Proof</span>
-          <div className="text-[#F5F5F0]/90 text-[11px] truncate font-mono">
+        <div 
+          onClick={() => onInspectPoint?.(activePoint)}
+          className="cursor-pointer hover:bg-white/5 p-1 rounded transition-colors group"
+          title="Click to inspect cryptographic provenance and sensor pod quorum"
+        >
+          <span className="text-[10px] text-[#F5F5F0]/50 block uppercase group-hover:text-[#C5A059]">SHA-256 Proof ↗</span>
+          <div className="text-[#F5F5F0]/90 text-[11px] truncate font-mono group-hover:text-white">
             {activePoint.cryptographicHash}
           </div>
           <span className="text-[9px] text-emerald-400/80">Merkle Verified</span>

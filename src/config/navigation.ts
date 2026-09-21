@@ -111,24 +111,6 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
           analytics: { category: 'Navigation', action: 'navigate_sentinel_dropdown' }
         },
         {
-          id: 'hackathon-mission-control',
-          label: 'Agent Mission Control (Summer Blockbuster)',
-          description: 'Autonomous Multi-Agent Swarm Orchestration, Self-Healing & Distributed Reasoning',
-          icon: Radio,
-          targetTab: 'agent-mission-control',
-          badge: { text: 'GCP Showcase', variant: 'gold' },
-          analytics: { category: 'Navigation', action: 'navigate_mission_control_dropdown' }
-        },
-        {
-          id: 'hackathon-ai-engineering',
-          label: 'AI Engineering & Multimodal Workbench',
-          description: 'Google Gemini 3.7 Studio, Live Voice, Prompt Inspection & Token Telemetry',
-          icon: Cpu,
-          targetTab: 'ai-engineering',
-          badge: { text: 'Gemini 3.7', variant: 'emerald' },
-          analytics: { category: 'Navigation', action: 'navigate_ai_engineering_dropdown' }
-        },
-        {
           id: 'hackathon-system-model-studio',
           label: 'Systems Dynamics & Causal Modeling',
           description: 'Stock-Flow Differential Simulation, Causal DAGs & Meadows Leverage Points',
@@ -157,12 +139,30 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
         },
         {
           id: 'hackathon-alchemical-sanctum',
-          label: 'The Alchemical Sanctum (Magnum Opus)',
-          description: 'Wonder & Sacred Arts: Solfeggio Harmonics, Transmutation Crucible, Arcane Sigil Forge & 7 Archetypes',
+          label: 'The Alchemical Sanctum',
+          description: 'Sacred Arts, 7 Archetypes & Planetary Regenerative Wonder',
           icon: Sparkles,
           targetTab: 'alchemical-sanctum',
-          badge: { text: 'Sacred Wonder', variant: 'gold', pulse: true },
-          analytics: { category: 'Navigation', action: 'navigate_alchemical_dropdown' }
+          badge: { text: '7 Archetypes', variant: 'gold' },
+          analytics: { category: 'Navigation', action: 'navigate_alchemical_sanctum_dropdown' }
+        },
+        {
+          id: 'hackathon-agent-mission-control',
+          label: 'Agent Mission Control',
+          description: 'Autonomous Agent Hive Operations & Real-time Task Orchestration',
+          icon: Radio,
+          targetTab: 'agent-mission-control',
+          badge: { text: 'Summer Blockbuster', variant: 'gold' },
+          analytics: { category: 'Navigation', action: 'navigate_agent_mission_control_dropdown' }
+        },
+        {
+          id: 'hackathon-ai-engineering',
+          label: 'AI Engineering Workbench',
+          description: 'Gemini 3.7 Epistemic Workbench, Model Probing & Alignment Testbeds',
+          icon: Cpu,
+          targetTab: 'ai-engineering',
+          badge: { text: 'Gemini 3.7', variant: 'emerald' },
+          analytics: { category: 'Navigation', action: 'navigate_ai_engineering_dropdown' }
         }
       ]
     },
@@ -176,42 +176,6 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
       icon: TreeDeciduous,
       targetTab: 'home',
       analytics: { category: 'Navigation', action: 'navigate_home' }
-    },
-
-    // 1a. The Alchemical Sanctum of Wonder & Sacred Arts
-    {
-      id: 'alchemical-sanctum',
-      label: 'Alchemical Sanctum',
-      labelKey: 'nav.alchemical_sanctum',
-      type: 'link',
-      icon: Sparkles,
-      targetTab: 'alchemical-sanctum',
-      badge: { text: '7 Archetypes', variant: 'gold', pulse: true },
-      analytics: { category: 'Navigation', action: 'navigate_alchemical_sanctum' }
-    },
-
-    // 1b. Autonomous Agent Mission Control (Google Cloud Summer Blockbuster Hackathon Showcase)
-    {
-      id: 'agent-mission-control',
-      label: 'Mission Control',
-      labelKey: 'nav.agent_mission_control',
-      type: 'link',
-      icon: Radio,
-      targetTab: 'agent-mission-control',
-      badge: { text: 'Summer Blockbuster', variant: 'gold', pulse: true },
-      analytics: { category: 'Navigation', action: 'navigate_agent_mission_control' }
-    },
-
-    // 1c. AI Engineering & Epistemic Insights Workbench
-    {
-      id: 'ai-engineering',
-      label: 'AI Engineering',
-      labelKey: 'nav.ai_engineering',
-      type: 'link',
-      icon: Cpu,
-      targetTab: 'ai-engineering',
-      badge: { text: 'Gemini 3.7', variant: 'emerald', pulse: true },
-      analytics: { category: 'Navigation', action: 'navigate_ai_engineering' }
     },
 
     // 2. Civilization Observatory & Sensory Mesh (High-Density Mega Menu)

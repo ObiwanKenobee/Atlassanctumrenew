@@ -57,6 +57,7 @@ import { ResourceAllocationPlanner } from '../bioregional/ResourceAllocationPlan
 import { RegenerativePeerComparison } from '../bioregional/RegenerativePeerComparison';
 import { generateBioregionalPDFReport } from '../../lib/generateBioregionalReport';
 import { useVerificationToast } from '../../context/VerificationToastContext';
+import { useBioregionalHazard } from '../../context/BioregionalHazardContext';
 import { audioFeedback } from '../../lib/audioFeedback';
 
 interface BioregionalLedgerViewProps {
@@ -69,6 +70,27 @@ export const BioregionalLedgerView: React.FC<BioregionalLedgerViewProps> = ({
   onSelectTab
 }) => {
   const { notifyVerified, notifyEcologicalAlert } = useVerificationToast();
+  const { 
+    alerts,
+    activeAlerts,
+    sensorFeeds,
+    activeCriticalBannerAlert,
+    deployRemediationAccord,
+    resolveSensorBreach,
+    injectThresholdBreach,
+    resetToNominal,
+    activeSensorsOnlineCount
+  } = useBioregionalHazard();
+
+  const [isDeployingAccord, setIsDeployingAccord] = useState<boolean>(false);
+  const [deployedAccordReceipt, setDeployedAccordReceipt] = useState<{
+    accordName: string;
+    hash: string;
+    sensorNodeId: string;
+    timestamp: string;
+    stabilizedValue: number;
+    unit: string;
+  } | null>(null);
 
   const [selectedRegionId, setSelectedRegionId] = useState<string>('mara-serengeti');
   const [activeTab, setActiveTab] = useState<'metrics' | 'flows' | 'impact_map' | 'simulator' | 'planner' | 'peer_benchmark'>('metrics');
@@ -655,56 +677,282 @@ export const BioregionalLedgerView: React.FC<BioregionalLedgerViewProps> = ({
         />
       )}
 
-      {/* REAL-TIME ECOLOGICAL ALERT SENTINEL & THRESHOLD WATCH */}
-      <div className="p-3.5 sm:p-4 rounded-xl bg-[#0B0F0C] border border-amber-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 font-mono text-xs">
-        <div className="flex items-center gap-2.5">
-          <span className="p-2 rounded-lg bg-amber-950/60 text-amber-400 border border-amber-500/40 shrink-0">
-            <BellRing className="w-4 h-4 animate-pulse" />
-          </span>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-serif font-bold text-white tracking-wide">
-                Ecological Sentinel & Critical Threshold Watch
-              </span>
-              <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-950 text-emerald-400 border border-emerald-500/40">
-                Active In-Situ Mesh
-              </span>
-              <span className="text-[10px] text-neutral-400">
-                • 5 Monitored Biophysical Boundaries
-              </span>
-            </div>
-            <div className="text-[11px] text-[#F5F5F0]/70 font-sans mt-0.5 flex flex-wrap items-center gap-3">
-              <span>Water Baseflow: <strong className="text-cyan-400 font-mono">Nominal ({'>'}4.5 m³/s)</strong></span>
-              <span>Soil Organic Carbon: <strong className="text-emerald-400 font-mono">Nominal ({'>'}2.10%)</strong></span>
-              <span>Aquifer Head: <strong className="text-[#C5A059] font-mono">Restoring (+3.8m)</strong></span>
-            </div>
+      {/* BIOREGIONAL HAZARD SENTINEL & ACCORD REMEDIATION EXECUTION CONSOLE */}
+      {(() => {
+        const currentBreachedSensor = sensorFeeds.find(s => s.isBreached) || null;
+        const activeHazard = activeCriticalBannerAlert || (activeAlerts && activeAlerts.length > 0 ? activeAlerts[0] : null);
+        const hasBreach = Boolean(currentBreachedSensor || activeHazard);
+        const targetNodeId = currentBreachedSensor?.sensorNodeId || activeHazard?.sensorNodeId || 'NODE-MARA-SOIL-119';
+        const targetSensor = sensorFeeds.find(s => s.sensorNodeId === targetNodeId) || currentBreachedSensor || sensorFeeds[1];
+
+        const handleExecuteAccord = async () => {
+          setIsDeployingAccord(true);
+          audioFeedback.play('actionSuccess');
+          try {
+            const accordTitle = targetSensor?.recommendedAction || 'Sovereign Agroecological Restoration & Pastoral Rotational Swales Accord';
+            const result = await deployRemediationAccord(targetNodeId, accordTitle);
+            
+            const receipt = {
+              accordName: accordTitle,
+              hash: result.hash,
+              sensorNodeId: targetNodeId,
+              timestamp: new Date().toISOString(),
+              stabilizedValue: targetSensor ? (targetSensor.nominalRange[0] + (targetSensor.nominalRange[1] - targetSensor.nominalRange[0]) * 0.55) : 26.4,
+              unit: targetSensor?.unit || '%'
+            };
+            setDeployedAccordReceipt(receipt);
+
+            notifyVerified({
+              title: 'Bioregional Remediation Accord Enacted',
+              claim: `Verified accord deployed for ${targetSensor?.name || 'Mara Basin'}. Telemetry stabilized and Merkle proof broadcast.`,
+              hash: result.hash,
+              verifier: 'Mara Transboundary Commission & Sovereign Assembly',
+              certaintyScore: 99.8,
+              telemetrySource: 'Distributed In-Situ LoRaWAN Mesh + Sentinel Epistemic Layer'
+            });
+          } catch (err) {
+            console.error('Failed to deploy remediation accord:', err);
+          } finally {
+            setIsDeployingAccord(false);
+          }
+        };
+
+        return (
+          <div className="space-y-3 font-mono">
+            {/* SUCCESS RECEIPT CARD (if accord was just deployed) */}
+            {deployedAccordReceipt && (
+              <div 
+                id="remediation-accord-receipt-banner"
+                className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/90 via-emerald-900/80 to-[#0A1A12] border-2 border-emerald-500 text-emerald-100 shadow-[0_0_25px_rgba(16,185,129,0.3)] transition-all animate-in fade-in slide-in-from-top-2 duration-300"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-500 text-black shrink-0 mt-0.5 sm:mt-0">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-serif font-bold text-white text-sm sm:text-base tracking-wide">
+                          Remediation Accord Enacted & Verified
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-400 text-black">
+                          Merkle Block Confirmed
+                        </span>
+                        <span className="text-[10px] text-emerald-300/80">
+                          {new Date(deployedAccordReceipt.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-emerald-200/90 font-sans mt-0.5">
+                        Sensor Node <strong className="font-mono text-white">{deployedAccordReceipt.sensorNodeId}</strong> successfully stabilized to{' '}
+                        <strong className="font-mono text-white">{deployedAccordReceipt.stabilizedValue.toFixed(1)} {deployedAccordReceipt.unit}</strong>.
+                        The critical alert banner has been cleared platform-wide.
+                      </p>
+                      <div className="text-[10px] font-mono text-emerald-400/90 mt-1 flex items-center gap-2 flex-wrap">
+                        <span>Merkle Hash: <code className="bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">{deployedAccordReceipt.hash}</code></span>
+                        <span>•</span>
+                        <span>Protocol: <span className="text-white">FPIC-Ratified Commoning Mandate</span></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <button
+                      onClick={() => onInspectProvenance({
+                        id: `accord-${deployedAccordReceipt.sensorNodeId}`,
+                        source: 'Mara Transboundary Commission & Savory Africa Hub (Sovereign In-Situ Mesh)',
+                        sourceType: 'iot_sensor_mesh',
+                        collectedAt: deployedAccordReceipt.timestamp,
+                        calculationMethod: 'Multi-Sig Sovereign Accord Telemetry Calibration & FPIC Ratification',
+                        certaintyScore: 99.8,
+                        verifier: 'Mara Transboundary Commission & Savory Africa Hub',
+                        verifierRole: 'Sovereign Bioregional Authority',
+                        cryptographicHash: deployedAccordReceipt.hash,
+                        assumptions: [
+                          'Rotational livestock kraaling applied with biochar inoculation',
+                          'Baseflow withdrawal restricted to sovereign quota',
+                          'LoRaWAN telemetry node calibrated with Doppler acoustics'
+                        ],
+                        lastAudited: new Date().toISOString().split('T')[0],
+                        merkleProofCount: 16,
+                        merkleRootHash: deployedAccordReceipt.hash
+                      })}
+                      className="px-2.5 py-1.5 bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-500/50 text-emerald-200 hover:text-white rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Inspect Provenance</span>
+                    </button>
+                    <button
+                      onClick={() => setDeployedAccordReceipt(null)}
+                      className="p-1.5 text-emerald-400/70 hover:text-white hover:bg-emerald-800/40 rounded transition-colors cursor-pointer"
+                      title="Dismiss receipt"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CRITICAL BREACH ACCORD DEPLOYMENT CONSOLE (Active Breach) */}
+            {hasBreach ? (
+              <div 
+                id="bioregional-active-breach-console"
+                className="p-4 sm:p-5 rounded-xl bg-gradient-to-r from-rose-950/90 via-red-950/80 to-[#1A0A0E] border-2 border-rose-500/80 text-rose-100 shadow-[0_0_30px_rgba(244,63,94,0.35)] space-y-4"
+              >
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-rose-800/40 pb-3">
+                  <div className="flex items-start gap-3">
+                    <span className="p-2 rounded-lg bg-rose-500 text-black shrink-0 mt-0.5 animate-pulse">
+                      <AlertTriangle className="w-5 h-5" />
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-serif font-bold text-white text-base sm:text-lg tracking-wide">
+                          Bioregional Critical Threshold Breach Detected
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500 text-black">
+                          Immediate Remediation Required
+                        </span>
+                        <span className="text-[10px] text-rose-300 font-mono">
+                          Node: {targetNodeId}
+                        </span>
+                      </div>
+                      <p className="text-xs text-rose-200/90 font-sans mt-0.5">
+                        In-situ telemetric sentinel detected a persistent biophysical boundary violation in{' '}
+                        <strong className="text-white">{targetSensor?.basinName || activeHazard?.regionName || 'Mara-Serengeti Savanna Basin'}</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end lg:self-center shrink-0">
+                    <button
+                      id="deploy-remediation-accord-main-btn"
+                      onClick={handleExecuteAccord}
+                      disabled={isDeployingAccord}
+                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold font-mono text-xs uppercase tracking-wider rounded-lg shadow-lg hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:scale-[1.02]"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{isDeployingAccord ? 'Deploying Accord & Mining Proof...' : 'Deploy Remediation Accord'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        resolveSensorBreach(targetNodeId);
+                        audioFeedback.playSuccessChime();
+                      }}
+                      className="px-3 py-2 bg-black/60 hover:bg-black/90 border border-rose-500/40 hover:border-rose-400 text-rose-200 font-mono text-xs uppercase rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                      title="Directly calibrate sensor telemetry to nominal midpoint"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-rose-400" />
+                      <span className="hidden sm:inline">Stabilize Sensor</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Telemetry Breach Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono">
+                  <div className="p-3 rounded-lg bg-black/40 border border-rose-800/30 space-y-1">
+                    <div className="text-[10px] uppercase text-rose-400/80 font-bold">Telemetry Node & Metric</div>
+                    <div className="text-white font-bold text-sm truncate">{targetSensor?.name || activeHazard?.metricName}</div>
+                    <div className="text-[10px] text-[#F5F5F0]/60 truncate">{targetSensor?.telemetrySource || activeHazard?.telemetrySource}</div>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-black/40 border border-rose-800/30 space-y-1">
+                    <div className="text-[10px] uppercase text-rose-400/80 font-bold">Current vs Critical Boundary</div>
+                    <div className="text-sm font-bold flex items-baseline gap-2">
+                      <span className="text-rose-400 text-base">{targetSensor?.currentValue || activeHazard?.currentValue} {targetSensor?.unit || activeHazard?.unit}</span>
+                      <span className="text-[#F5F5F0]/40">/</span>
+                      <span className="text-[#F5F5F0]/70">Threshold: {targetSensor?.thresholdOperator === 'less_than' ? '<' : '>'} {targetSensor?.criticalThreshold || activeHazard?.criticalThreshold} {targetSensor?.unit || activeHazard?.unit}</span>
+                    </div>
+                    <div className="text-[10px] text-rose-300 font-bold">
+                      Deviation: {activeHazard?.deviationPct ?? -15.1}% from biophysical safety zone
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-black/40 border border-rose-800/30 space-y-1">
+                    <div className="text-[10px] uppercase text-emerald-400 font-bold">Mandated Sovereign Intervention</div>
+                    <div className="text-emerald-200 text-xs line-clamp-2 italic">
+                      {targetSensor?.recommendedAction || activeHazard?.recommendedAction}
+                    </div>
+                    <div className="text-[10px] text-neutral-400">
+                      Enforced by: Community Water User Association (WRUA) & FPIC Assembly
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* NOMINAL SENTINEL MONITORING PANEL (When Healthy) */
+              <div 
+                id="bioregional-nominal-sentinel-panel"
+                className="p-3.5 sm:p-4 rounded-xl bg-[#0B0F0C] border border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-lg bg-emerald-950/60 text-emerald-400 border border-emerald-500/40 shrink-0">
+                    <ShieldCheck className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-serif font-bold text-white tracking-wide">
+                        Bioregional Sentinel & Ecological Threshold Watch
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-950 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>All 5 Boundaries Nominal</span>
+                      </span>
+                      <span className="text-[10px] text-neutral-400">
+                        • {activeSensorsOnlineCount} In-Situ Nodes Online
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[#F5F5F0]/70 font-sans mt-0.5 flex flex-wrap items-center gap-3">
+                      <span>Water Baseflow: <strong className="text-cyan-400 font-mono">5.60 m³/s (Nominal &gt;4.5)</strong></span>
+                      <span>Soil Moisture &amp; SOC: <strong className="text-emerald-400 font-mono">26.4% (Nominal &gt;18.0)</strong></span>
+                      <span>Canopy NDVI: <strong className="text-[#C5A059] font-mono">0.68 (Nominal &gt;0.55)</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sentinel Simulation & Accord Testing Controls */}
+                <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
+                  <span className="text-[10px] text-neutral-400 font-bold uppercase hidden lg:inline">
+                    Simulate Breach:
+                  </span>
+                  <button
+                    onClick={() => {
+                      injectThresholdBreach('sensor-mara-soil-02');
+                      audioFeedback.playWarningPulse();
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/40 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow"
+                    title="Simulate soil organic carbon & volumetric moisture breach on NODE-MARA-SOIL-119"
+                  >
+                    <AlertTriangle className="w-3 h-3 text-rose-400" />
+                    <span>Test Soil Breach</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      injectThresholdBreach('sensor-mara-wat-01');
+                      audioFeedback.playWarningPulse();
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow"
+                    title="Simulate riparian baseflow scarcity breach on NODE-MARA-WAT-402"
+                  >
+                    <Droplets className="w-3 h-3 text-cyan-400" />
+                    <span>Test Water Breach</span>
+                  </button>
+
+                  <button
+                    onClick={resetToNominal}
+                    className="px-2.5 py-1.5 rounded-lg bg-[#151D18] hover:bg-[#1C2720] text-emerald-300 border border-emerald-500/30 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                    title="Reset all sensors and alerts to pristine nominal baseline"
+                  >
+                    <RefreshCw className="w-3 h-3 text-emerald-400" />
+                    <span className="hidden sm:inline">Reset</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* Sentinel Test Triggers */}
-        <div className="flex items-center gap-2 self-start md:self-auto shrink-0 flex-wrap">
-          <span className="text-[10px] text-neutral-400 font-bold uppercase hidden lg:inline">
-            Simulate Alert:
-          </span>
-          <button
-            onClick={handleTriggerWaterScarcityAlert}
-            className="px-2.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/40 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow"
-            title="Simulate critical water scarcity threshold breach toast alert"
-          >
-            <AlertTriangle className="w-3 h-3 text-rose-400" />
-            <span>Water Scarcity Alert</span>
-          </button>
-
-          <button
-            onClick={handleTriggerSoilDepletionAlert}
-            className="px-2.5 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow"
-            title="Simulate soil nutrient depletion threshold warning toast alert"
-          >
-            <ShieldAlert className="w-3 h-3 text-amber-400" />
-            <span>Soil Depletion Warning</span>
-          </button>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* TIME-SLIDER CONTROL: Historical Baseline to Live Telemetry */}
       <div className="p-4 sm:p-5 rounded-2xl bg-[#0B0F0C] border border-[#C5A059]/30 shadow-xl space-y-3 font-mono">

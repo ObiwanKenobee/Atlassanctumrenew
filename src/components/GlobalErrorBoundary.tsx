@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, RotateCcw, Copy, Check, Terminal, ShieldAlert, Home } from 'lucide-react';
 import { errorLogger } from '../lib/errorLogger';
+import { logForwardingService } from '../lib/logForwardingService';
 
 interface Props {
   children: ReactNode;
@@ -44,6 +45,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
     console.error('Atlas Sanctum Global Error Boundary caught an error:', error, errorInfo);
     try {
       errorLogger.recordReactBoundaryError(error, errorInfo?.componentStack || undefined);
+      logForwardingService.forwardCrashReport('react_error_boundary');
     } catch {
       // ignore
     }

@@ -398,31 +398,52 @@ class SystemHealthService {
       };
 
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        let attempts = 0;
+        const maxAttempts = 3;
+        let lastErr: any = null;
+        let responseData: any = null;
 
-        const response = await fetch('/api/health', {
-          method: 'GET',
-          signal: controller.signal,
-          headers: { 'Accept': 'application/json' }
-        });
-        clearTimeout(timeoutId);
+        while (attempts < maxAttempts) {
+          attempts++;
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+            const response = await fetch('/api/health', {
+              method: 'GET',
+              signal: controller.signal,
+              headers: { 'Accept': 'application/json' }
+            });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+              responseData = await response.json();
+              break;
+            }
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          } catch (probeErr: any) {
+            lastErr = probeErr;
+            if (attempts < maxAttempts) {
+              const backoffDelay = Math.min(300 * Math.pow(1.8, attempts - 1), 2000);
+              await new Promise(r => setTimeout(r, backoffDelay));
+            }
+          }
+        }
 
         const latency = Math.round(performance.now() - startTime);
         geminiHealth.latencyMs = latency;
 
-        if (response.ok) {
-          const data = await response.json();
+        if (responseData) {
           geminiHealth.reachable = true;
-          geminiHealth.serverEnvironment = data.service || 'Express + Vite Server';
-          geminiHealth.keyConfigured = !!data.geminiConfigured;
+          geminiHealth.serverEnvironment = responseData.service || 'Express + Vite Server';
+          geminiHealth.keyConfigured = !!responseData.geminiConfigured;
         } else {
-          geminiHealth.error = `HTTP ${response.status}: ${response.statusText}`;
+          geminiHealth.reachable = false;
+          geminiHealth.error = lastErr?.name === 'AbortError' ? 'Timeout (>4000ms)' : (lastErr?.message || 'Connection failed');
         }
       } catch (apiErr: any) {
         geminiHealth.reachable = false;
         geminiHealth.latencyMs = Math.round(performance.now() - startTime);
-        geminiHealth.error = apiErr.name === 'AbortError' ? 'Timeout (>6000ms)' : apiErr.message;
+        geminiHealth.error = apiErr.name === 'AbortError' ? 'Timeout (>4000ms)' : apiErr.message;
       }
 
       // 4. Memory Heap Check (Chrome/Edge/Opera performance.memory)

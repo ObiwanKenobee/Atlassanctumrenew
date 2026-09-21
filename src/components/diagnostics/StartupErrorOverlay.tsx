@@ -12,14 +12,18 @@ import {
   ChevronDown, 
   ChevronUp,
   Cpu,
-  Sparkles
+  Sparkles,
+  RotateCcw,
+  SendHorizontal
 } from 'lucide-react';
 import { 
   StartupDiagnosticReport, 
   runStartupDiagnostics, 
   subscribeStartupDiagnostics, 
-  DiagnosticIssue 
+  DiagnosticIssue,
+  softResetDiagnostics 
 } from '../../lib/startupDiagnostics';
+import { logForwardingService, ForwardedReportReceipt } from '../../lib/logForwardingService';
 
 interface StartupErrorOverlayProps {
   onDismiss?: () => void;
@@ -29,18 +33,28 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
   const [report, setReport] = useState<StartupDiagnosticReport | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isSoftResetting, setIsSoftResetting] = useState(false);
+  const [resetNotice, setResetNotice] = useState<string | null>(null);
+  const [observabilityReceipt, setObservabilityReceipt] = useState<ForwardedReportReceipt | null>(
+    logForwardingService.getLastReceipt()
+  );
   const [isExpanded, setIsExpanded] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [hasManuallyDismissed, setHasManuallyDismissed] = useState(false);
 
   useEffect(() => {
     // Subscribe to diagnostic updates
-    const unsubscribe = subscribeStartupDiagnostics((newReport) => {
+    const unsubscribeDiag = subscribeStartupDiagnostics((newReport) => {
       setReport(newReport);
-      // Automatically open if critical or degraded (unless previously dismissed)
+      // Automatically open if critical (unless previously dismissed)
       if (newReport.status === 'critical' && !hasManuallyDismissed) {
         setIsOpen(true);
       }
+    });
+
+    // Subscribe to observability log forwarding events
+    const unsubscribeLogs = logForwardingService.subscribe((receipt) => {
+      setObservabilityReceipt(receipt);
     });
 
     // Run diagnostics immediately on mount
@@ -51,19 +65,51 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeDiag();
+      unsubscribeLogs();
+    };
   }, [hasManuallyDismissed]);
 
   const handleRetry = async () => {
     setIsRetrying(true);
+    setResetNotice(null);
     try {
-      const refreshed = await runStartupDiagnostics();
+      const refreshed = await runStartupDiagnostics(true);
       setReport(refreshed);
       if (refreshed.status === 'healthy') {
         setTimeout(() => setIsOpen(false), 800);
       }
     } finally {
       setIsRetrying(false);
+    }
+  };
+
+  const handleSoftReset = async () => {
+    setIsSoftResetting(true);
+    setResetNotice('Purging local client caches & executing exponential backoff healthcheck...');
+    try {
+      const freshReport = await softResetDiagnostics();
+      setReport(freshReport);
+
+      if (freshReport.status === 'healthy') {
+        setResetNotice('✓ Soft Reset successful: Cache purged and Express backend re-verified.');
+        setTimeout(() => {
+          setIsOpen(false);
+          setResetNotice(null);
+        }, 1200);
+      } else if (freshReport.status === 'critical') {
+        // Forward crash data to observability endpoint
+        const receipt = await logForwardingService.forwardCrashReport('soft_reset_critical_failure', freshReport);
+        setObservabilityReceipt(receipt);
+        setResetNotice(`Cache purged. Backend state still critical — Telemetry forwarded to observability (${receipt.reportId}).`);
+      } else {
+        setResetNotice('Cache purged. Client operating in resilient offline/degraded mode.');
+      }
+    } catch (err: any) {
+      setResetNotice(`Soft reset encountered an issue: ${err?.message || err}`);
+    } finally {
+      setIsSoftResetting(false);
     }
   };
 
@@ -142,8 +188,18 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
           </div>
           <div className="flex items-center gap-2">
             <button
+              id="header-soft-reset-btn"
+              onClick={handleSoftReset}
+              disabled={isSoftResetting || isRetrying}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#251A10] hover:bg-[#382615] border border-[#C5A059]/40 text-xs text-[#C5A059] rounded-md transition-colors font-mono disabled:opacity-50"
+              title="Clear cache and re-attempt API healthcheck with exponential backoff"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isSoftResetting ? 'animate-spin text-[#C5A059]' : ''}`} />
+              <span>{isSoftResetting ? 'Resetting...' : 'Soft Reset'}</span>
+            </button>
+            <button
               onClick={handleRetry}
-              disabled={isRetrying}
+              disabled={isRetrying || isSoftResetting}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1A1A] hover:bg-[#262626] border border-[#333] text-xs text-[#F5F5F0] rounded-md transition-colors font-mono disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin text-[#C5A059]' : ''}`} />
@@ -158,6 +214,38 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
             </button>
           </div>
         </div>
+
+        {/* Dynamic Status Badges / Observability & Backoff Telemetry */}
+        {(resetNotice || report.backoffStatus?.isRecovering || observabilityReceipt) && (
+          <div className="px-6 py-2.5 bg-[#0A0A0A] border-b border-[#222] flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+            {resetNotice ? (
+              <div className="flex items-center gap-2 text-[#C5A059] animate-pulse">
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{resetNotice}</span>
+              </div>
+            ) : report.backoffStatus?.isRecovering ? (
+              <div className="flex items-center gap-2 text-cyan-400">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>
+                  Autonomous Backoff Active: Attempt #{report.backoffStatus.recoveryAttempts} 
+                  {report.backoffStatus.nextRetryDelayMs ? ` (next retry in ~${Math.round(report.backoffStatus.nextRetryDelayMs / 1000)}s)` : ''}
+                </span>
+              </div>
+            ) : (
+              <div className="text-[#8A8A85]">
+                Self-healing runtime monitor active
+              </div>
+            )}
+
+            {observabilityReceipt && (
+              <div className="flex items-center gap-2 bg-[#161616] px-2.5 py-1 rounded border border-[#2E2E2E]">
+                <span className={`w-2 h-2 rounded-full ${observabilityReceipt.status === 'forwarded' ? 'bg-emerald-400' : 'bg-yellow-400'} animate-pulse`} />
+                <span className="text-[#8A8A85] text-[11px]">Observability:</span>
+                <span className="text-[#C5A059] text-[11px] font-semibold">{observabilityReceipt.reportId}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Subsystem Quick Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4 bg-[#141414] border-b border-[#222] text-xs font-mono">
@@ -312,7 +400,17 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
           <div className="text-[#8A8A85]">
             Run <code className="text-[#C5A059] bg-[#1A1A1A] px-1 py-0.5 rounded">npm run healthcheck</code> in terminal for CLI verification
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              id="footer-soft-reset-btn"
+              onClick={handleSoftReset}
+              disabled={isSoftResetting || isRetrying}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#251A10] hover:bg-[#382615] border border-[#C5A059]/40 text-[#C5A059] rounded-md transition-colors font-mono disabled:opacity-50"
+              title="Purge local client cache and re-probe API with exponential backoff"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isSoftResetting ? 'animate-spin' : ''}`} />
+              <span>{isSoftResetting ? 'Purging Cache...' : 'Soft Reset'}</span>
+            </button>
             <button
               onClick={handleDismiss}
               className="px-3.5 py-1.5 bg-[#222] hover:bg-[#2A2A2A] text-[#DDD] rounded-md transition-colors"
@@ -321,7 +419,7 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
             </button>
             <button
               onClick={handleRetry}
-              disabled={isRetrying}
+              disabled={isRetrying || isSoftResetting}
               className="px-3.5 py-1.5 bg-[#C5A059] hover:bg-[#B59049] text-[#0A0A0A] font-semibold rounded-md transition-colors"
             >
               {isRetrying ? 'Retrying...' : 'Re-verify System'}

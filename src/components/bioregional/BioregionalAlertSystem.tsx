@@ -37,11 +37,19 @@ export const BioregionalAlertSystem: React.FC<BioregionalAlertSystemProps> = ({
     acknowledgeAlert, 
     dismissAlert,
     resolveSensorBreach,
+    deployRemediationAccord,
+    activeCriticalBannerAlert,
     resetToNominal
   } = useBioregionalHazard();
 
   // Find active breached alerts or breached sensors
   const activeBreach = useMemo(() => {
+    // If the top header alert banner is already rendering the critical alert,
+    // suppress duplicate banner here to prevent stacked recurring banners
+    if (activeCriticalBannerAlert) {
+      return null;
+    }
+
     if (activeAlerts && activeAlerts.length > 0) {
       return activeAlerts[0];
     }
@@ -64,26 +72,27 @@ export const BioregionalAlertSystem: React.FC<BioregionalAlertSystemProps> = ({
         detectedAt: breachedFeed.lastTelemetryTimestamp,
         status: 'active' as const,
         recommendedAction: breachedFeed.recommendedAction,
-        targetTab: 'observatory' as PageView,
+        targetTab: 'bioregional-ledger' as PageView,
         cryptographicHash: '0x' + breachedFeed.id.substring(0, 8)
       } as BioregionalHazardAlert;
     }
     return null;
-  }, [activeAlerts, sensorFeeds]);
+  }, [activeAlerts, sensorFeeds, activeCriticalBannerAlert]);
 
-  const [isDismissed, setIsDismissed] = useState(false);
+  const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('atlas_sub_banner_dismissed');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isMinimized, setIsMinimized] = useState(false);
   const [snoozeUntil, setSnoozeUntil] = useState<number | null>(null);
 
-  // Reset dismissal if a new breach occurs with a different ID
-  useEffect(() => {
-    if (activeBreach) {
-      setIsDismissed(false);
-    }
-  }, [activeBreach?.id]);
-
-  // Check if currently snoozed
+  // Check if currently snoozed or dismissed
   const isSnoozed = snoozeUntil !== null && Date.now() < snoozeUntil;
+  const isDismissed = !activeBreach || dismissedIds.includes(activeBreach.id);
 
   if (!activeBreach || isDismissed || isSnoozed) {
     return null;
@@ -96,8 +105,12 @@ export const BioregionalAlertSystem: React.FC<BioregionalAlertSystemProps> = ({
 
   const handleDismiss = () => {
     audioFeedback.playMicroTick();
-    setIsDismissed(true);
-    if (activeBreach.id) {
+    if (activeBreach?.id) {
+      setDismissedIds(prev => {
+        const next = [...prev, activeBreach.id];
+        try { sessionStorage.setItem('atlas_sub_banner_dismissed', JSON.stringify(next)); } catch { /* ignore */ }
+        return next;
+      });
       dismissAlert(activeBreach.id);
     }
   };
@@ -107,17 +120,25 @@ export const BioregionalAlertSystem: React.FC<BioregionalAlertSystemProps> = ({
     if (onOpenObservatory) {
       onOpenObservatory();
     } else {
-      onSelectTab(activeBreach.targetTab || 'observatory');
+      onSelectTab(activeBreach.targetTab || 'bioregional-ledger');
     }
   };
 
   const handleResolveBreach = () => {
     audioFeedback.play('actionSuccess');
     if (activeBreach.id) {
-      resolveSensorBreach(activeBreach.id);
-      dismissAlert(activeBreach.id);
+      setDismissedIds(prev => {
+        const next = [...prev, activeBreach.id];
+        try { sessionStorage.setItem('atlas_sub_banner_dismissed', JSON.stringify(next)); } catch { /* ignore */ }
+        return next;
+      });
+      if (deployRemediationAccord) {
+        deployRemediationAccord(activeBreach.sensorNodeId || activeBreach.id);
+      } else {
+        resolveSensorBreach(activeBreach.id);
+        dismissAlert(activeBreach.id);
+      }
     }
-    setIsDismissed(true);
   };
 
   const getCategoryIcon = (category: string) => {

@@ -16,6 +16,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // 0. Connection validation and health probes
+    match /test/{testId} {
+      allow read: if true;
+    }
+
+    match /system_metadata/{id} {
+      allow read: if true;
+    }
+
     // 1. User Profiles & Preferences
     match /users/{userId} {
       allow read: if true;
@@ -114,6 +123,20 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if true; // Allows team creation, member joining, and shared goal updates
       allow delete: if isSignedIn();
+    }
+
+    // 15. Bioregional Goals
+    match /bioregional_goals/{goalId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isSignedIn();
+    }
+
+    // 16. Privacy Audit Logs
+    match /privacy_audit_logs/{logId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if false;
     }
   }
 }

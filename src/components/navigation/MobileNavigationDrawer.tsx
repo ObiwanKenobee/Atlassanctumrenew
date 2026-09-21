@@ -310,52 +310,6 @@ export const MobileNavigationDrawer: React.FC<MobileNavigationDrawerProps> = ({
 
                 <button
                   onClick={() => {
-                    onSelectTab('agent-mission-control');
-                    onClose();
-                  }}
-                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
-                    currentTab === 'agent-mission-control' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
-                  }`}
-                >
-                  <div className="w-7 h-7 rounded bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <Radio className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-serif font-bold">Agent Mission Control</span>
-                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-purple-950/80 text-purple-300 border border-purple-500/40 font-mono font-bold">
-                        GCP Swarm
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Autonomous Swarm Orchestration</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onSelectTab('ai-engineering');
-                    onClose();
-                  }}
-                  className={`w-full text-left p-2.5 rounded flex items-start gap-2.5 transition-all ${
-                    currentTab === 'ai-engineering' ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]' : 'hover:bg-[#141414] text-[#F5F5F0]'
-                  }`}
-                >
-                  <div className="w-7 h-7 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <Cpu className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-serif font-bold">AI Engineering Studio</span>
-                      <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-blue-950/80 text-blue-300 border border-blue-500/40 font-mono font-bold">
-                        Gemini 3.7
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Multimodal Workbench & Live Voice</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
                     onSelectTab('system-model-studio');
                     onClose();
                   }}

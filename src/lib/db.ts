@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { 
   getFirestore, 
+  initializeFirestore,
   collection, 
   doc, 
   getDoc, 
@@ -52,14 +53,30 @@ export interface FirestoreErrorInfo {
 }
 
 // Global App & Auth initialization
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
+// Initialize Firestore with explicit databaseId per Firebase skill guidelines
+function createFirestoreInstance() {
+  const dbId = firebaseConfig.firestoreDatabaseId || undefined;
+  return dbId ? getFirestore(app, dbId) : getFirestore(app);
+}
+
 // Firestore Database instance initialized with explicit databaseId
-export const firestoreInstance = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+export const firestoreInstance = createFirestoreInstance();
+
+export function isPermissionError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = error instanceof Error ? error.message : String(error);
+  const code = (error as { code?: string })?.code;
+  return (
+    code === 'permission-denied' ||
+    msg.includes('permission-denied') ||
+    msg.includes('Missing or insufficient permissions') ||
+    msg.includes('insufficient permissions')
+  );
+}
 
 // Helper function to create standardized errors adhering to the Firebase skill
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
@@ -253,7 +270,11 @@ export const db = {
     } catch (err) {
       const cached = await offlineStorage.getCachedDoc(collectionPath, docId);
       if (cached) return cached as T;
-      handleFirestoreError(err, OperationType.GET, `${collectionPath}/${docId}`);
+      if (isPermissionError(err)) {
+        handleFirestoreError(err, OperationType.GET, `${collectionPath}/${docId}`);
+      }
+      console.warn(`[Firestore Offline/Unavailable] GET ${collectionPath}/${docId}:`, err);
+      return null;
     }
   },
 
@@ -337,8 +358,12 @@ export const db = {
       return items;
     } catch (err) {
       const cached = await offlineStorage.getCachedCollection(collectionPath);
-      if (cached.length > 0) return cached as T[];
-      handleFirestoreError(err, OperationType.LIST, collectionPath);
+      if (cached && cached.length > 0) return cached as T[];
+      if (isPermissionError(err)) {
+        handleFirestoreError(err, OperationType.LIST, collectionPath);
+      }
+      console.warn(`[Firestore Offline/Unavailable] Query ${collectionPath}:`, err);
+      return [];
     }
   },
 
@@ -356,7 +381,14 @@ export const db = {
       },
       (error) => {
         if (onError) onError(error);
-        handleFirestoreError(error, OperationType.GET, `${collectionPath}/${docId}`);
+        if (isPermissionError(error)) {
+          handleFirestoreError(error, OperationType.GET, `${collectionPath}/${docId}`);
+        } else {
+          console.warn(`[Firestore Offline/Unavailable] Doc Subscription ${collectionPath}/${docId}:`, error);
+          offlineStorage.getCachedDoc(collectionPath, docId).then((cached) => {
+            if (cached) onNext(cached as T);
+          }).catch(() => {});
+        }
       }
     );
   },
@@ -377,7 +409,16 @@ export const db = {
       },
       (error) => {
         if (onError) onError(error);
-        handleFirestoreError(error, OperationType.LIST, collectionPath);
+        if (isPermissionError(error)) {
+          handleFirestoreError(error, OperationType.LIST, collectionPath);
+        } else {
+          console.warn(`[Firestore Offline/Unavailable] Collection ${collectionPath}:`, error);
+          offlineStorage.getCachedCollection(collectionPath).then((cached) => {
+            if (cached && cached.length > 0) {
+              onNext(cached as T[]);
+            }
+          }).catch(() => {});
+        }
       }
     );
   },

@@ -35,10 +35,12 @@ export const HeaderHazardAlertBanner: React.FC<HeaderHazardAlertBannerProps> = (
     toggleLiveStreaming,
     injectThresholdBreach,
     resolveSensorBreach,
+    deployRemediationAccord,
     activeSensorsOnlineCount
   } = useBioregionalHazard();
 
   const [showMeshDrawer, setShowMeshDrawer] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
 
   if (!activeCriticalBannerAlert) {
     return null;
@@ -111,6 +113,24 @@ export const HeaderHazardAlertBanner: React.FC<HeaderHazardAlertBannerProps> = (
               >
                 <span>Deploy Accord</span>
                 <ArrowUpRight className="w-3 h-3" />
+              </button>
+
+              <button
+                id="header-hazard-instant-resolve-btn"
+                onClick={async () => {
+                  setIsResolving(true);
+                  try {
+                    await deployRemediationAccord(alert.sensorNodeId || alert.id);
+                  } finally {
+                    setIsResolving(false);
+                  }
+                }}
+                disabled={isResolving}
+                className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold font-mono text-[10px] uppercase tracking-wider rounded transition-all flex items-center gap-1 cursor-pointer shadow-sm disabled:opacity-50"
+                title="Execute sovereign remediation accord and stabilize sensor reading"
+              >
+                <CheckCircle2 className="w-3 h-3" />
+                <span className="hidden sm:inline">{isResolving ? 'Resolving...' : 'Resolve Breach'}</span>
               </button>
 
               <button

@@ -141,13 +141,17 @@ export const REGENERATIVE_DRIFT_METRICS: RegenerativeDriftMetric[] = [
   }
 ];
 
-interface RegenerativeDriftMonitorProps {
+export interface RegenerativeDriftMonitorProps {
   onLogMitigation?: (metric: RegenerativeDriftMetric) => void;
+  onSelectBioregion?: (id: string) => void;
+  onInspectProvenance?: (prov: any) => void;
   className?: string;
 }
 
 export const RegenerativeDriftMonitor: React.FC<RegenerativeDriftMonitorProps> = ({
   onLogMitigation,
+  onSelectBioregion,
+  onInspectProvenance,
   className = ''
 }) => {
   const [driftToleranceThreshold, setDriftToleranceThreshold] = useState<number>(8.0); // alert when drift > 8%

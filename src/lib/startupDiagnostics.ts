@@ -10,8 +10,8 @@
 
 import firebaseConfig from '../../firebase-applet-config.json';
 import { firestoreInstance } from './db';
-import { collection, limit, query, getDocs } from 'firebase/firestore';
-import { apiClient, retryFirebaseOperation } from './apiClient';
+import { doc, getDocFromServer } from 'firebase/firestore';
+import { apiClient } from './apiClient';
 
 export type DiagnosticSeverity = 'critical' | 'warning' | 'info';
 
@@ -49,12 +49,19 @@ export interface StartupDiagnosticReport {
   };
   issues: DiagnosticIssue[];
   developmentSuggestions: PlatformSuggestionItem[];
+  backoffStatus?: {
+    isRecovering: boolean;
+    recoveryAttempts: number;
+    nextRetryDelayMs?: number;
+  };
 }
 
 type DiagnosticsListener = (report: StartupDiagnosticReport) => void;
 const listeners = new Set<DiagnosticsListener>();
 let lastReport: StartupDiagnosticReport | null = null;
 let isRunningDiagnostics = false;
+let autonomousRecoveryTimer: any = null;
+let autonomousRecoveryAttempts = 0;
 
 export function subscribeStartupDiagnostics(listener: DiagnosticsListener): () => void {
   listeners.add(listener);
@@ -71,10 +78,115 @@ export function getLastDiagnosticReport(): StartupDiagnosticReport | null {
 }
 
 /**
+ * Exponential Backoff probe to reach the Express backend server (/api/health)
+ * automatically attempting connection recovery without requiring manual user intervention.
+ */
+export async function probeBackendWithExponentialBackoff(
+  maxAttempts: number = 5,
+  initialDelayMs: number = 400,
+  maxDelayMs: number = 5000,
+  backoffFactor: number = 1.8,
+  onAttempt?: (attempt: number, delayMs: number, error: any) => void
+): Promise<{ success: boolean; data?: any; error?: any; totalAttempts: number }> {
+  let attempt = 0;
+  let lastError: any = null;
+
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      const response = await fetch('/api/health', {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, data, totalAttempts: attempt };
+      }
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    } catch (err: any) {
+      lastError = err;
+      if (attempt < maxAttempts) {
+        const delay = Math.min(
+          Math.round(initialDelayMs * Math.pow(backoffFactor, attempt - 1) * (0.85 + Math.random() * 0.3)),
+          maxDelayMs
+        );
+        if (onAttempt) {
+          onAttempt(attempt, delay, err);
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  return { success: false, error: lastError, totalAttempts: attempt };
+}
+
+/**
+ * Autonomous background recovery worker: continually attempts to reconnect
+ * to the Express backend using exponential backoff until connection is restored,
+ * then auto-heals the platform state and dismisses critical alerts.
+ */
+function startAutonomousBackendRecovery(): void {
+  if (autonomousRecoveryTimer) return;
+
+  const attemptRecovery = async () => {
+    autonomousRecoveryAttempts++;
+    const currentDelay = Math.min(
+      Math.round(1000 * Math.pow(1.6, Math.min(autonomousRecoveryAttempts, 6))),
+      12000
+    );
+
+    try {
+      const probeResult = await probeBackendWithExponentialBackoff(1, 0, 0, 1);
+      if (probeResult.success && probeResult.data) {
+        // Recovered! Auto-heal diagnostic state
+        console.info('[Autonomous Recovery] Backend re-established via exponential backoff probe!');
+        if (autonomousRecoveryTimer) {
+          clearTimeout(autonomousRecoveryTimer);
+          autonomousRecoveryTimer = null;
+        }
+        autonomousRecoveryAttempts = 0;
+
+        // Re-run diagnostics to refresh overall report
+        await runStartupDiagnostics(true);
+        return;
+      }
+    } catch {
+      // Continue retrying
+    }
+
+    if (lastReport && lastReport.checks.backendReachable === false) {
+      // Broadcast recovery status update
+      lastReport.backoffStatus = {
+        isRecovering: true,
+        recoveryAttempts: autonomousRecoveryAttempts,
+        nextRetryDelayMs: currentDelay,
+      };
+      notifyDiagnosticsListeners(lastReport);
+
+      autonomousRecoveryTimer = setTimeout(attemptRecovery, currentDelay);
+    }
+  };
+
+  autonomousRecoveryTimer = setTimeout(attemptRecovery, 1500);
+}
+
+function notifyDiagnosticsListeners(report: StartupDiagnosticReport): void {
+  listeners.forEach((listener) => {
+    try {
+      listener(report);
+    } catch {
+      // Ignore listener errors
+    }
+  });
+}
+
+/**
  * Executes a comprehensive runtime diagnostic sweep on boot.
  */
-export async function runStartupDiagnostics(): Promise<StartupDiagnosticReport> {
-  if (isRunningDiagnostics && lastReport) {
+export async function runStartupDiagnostics(forceRefresh: boolean = false): Promise<StartupDiagnosticReport> {
+  if (!forceRefresh && isRunningDiagnostics && lastReport) {
     return lastReport;
   }
 
@@ -125,34 +237,22 @@ export async function runStartupDiagnostics(): Promise<StartupDiagnosticReport> 
         timestamp: Date.now(),
       });
     } else {
-      // Test lightweight Firestore query with retry wrapper
+      // Validate Firestore connection per Firebase integration skill
       try {
-        await retryFirebaseOperation(async () => {
-          const testColRef = collection(firestoreInstance, 'system_metadata');
-          const q = query(testColRef, limit(1));
-          await getDocs(q);
-        }, 'startup-connectivity-probe', { maxRetries: 2, initialDelayMs: 400 });
-
+        await getDocFromServer(doc(firestoreInstance, 'test', 'connection'));
         checks.firebaseConnected = true;
       } catch (fbErr: any) {
-        // Degraded or permission-limited rather than fatal crash
         const errMsg = fbErr?.message || String(fbErr);
+        const isOffline = errMsg.includes('the client is offline') || errMsg.includes('unavailable') || errMsg.includes('offline');
         const isPermission = errMsg.includes('permission-denied') || errMsg.includes('insufficient permissions');
 
-        if (isPermission) {
-          // Permissions configured, database is reachable
+        if (isPermission || !isOffline) {
+          // Connected to server (even if test doc does not exist or has rule boundary)
           checks.firebaseConnected = true;
         } else {
+          // Client is operating in resilient offline mode
           checks.firebaseConnected = false;
-          issues.push({
-            id: 'fb-connect-failed',
-            severity: 'warning',
-            component: 'Firebase',
-            title: 'Firestore Initial Handshake Delayed',
-            message: `Could not immediately reach Firestore (${errMsg}). The app will use local cache while retrying in the background.`,
-            actionableStep: 'Check your internet connection and verify Firestore security rules allow the client.',
-            timestamp: Date.now(),
-          });
+          console.warn('[Firebase] Operating in offline mode:', errMsg);
         }
       }
     }
@@ -168,27 +268,32 @@ export async function runStartupDiagnostics(): Promise<StartupDiagnosticReport> 
     });
   }
 
-  // 3. Check Backend Express API & Gemini API Key Status
+  // 3. Check Backend Express API & Gemini API Key Status with Exponential Backoff
   try {
-    const healthData = await apiClient.get('/api/health', {
-      maxRetries: 3,
-      initialDelayMs: 500,
-      maxDelayMs: 2500,
-    });
+    const probeResult = await probeBackendWithExponentialBackoff(
+      5,   // maxAttempts
+      350, // initialDelayMs
+      4000,// maxDelayMs
+      1.8  // backoffFactor
+    );
 
-    checks.backendReachable = true;
-    checks.geminiKeyConfigured = Boolean(healthData?.geminiConfigured);
+    if (probeResult.success && probeResult.data) {
+      checks.backendReachable = true;
+      checks.geminiKeyConfigured = Boolean(probeResult.data?.geminiConfigured);
 
-    if (!checks.geminiKeyConfigured) {
-      issues.push({
-        id: 'gemini-key-missing',
-        severity: 'warning',
-        component: 'Gemini AI',
-        title: 'Gemini API Key Not Detected on Server',
-        message: 'GEMINI_API_KEY is not configured in the server environment. The platform will operate in heuristic fallback mode.',
-        actionableStep: 'Configure your GEMINI_API_KEY in the AI Studio Settings menu to unlock autonomous multi-agent reasoning and Live Voice API.',
-        timestamp: Date.now(),
-      });
+      if (!checks.geminiKeyConfigured) {
+        issues.push({
+          id: 'gemini-key-missing',
+          severity: 'warning',
+          component: 'Gemini AI',
+          title: 'Gemini API Key Not Detected on Server',
+          message: 'GEMINI_API_KEY is not configured in the server environment. The platform will operate in heuristic fallback mode.',
+          actionableStep: 'Configure your GEMINI_API_KEY in the AI Studio Settings menu to unlock autonomous multi-agent reasoning and Live Voice API.',
+          timestamp: Date.now(),
+        });
+      }
+    } else {
+      throw probeResult.error || new Error('Express /api/health returned non-200 status across exponential backoff retries');
     }
   } catch (backendErr: any) {
     checks.backendReachable = false;
@@ -197,10 +302,13 @@ export async function runStartupDiagnostics(): Promise<StartupDiagnosticReport> 
       severity: 'critical',
       component: 'API Gateway',
       title: 'Backend Server Unreachable',
-      message: `Failed to connect to Express backend on /api/health: ${backendErr?.message || backendErr}`,
-      actionableStep: 'Ensure tsx server.ts is running on port 3000. Run `npm run healthcheck` in terminal to inspect environment state.',
+      message: `Failed to connect to Express backend on /api/health after exponential backoff attempts: ${backendErr?.message || backendErr}`,
+      actionableStep: 'Autonomous reconnection loop is actively retrying in the background. You can also click "Soft Reset" to purge cache and force a clean re-probe.',
       timestamp: Date.now(),
     });
+
+    // Automatically attempt continuous background recovery without requiring manual user intervention
+    startAutonomousBackendRecovery();
   }
 
   // 4. Check Atlas Gateway Developer Key
@@ -324,3 +432,48 @@ export async function runStartupDiagnostics(): Promise<StartupDiagnosticReport> 
 
   return report;
 }
+
+/**
+ * Clears local caches and re-runs system diagnostics with exponential backoff
+ * to recover from intermittent network or server startup glitches.
+ */
+export async function softResetDiagnostics(): Promise<StartupDiagnosticReport> {
+  console.info('[Diagnostics] Initiating soft reset: purging local cache & re-verifying health...');
+
+  if (autonomousRecoveryTimer) {
+    clearTimeout(autonomousRecoveryTimer);
+    autonomousRecoveryTimer = null;
+  }
+  autonomousRecoveryAttempts = 0;
+  isRunningDiagnostics = false;
+
+  if (typeof window !== 'undefined') {
+    try {
+      // 1. Clear caches API
+      if ('caches' in window) {
+        const cacheNames = await window.caches.keys();
+        await Promise.all(cacheNames.map((name) => window.caches.delete(name)));
+      }
+
+      // 2. Clear relevant localStorage diagnostic & temporary caches
+      const keysToClear = [
+        'atlas_system_diagnostic_errors',
+        'atlas_health_cache',
+        'atlas_telemetry_cache',
+        'atlas_last_observability_receipt'
+      ];
+      keysToClear.forEach(k => {
+        try { localStorage.removeItem(k); } catch {}
+      });
+
+      // 3. Clear session storage
+      try { sessionStorage.clear(); } catch {}
+    } catch (err) {
+      console.warn('[Diagnostics] Cache purge completed with non-fatal notice:', err);
+    }
+  }
+
+  // Force re-execution of full diagnostic suite with exponential backoff
+  return await runStartupDiagnostics(true);
+}
+

@@ -70,7 +70,9 @@ interface BioregionalHazardContextType {
   setStreamFrequencyMs: (ms: number) => void;
   injectThresholdBreach: (sensorId?: string) => void;
   resolveSensorBreach: (sensorId: string) => void;
+  deployRemediationAccord: (sensorIdOrNodeId: string, customAccordName?: string) => Promise<{ success: boolean; hash: string }>;
   dismissBannerAlert: () => void;
+  isBannerDismissed: boolean;
   activeSensorsOnlineCount: number;
 }
 
@@ -86,17 +88,17 @@ const INITIAL_SENSOR_FEEDS: LiveSensorFeedItem[] = [
     basinName: 'Mara-Serengeti Savanna Basin',
     metricType: 'water_baseflow',
     category: 'water',
-    currentValue: 3.82,
+    currentValue: 5.60,
     unit: 'm³/s',
     criticalThreshold: 4.50,
     thresholdOperator: 'less_than',
     nominalRange: [4.5, 7.2],
     samplingRateHz: 2.4,
     lastTelemetryTimestamp: new Date().toISOString(),
-    isBreached: true,
+    isBreached: false,
     telemetrySource: 'Acoustic Doppler Piezometer Mesh #TK-04 (LoRaWAN + Sat-Uplink)',
     recommendedAction: 'Enforce rotational baseflow extraction accord & activate sand dam subsurface retention swales',
-    history: [4.62, 4.45, 4.31, 4.12, 3.98, 3.82]
+    history: [5.42, 5.48, 5.52, 5.56, 5.58, 5.60]
   },
   {
     id: 'sensor-mara-soil-02',
@@ -106,7 +108,7 @@ const INITIAL_SENSOR_FEEDS: LiveSensorFeedItem[] = [
     basinName: 'Mara-Serengeti Savanna Basin',
     metricType: 'soil_moisture',
     category: 'soil',
-    currentValue: 20.4,
+    currentValue: 26.4,
     unit: '%',
     criticalThreshold: 18.0,
     thresholdOperator: 'less_than',
@@ -116,7 +118,7 @@ const INITIAL_SENSOR_FEEDS: LiveSensorFeedItem[] = [
     isBreached: false,
     telemetrySource: 'Frequency Domain Soil Reflectometer Array #SP-12',
     recommendedAction: 'Deploy high-density mobile livestock kraaling with biochar inoculation',
-    history: [24.1, 23.5, 22.8, 21.9, 21.2, 20.4]
+    history: [25.8, 26.0, 26.2, 26.3, 26.4, 26.4]
   },
   {
     id: 'sensor-aber-can-03',
@@ -217,7 +219,7 @@ const INITIAL_HAZARDS: BioregionalHazardAlert[] = [
     telemetrySource: 'Acoustic Doppler Piezometer Node #TK-04',
     sensorNodeId: 'NODE-MARA-WAT-402',
     detectedAt: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
-    status: 'active',
+    status: 'acknowledged',
     recommendedAction: 'Enforce rotational baseflow extraction accord & activate sand dam subsurface retention swales',
     targetTab: 'bioregional-ledger',
     cryptographicHash: '0x8f2a1b9c3e4d5f6a7b8c9d0e1f2a3b4c5d6e7f8a'
@@ -280,7 +282,14 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
   const [isMonitoring, setIsMonitoring] = useState<boolean>(true);
   const [isLiveStreaming, setIsLiveStreaming] = useState<boolean>(true);
   const [streamFrequencyMs, setStreamFrequencyMs] = useState<number>(3500);
-  const [bannerDismissedId, setBannerDismissedId] = useState<string | null>(null);
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('atlas_dismissed_hazard_alerts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const lastAlertTimeRef = useRef<number>(0);
 
@@ -293,9 +302,18 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
     }
   }, [alerts]);
 
+  // Persist dismissed alerts to prevent re-triggering across page navigation
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('atlas_dismissed_hazard_alerts', JSON.stringify(dismissedAlertIds));
+    } catch {
+      // Ignore
+    }
+  }, [dismissedAlertIds]);
+
   const activeAlerts = useMemo(() => {
-    return alerts.filter(a => a.status === 'active');
-  }, [alerts]);
+    return alerts.filter(a => a.status === 'active' && !dismissedAlertIds.includes(a.id));
+  }, [alerts, dismissedAlertIds]);
 
   const criticalCount = useMemo(() => {
     return activeAlerts.filter(a => a.severity === 'critical').length;
@@ -305,37 +323,60 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
     return activeAlerts.filter(a => a.severity === 'warning').length;
   }, [activeAlerts]);
 
-  // Primary critical alert pushed directly to the header banner
+  // Primary critical alert pushed directly to the header banner (must not be dismissed)
   const activeCriticalBannerAlert = useMemo(() => {
-    const critical = activeAlerts.find(a => a.severity === 'critical' && a.id !== bannerDismissedId);
+    const critical = activeAlerts.find(a => a.severity === 'critical');
     return critical || null;
-  }, [activeAlerts, bannerDismissedId]);
+  }, [activeAlerts]);
+
+  const isBannerDismissed = useMemo(() => {
+    return activeCriticalBannerAlert === null;
+  }, [activeCriticalBannerAlert]);
 
   const activeSensorsOnlineCount = useMemo(() => {
     return sensorFeeds.length;
   }, [sensorFeeds]);
 
   // Live Environmental Sensor Feed Heartbeat & Real-time Threshold Sentinel
+  // Note: Nominal sensors oscillate safely within nominal bounds.
+  // Real-time breaches only occur when a user explicitly runs an intervention test or simulation.
   useEffect(() => {
     if (!isLiveStreaming) return;
 
     const interval = setInterval(() => {
       setSensorFeeds(prevFeeds => {
         return prevFeeds.map(sensor => {
-          // Slight physical brownian noise / diurnal cycle oscillation
-          const noiseFactor = (Math.random() - 0.49) * (sensor.currentValue * 0.02);
-          const rawNewVal = sensor.currentValue + noiseFactor;
-          const roundedVal = Math.round(rawNewVal * 100) / 100;
+          let roundedVal: number;
 
-          // Check if breached
+          if (sensor.isBreached) {
+            // Breached sensor micro-fluctuates around breached state until remediated
+            const delta = (Math.random() - 0.5) * (sensor.currentValue * 0.01);
+            roundedVal = Math.round((sensor.currentValue + delta) * 100) / 100;
+          } else {
+            // Nominal sensors oscillate realistically within safe nominal range (never auto-breaching)
+            const mid = (sensor.nominalRange[0] + sensor.nominalRange[1]) / 2;
+            const rangeSpan = sensor.nominalRange[1] - sensor.nominalRange[0];
+            const delta = (Math.random() - 0.5) * (rangeSpan * 0.05);
+            const nextVal = sensor.currentValue + delta;
+            // Clamp within nominal range with 10% safety margin away from critical threshold
+            const safeMin = sensor.thresholdOperator === 'less_than' 
+              ? Math.max(sensor.nominalRange[0], sensor.criticalThreshold * 1.15)
+              : sensor.nominalRange[0];
+            const safeMax = sensor.thresholdOperator === 'greater_than'
+              ? Math.min(sensor.nominalRange[1], sensor.criticalThreshold * 0.85)
+              : sensor.nominalRange[1];
+            const clamped = Math.max(safeMin, Math.min(safeMax, nextVal));
+            roundedVal = Math.round(clamped * 100) / 100;
+          }
+
           const isBreached = sensor.thresholdOperator === 'less_than' 
             ? roundedVal < sensor.criticalThreshold
             : roundedVal > sensor.criticalThreshold;
 
-          // If threshold just got breached and not recent, generate & push critical alert directly to header
+          // If breached state was activated by an intervention test, push alert once
           if (isBreached && !sensor.isBreached) {
             const now = Date.now();
-            if (now - lastAlertTimeRef.current > 4000) {
+            if (now - lastAlertTimeRef.current > 6000) {
               lastAlertTimeRef.current = now;
               audioFeedback.playWarningPulse();
 
@@ -365,11 +406,9 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
               };
 
               setAlerts(prevAlerts => {
-                // Keep unique active alerts per sensor
                 const filtered = prevAlerts.filter(a => a.sensorNodeId !== sensor.sensorNodeId);
                 return [pushedAlert, ...filtered];
               });
-              setBannerDismissedId(null);
             }
           }
 
@@ -378,7 +417,7 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
           return {
             ...sensor,
             currentValue: roundedVal,
-            isBreached,
+            isBreached: sensor.isBreached || isBreached,
             lastTelemetryTimestamp: new Date().toISOString(),
             history: newHistory
           };
@@ -402,20 +441,19 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
       }
       return a;
     }));
+    setDismissedAlertIds(prev => Array.from(new Set([...prev, alertId])));
   }, []);
 
   const dismissAlert = useCallback((alertId: string) => {
     audioFeedback.playSubtleClick();
     setAlerts(prev => prev.filter(a => a.id !== alertId));
-    if (bannerDismissedId === alertId) {
-      setBannerDismissedId(null);
-    }
-  }, [bannerDismissedId]);
+    setDismissedAlertIds(prev => Array.from(new Set([...prev, alertId])));
+  }, []);
 
   const dismissBannerAlert = useCallback(() => {
     audioFeedback.playSubtleClick();
     if (activeCriticalBannerAlert) {
-      setBannerDismissedId(activeCriticalBannerAlert.id);
+      setDismissedAlertIds(prev => Array.from(new Set([...prev, activeCriticalBannerAlert.id])));
     }
   }, [activeCriticalBannerAlert]);
 
@@ -423,7 +461,7 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
   const injectThresholdBreach = useCallback((sensorId?: string) => {
     audioFeedback.playWarningPulse();
     const targetSensor = sensorId 
-      ? sensorFeeds.find(s => s.id === sensorId)
+      ? sensorFeeds.find(s => s.id === sensorId || s.sensorNodeId === sensorId)
       : sensorFeeds[Math.floor(Math.random() * sensorFeeds.length)];
 
     if (!targetSensor) return;
@@ -471,13 +509,16 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
     }));
 
     setAlerts(prev => [pushedAlert, ...prev.filter(a => a.sensorNodeId !== targetSensor.sensorNodeId)]);
-    setBannerDismissedId(null);
   }, [sensorFeeds]);
 
-  const resolveSensorBreach = useCallback((sensorId: string) => {
+  // Resolve breach for a given sensor (by ID or node ID)
+  const resolveSensorBreach = useCallback((sensorIdOrNodeId: string) => {
     audioFeedback.playSuccessChime();
+    let targetNodeId = sensorIdOrNodeId;
+
     setSensorFeeds(prev => prev.map(s => {
-      if (s.id === sensorId) {
+      if (s.id === sensorIdOrNodeId || s.sensorNodeId === sensorIdOrNodeId) {
+        targetNodeId = s.sensorNodeId;
         const nominalVal = s.nominalRange[0] + (s.nominalRange[1] - s.nominalRange[0]) * 0.5;
         const rounded = Math.round(nominalVal * 100) / 100;
         return {
@@ -492,16 +533,81 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
     }));
 
     setAlerts(prev => prev.map(a => {
-      const match = sensorFeeds.find(s => s.id === sensorId);
-      if (match && a.sensorNodeId === match.sensorNodeId) {
+      if (a.sensorNodeId === targetNodeId || a.id === sensorIdOrNodeId) {
         return { ...a, status: 'acknowledged' };
       }
       return a;
     }));
-  }, [sensorFeeds]);
 
-  const simulateBreach = useCallback((category: 'water' | 'soil' | 'canopy' | 'biodiversity' = 'water') => {
-    const matchingSensor = sensorFeeds.find(s => s.category === category) || sensorFeeds[0];
+    // Remove matching alerts from banner
+    setDismissedAlertIds(prev => {
+      const matchingIds = alerts.filter(a => a.sensorNodeId === targetNodeId || a.id === sensorIdOrNodeId).map(a => a.id);
+      return Array.from(new Set([...prev, ...matchingIds]));
+    });
+  }, [alerts]);
+
+  // Deploy Remediation Accord: stabilizes telemetry, clears breach globally, records Merkle accord
+  const deployRemediationAccord = useCallback(async (sensorIdOrNodeId: string, customAccordName?: string) => {
+    audioFeedback.playSuccessChime();
+
+    const targetSensor = sensorFeeds.find(
+      s => s.id === sensorIdOrNodeId || s.sensorNodeId === sensorIdOrNodeId
+    ) || sensorFeeds[0];
+
+    const nominalVal = Math.round(
+      (targetSensor.nominalRange[0] + (targetSensor.nominalRange[1] - targetSensor.nominalRange[0]) * 0.55) * 100
+    ) / 100;
+
+    // 1. Stabilize sensor feed in state
+    setSensorFeeds(prev => prev.map(s => {
+      if (s.id === targetSensor.id || s.sensorNodeId === targetSensor.sensorNodeId) {
+        return {
+          ...s,
+          currentValue: nominalVal,
+          isBreached: false,
+          lastTelemetryTimestamp: new Date().toISOString(),
+          history: [...s.history.slice(1), nominalVal]
+        };
+      }
+      return s;
+    }));
+
+    // 2. Mark all matching hazard alerts as resolved & acknowledged
+    setAlerts(prev => prev.map(a => {
+      if (a.sensorNodeId === targetSensor.sensorNodeId || a.id === sensorIdOrNodeId) {
+        return { ...a, status: 'acknowledged' };
+      }
+      return a;
+    }));
+
+    // 3. Clear banner persistently
+    const relatedIds = alerts.filter(a => a.sensorNodeId === targetSensor.sensorNodeId || a.id === sensorIdOrNodeId).map(a => a.id);
+    setDismissedAlertIds(prev => Array.from(new Set([...prev, ...relatedIds])));
+
+    const accordHash = `0xaccord_${targetSensor.sensorNodeId.toLowerCase().replace(/-/g, '_')}_${Date.now().toString(16)}`;
+
+    // 4. Dispatch custom event for real-time subscribers across the app
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bioregional-accord-deployed', {
+        detail: {
+          sensorNodeId: targetSensor.sensorNodeId,
+          sensorName: targetSensor.name,
+          basinId: targetSensor.basinId,
+          basinName: targetSensor.basinName,
+          actionName: customAccordName || targetSensor.recommendedAction,
+          stabilizedValue: nominalVal,
+          unit: targetSensor.unit,
+          hash: accordHash,
+          timestamp: new Date().toISOString()
+        }
+      }));
+    }
+
+    return { success: true, hash: accordHash };
+  }, [sensorFeeds, alerts]);
+
+  const simulateBreach = useCallback((category: 'water' | 'soil' | 'canopy' | 'biodiversity' = 'soil') => {
+    const matchingSensor = sensorFeeds.find(s => s.category === category) || sensorFeeds[1] || sensorFeeds[0];
     injectThresholdBreach(matchingSensor.id);
   }, [sensorFeeds, injectThresholdBreach]);
 
@@ -519,7 +625,12 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
       };
     }));
     setAlerts(INITIAL_HAZARDS.map(h => ({ ...h, status: 'acknowledged' })));
-    setBannerDismissedId(null);
+    setDismissedAlertIds([]);
+    try {
+      sessionStorage.removeItem('atlas_dismissed_hazard_alerts');
+    } catch {
+      // Ignore
+    }
   }, []);
 
   return (
@@ -544,7 +655,9 @@ export const BioregionalHazardProvider: React.FC<{ children: React.ReactNode }> 
         setStreamFrequencyMs,
         injectThresholdBreach,
         resolveSensorBreach,
+        deployRemediationAccord,
         dismissBannerAlert,
+        isBannerDismissed,
         activeSensorsOnlineCount
       }}
     >

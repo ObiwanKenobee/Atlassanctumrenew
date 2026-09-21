@@ -134,23 +134,42 @@ async function checkHttps(urlStr: string, timeoutMs = 2500): Promise<{ ok: boole
   });
 }
 
-async function checkLocalServer(port: number, timeoutMs = 1500): Promise<{ ok: boolean; status?: number }> {
-  return new Promise((resolve) => {
-    try {
-      const req = http.get(`http://localhost:${port}/api/health`, { timeout: timeoutMs }, (res) => {
-        resolve({ ok: res.statusCode === 200, status: res.statusCode });
-      });
-      req.on('timeout', () => {
-        req.destroy();
+async function checkLocalServerWithBackoff(
+  port: number,
+  maxAttempts = 5,
+  initialDelayMs = 300,
+  maxDelayMs = 3000,
+  backoffFactor = 1.8
+): Promise<{ ok: boolean; status?: number; attempts: number }> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await new Promise<{ ok: boolean; status?: number }>((resolve) => {
+      try {
+        const req = http.get(`http://localhost:${port}/api/health`, { timeout: 1500 }, (res) => {
+          resolve({ ok: res.statusCode === 200, status: res.statusCode });
+        });
+        req.on('timeout', () => {
+          req.destroy();
+          resolve({ ok: false });
+        });
+        req.on('error', () => {
+          resolve({ ok: false });
+        });
+      } catch {
         resolve({ ok: false });
-      });
-      req.on('error', () => {
-        resolve({ ok: false });
-      });
-    } catch {
-      resolve({ ok: false });
+      }
+    });
+
+    if (res.ok) {
+      return { ok: true, status: res.status, attempts: attempt };
     }
-  });
+
+    if (attempt < maxAttempts) {
+      const delay = Math.min(Math.round(initialDelayMs * Math.pow(backoffFactor, attempt - 1)), maxDelayMs);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  return { ok: false, attempts: maxAttempts };
 }
 
 async function runHealthCheck(): Promise<boolean> {
@@ -240,13 +259,13 @@ async function runHealthCheck(): Promise<boolean> {
 
   // Local Express Port Check
   const port = parseInt(process.env.PORT || '3000', 10);
-  const localServer = await checkLocalServer(port);
+  const localServer = await checkLocalServerWithBackoff(port);
   if (localServer.ok) {
     okCount++;
-    console.log(`  ${c.green}✔ PASS${c.reset} ${c.bold}Local Server Probe    ${c.reset} ${c.dim}(http://localhost:${port}/api/health responded 200 OK)${c.reset}`);
+    console.log(`  ${c.green}✔ PASS${c.reset} ${c.bold}Local Server Probe    ${c.reset} ${c.dim}(http://localhost:${port}/api/health responded 200 OK after ${localServer.attempts} attempt${localServer.attempts > 1 ? 's' : ''})${c.reset}`);
   } else {
     // If not running right now, this is normal during pre-boot CI/CD
-    console.log(`  ${c.cyan}ℹ INFO${c.reset} ${c.bold}Local Server Probe    ${c.reset} ${c.dim}(Server offline or not yet started on port ${port})${c.reset}`);
+    console.log(`  ${c.cyan}ℹ INFO${c.reset} ${c.bold}Local Server Probe    ${c.reset} ${c.dim}(Server offline or not yet started on port ${port} after ${localServer.attempts} exponential backoff attempts)${c.reset}`);
   }
   console.log('');
 

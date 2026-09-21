@@ -183,6 +183,13 @@
     "/stewardship_teams/{teamId}": {
       "schema": "StewardshipTeam",
       "description": "Collaborative stewardship teams and collective restoration mission trackers"
+    },
+    "/bioregional_goals/{goalId}": {
+      "description": "Bioregional restoration goals and deadline targets"
+    },
+    "/privacy_audit_logs/{logId}": {
+      "schema": "MoralAuditLog",
+      "description": "Privacy and sovereign steward audit transaction logs"
     }
   }
 }

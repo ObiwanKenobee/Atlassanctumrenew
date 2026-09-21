@@ -25,7 +25,9 @@ import {
   BIOREGIONAL_OPTIONS, 
   GeohashZoomLevel 
 } from './observatory/ObservatoryHazardMapLayer';
+import { ObservatoryTimescaleTelemetry } from './observatory/ObservatoryTimescaleTelemetry';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { useComponentRenderMetrics } from '../../hooks/useComponentRenderMetrics';
 
 interface ObservatoryViewProps {
   onInspectProvenance: (prov: any) => void;
@@ -38,8 +40,11 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
   onOpenMoralSimulator,
   onOpenCommandCenter
 }) => {
+  // Capture real-time component render metrics for the PerformanceMonitorOverlay
+  useComponentRenderMetrics('Observatory View');
+
   const [selectedLayerId, setSelectedLayerId] = useState<string>(LIVING_REALITY_LAYERS[0].id);
-  const [activeObservatoryMode, setActiveObservatoryMode] = useState<'biophysical' | 'hazard_radar' | 'epistemic'>('biophysical');
+  const [activeObservatoryMode, setActiveObservatoryMode] = useState<'biophysical' | 'hazard_radar' | 'epistemic' | 'timescale_telemetry'>('timescale_telemetry');
   const [selectedProject, setSelectedProject] = useState<ProjectLocation>(GLOBAL_PROJECTS[0]);
   const [zoomLevel, setZoomLevel] = useState<'Regional' | 'Continental' | 'Global'>('Regional');
 
@@ -113,9 +118,27 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
         </div>
       </div>
 
-      {/* Observatory Mode Selector: Biophysical Matrix vs Hazard Map vs Epistemic Heatmap Layer */}
+      {/* Observatory Mode Selector: TimescaleDB Telemetry vs Biophysical Matrix vs Hazard Map vs Epistemic Heatmap Layer */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-[#0D0D0D] border border-[#F5F5F0]/15 rounded-sm">
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            id="observatory-timescale-telemetry-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              setActiveObservatoryMode('timescale_telemetry');
+            }}
+            className={`px-3 sm:px-4 py-2 rounded-sm text-xs font-mono uppercase font-bold tracking-wider transition-all cursor-pointer ${
+              activeObservatoryMode === 'timescale_telemetry'
+                ? 'bg-[#1B3022] text-[#F5F5F0] border border-[#C5A059] shadow-[0_0_12px_rgba(197,160,89,0.3)]'
+                : 'text-[#F5F5F0]/60 hover:text-white hover:bg-[#151515]'
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              TimescaleDB Environmental Telemetry
+            </span>
+          </button>
+
           <button
             id="observatory-biophysical-mode-btn"
             onClick={() => {
@@ -167,13 +190,15 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
           >
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Epistemic Heatmap Layer (Topographical Provenance)
+              Epistemic Heatmap Layer
             </span>
           </button>
         </div>
 
         <div className="text-[11px] font-mono text-[#F5F5F0]/40 pr-2 hidden sm:block">
-          {activeObservatoryMode === 'hazard_radar'
+          {activeObservatoryMode === 'timescale_telemetry'
+            ? 'TimescaleDB Hypertables • Continuous Aggregates Active'
+            : activeObservatoryMode === 'hazard_radar'
             ? 'Water Scarcity & Wildfire Stress Telemetry Active'
             : activeObservatoryMode === 'epistemic'
             ? 'Color-coded topography active (ZKP Merkle-Attested)'
@@ -226,7 +251,12 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
       </div>
 
       {/* Conditionally Render Active View Mode */}
-      {activeObservatoryMode === 'hazard_radar' ? (
+      {activeObservatoryMode === 'timescale_telemetry' ? (
+        <ObservatoryTimescaleTelemetry
+          selectedBioregion={selectedBioregion}
+          onInspectProvenance={onInspectProvenance}
+        />
+      ) : activeObservatoryMode === 'hazard_radar' ? (
         <ObservatoryHazardMapLayer
           selectedBioregion={selectedBioregion}
           onSelectBioregion={handleBioregionChange}
@@ -242,6 +272,12 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
         />
       ) : (
         <>
+          {/* TimescaleDB Telemetry Snapshot Widget */}
+          <ObservatoryTimescaleTelemetry
+            selectedBioregion={selectedBioregion}
+            onInspectProvenance={onInspectProvenance}
+          />
+
           {/* Layer Selection Carousel */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between text-[10px] text-[#C5A059] uppercase font-bold tracking-[0.2em]">

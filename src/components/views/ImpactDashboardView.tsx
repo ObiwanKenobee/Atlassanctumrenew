@@ -39,6 +39,7 @@ import { alchemicalAudio } from '../../lib/alchemicalAudio';
 import { INTELLIGENCE_LAYERS, CIVILIZATION_METRICS, SAMPLE_PROVENANCE } from '../../data/mockCivilizationData';
 import { CivilizationMetric } from '../../types';
 import { CausalImpactD3Graph } from '../CausalImpactD3Graph';
+import { EightFormsCapitalTreemap } from '../analytics/EightFormsCapitalTreemap';
 import { HumanFlourishingTimelineChart } from '../analytics/HumanFlourishingTimelineChart';
 import { ProjectFlourishingD3Network } from '../analytics/ProjectFlourishingD3Network';
 import { RegenerativeProgressD3Chart } from '../analytics/RegenerativeProgressD3Chart';
@@ -66,6 +67,15 @@ import { TimeRangeOption, exportVisualizedTrendCSV, exportBatchAllBioregionsCSV 
 import { TimeRangeSelector } from '../analytics/TimeRangeSelector';
 import { TWELVE_MONTH_INTERVAL_DATA } from '../analytics/FlourishingVsStabilityD3Chart';
 import { COMPARATIVE_BIOREGIONS, getBioregionHistoricalData } from '../analytics/flourishingAnalyticsData';
+import { ImpactOnboardingBanner } from '../analytics/ImpactOnboardingBanner';
+import { TemporalSlider, TEMPORAL_EPOCH_DATA, TemporalEpochPoint } from '../analytics/TemporalSlider';
+import { RegenerativeDriftMonitor } from '../analytics/RegenerativeDriftMonitor';
+import { SpatialDensityHeatmapLayer, EcologicalIndicatorType, SPATIAL_DENSITY_HOTSPOTS } from '../analytics/SpatialDensityHeatmapLayer';
+import { CustomizableDashboardGrid } from '../analytics/CustomizableDashboardGrid';
+import { QuickSnapshotExporter, SnapshotDashboardContext } from '../analytics/QuickSnapshotExporter';
+import { WeeklyBioregionalSynthesisPanel } from '../analytics/WeeklyBioregionalSynthesisPanel';
+import { ThresholdConfigurationPanel } from '../analytics/ThresholdConfigurationPanel';
+import { BioregionalCompareModeOverlay } from '../analytics/BioregionalCompareModeOverlay';
 
 const IMPACT_DASHBOARD_CACHE_KEY = 'atlas_sanctum_impact_dashboard_cache_v2';
 
@@ -73,7 +83,7 @@ interface ImpactDashboardCachedState {
   timeRange?: TimeRangeOption;
   isNormalized?: boolean;
   selectedBioregions?: string[];
-  activeTab?: 'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story' | 'split-pane-compare' | 'predictive-forecasting';
+  activeTab?: 'eight-forms-capital' | 'community-feed' | 'flourishing-vs-stability' | 'weekly-synthesis' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story' | 'split-pane-compare' | 'predictive-forecasting' | 'spatial-density-heatmap' | 'regenerative-drift' | 'custom-grid';
   selectedLayerId?: string;
   isPredictiveForecastingEnabled?: boolean;
   heatmapMode?: HeatmapMode;
@@ -105,10 +115,30 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
 
   const [selectedLayerId, setSelectedLayerId] = useState<string>(() => cachedState?.selectedLayerId ?? 'flourishing-os');
   const [selectedMetric, setSelectedMetric] = useState<CivilizationMetric>(CIVILIZATION_METRICS[0]);
-  const [activeTab, setActiveTab] = useState<'community-feed' | 'flourishing-vs-stability' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story' | 'split-pane-compare' | 'predictive-forecasting'>(() => cachedState?.activeTab ?? 'flourishing-vs-stability');
+  const [activeTab, setActiveTab] = useState<'eight-forms-capital' | 'community-feed' | 'flourishing-vs-stability' | 'weekly-synthesis' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story' | 'split-pane-compare' | 'predictive-forecasting' | 'spatial-density-heatmap' | 'regenerative-drift' | 'custom-grid'>(() => cachedState?.activeTab ?? 'eight-forms-capital');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfGenerationSuccess, setPdfGenerationSuccess] = useState(false);
   const [csvExportSuccess, setCsvExportSuccess] = useState<string | null>(null);
+
+  // Compare Mode & Notification Thresholds Configuration Modals/Panels
+  const [isCompareModeOpen, setIsCompareModeOpen] = useState<boolean>(false);
+  const [isThresholdConfigOpen, setIsThresholdConfigOpen] = useState<boolean>(false);
+
+  // Onboarding Banner State
+  const [showOnboardingBanner, setShowOnboardingBanner] = useState<boolean>(() => {
+    return localStorage.getItem('atlas_impact_onboarding_dismissed') !== 'true';
+  });
+
+  // 24-Month Temporal Epoch Scrubber State (0-23; month 11 = Current Cycle)
+  const [temporalEpochIndex, setTemporalEpochIndex] = useState<number>(11);
+  const currentEpoch = TEMPORAL_EPOCH_DATA[temporalEpochIndex] || TEMPORAL_EPOCH_DATA[11];
+
+  // Spatial Density Heatmap State
+  const [spatialDensityIndicator, setSpatialDensityIndicator] = useState<EcologicalIndicatorType>('canopy_ndvi');
+  const [selectedSpatialHotspot, setSelectedSpatialHotspot] = useState<any>(null);
+
+  // Workspace Layout Mode: Standard Fixed vs Drag-and-Drop Grid
+  const [workspaceLayoutMode, setWorkspaceLayoutMode] = useState<'standard' | 'custom_grid'>('standard');
 
   // Snapshot PDF & Comparator Modal States
   const [isGeneratingSnapshot, setIsGeneratingSnapshot] = useState<boolean>(false);
@@ -123,7 +153,13 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
   // Trend Chart State Managed at Dashboard Level
   const [timeRange, setTimeRange] = useState<TimeRangeOption>(() => cachedState?.timeRange ?? 'year');
   const [isNormalized, setIsNormalized] = useState<boolean>(() => cachedState?.isNormalized ?? false);
-  const [selectedBioregions, setSelectedBioregions] = useState<string[]>(() => cachedState?.selectedBioregions ?? ['pan-african']);
+  const [selectedBioregions, setSelectedBioregions] = useState<string[]>(() => {
+    if (cachedState?.selectedBioregions && cachedState.selectedBioregions.length > 0) {
+      // Default to single primary bioregion to avoid unintentional split-pane on boot
+      return [cachedState.selectedBioregions[0]];
+    }
+    return ['pan-african'];
+  });
   const [triggerInsightsCounter, setTriggerInsightsCounter] = useState<number>(0);
 
   // Celestial Alignment & Ritual Cleanse States
@@ -377,8 +413,127 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
     return matchesSearch && matchesZone;
   });
 
+  const renderCustomGridWidget = (widgetId: string) => {
+    switch (widgetId) {
+      case 'temporal_slider':
+        return (
+          <TemporalSlider
+            activeEpochIndex={temporalEpochIndex + 1}
+            onEpochChange={(pt) => {
+              setTemporalEpochIndex(pt.monthIndex - 1);
+              audioFeedback.playMicroTick();
+            }}
+            onInspectPoint={onInspectProvenance}
+          />
+        );
+      case 'longitudinal_chart':
+        return (
+          <FlourishingVsStabilityD3Chart
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            isNormalized={isNormalized}
+            onNormalizeChange={setIsNormalized}
+            selectedBioregions={selectedBioregions}
+            onBioregionsChange={setSelectedBioregions}
+            isConfidenceIntervalActive={isConfidenceIntervalActive}
+            onConfidenceIntervalToggle={setIsConfidenceIntervalActive}
+            onAddBioregionClick={() => setIsComparatorModalOpen(true)}
+            triggerInsightsCounter={triggerInsightsCounter}
+            isCelestialAlignment={isCelestialAlignment}
+            onToggleCelestialAlignment={setIsCelestialAlignment}
+            isDataPurified={isDataPurified}
+            onPurifiedChange={setIsDataPurified}
+            isRitualCleansing={isRitualCleansing}
+            onTriggerRitualCleanse={handleTriggerRitualCleanse}
+            showPredictiveForecast={isPredictiveForecastingEnabled}
+            onPredictiveForecastChange={setIsPredictiveForecastingEnabled}
+            showHistoricalComparison={isCompareHistorical}
+            onHistoricalComparisonChange={setIsCompareHistorical}
+            alertThreshold={alertThreshold}
+            onAlertThresholdChange={handleSaveAlertConfig}
+            onOpenEpistemicObservation={handleOpenEpistemicObservation}
+            onSelectTab={onSelectTab}
+            onInspectPoint={(pt) => {
+              onInspectProvenance({
+                ...SAMPLE_PROVENANCE,
+                metricName: `12-Month Trajectory: ${pt.monthLabel}`,
+                verificationHash: pt.cryptographicHash,
+                rawSensorReading: `Ecological: ${pt.ecologicalFlourishing}% • Economic: ${pt.economicStability}% (Decoupling: +${pt.decouplingMargin}%)`,
+                confidenceInterval: `±0.8% across ${pt.verifiedSensorCount} cryptographic sensor nodes`,
+                epistemicTier: 'Zero-Knowledge Multi-Spectral Mesh'
+              });
+            }}
+            onInspectProvenance={onInspectProvenance}
+            onOpenMoralSimulator={onOpenMoralSimulator}
+          />
+        );
+      case 'drift_monitor':
+        return (
+          <RegenerativeDriftMonitor
+            onSelectBioregion={(id) => {
+              setSelectedBioregions([id]);
+              audioFeedback.playMicroTick();
+            }}
+            onInspectProvenance={onInspectProvenance}
+          />
+        );
+      case 'spatial_heatmap':
+        return (
+          <SpatialDensityHeatmapLayer
+            activeIndicator={spatialDensityIndicator}
+            onSelectIndicator={setSpatialDensityIndicator}
+            onSelectHotspot={setSelectedSpatialHotspot}
+          />
+        );
+      case 'bioregional_map':
+        return (
+          <BioregionalImpactD3Map
+            heatmapMode={heatmapMode}
+            onHeatmapModeChange={setHeatmapMode}
+            onInspectProvenance={onInspectProvenance}
+          />
+        );
+      case 'epistemic_matrix':
+        return (
+          <div className="p-4 bg-[#0E1310] border border-[#C5A059]/30 rounded-md space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono uppercase text-[#C5A059] font-bold">
+                5-Layer Epistemic Ground Truth Matrix
+              </span>
+              <span className="text-[10px] font-mono text-emerald-400">
+                100% Cryptographic Ingestion
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs font-mono">
+              {INTELLIGENCE_LAYERS.map(l => (
+                <div key={l.id} className="p-2.5 bg-[#141B16] rounded border border-[#F5F5F0]/10 space-y-1">
+                  <div className="font-bold text-white text-[11px] truncate">{l.name}</div>
+                  <div className="text-[10px] text-[#C5A059]">{l.activeNodes.toLocaleString()} Active Nodes</div>
+                  <div className="text-[9px] text-emerald-400 font-bold">{l.flourishingIndexDelta}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="w-full bg-[#0A0A0A] text-[#F5F5F0] min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-10">
+      {/* Onboarding Tour Banner */}
+      {showOnboardingBanner && (
+        <ImpactOnboardingBanner
+          onDismiss={() => setShowOnboardingBanner(false)}
+          onExploreFeature={(tab) => {
+            setActiveTab(tab as any);
+            audioFeedback.playSubtleClick();
+          }}
+          forceShow={showOnboardingBanner}
+        />
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-[#F5F5F0]/10">
         <div className="space-y-1">
@@ -397,6 +552,44 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Restore Onboarding Banner Button if dismissed */}
+          {!showOnboardingBanner && (
+            <button
+              id="header-restore-onboarding-banner-btn"
+              type="button"
+              onClick={() => {
+                setShowOnboardingBanner(true);
+                localStorage.removeItem('atlas_impact_onboarding_dismissed');
+                audioFeedback.playMicroTick();
+              }}
+              className="px-3.5 py-2 bg-[#141C16] hover:bg-[#1E2B22] border border-[#C5A059]/50 text-[#C5A059] rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ring-1 ring-[#C5A059]/30"
+              title="Restore the Epistemic Impact Onboarding Tour Guide"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span>Tour Guide</span>
+            </button>
+          )}
+
+          {/* Workspace Layout Grid Toggle */}
+          <button
+            id="header-workspace-grid-toggle-btn"
+            type="button"
+            onClick={() => {
+              const next = workspaceLayoutMode === 'standard' ? 'custom_grid' : 'standard';
+              setWorkspaceLayoutMode(next);
+              audioFeedback.playCovenantResonance();
+            }}
+            className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
+              workspaceLayoutMode === 'custom_grid'
+                ? 'bg-gradient-to-r from-[#C5A059] to-[#E0C070] text-black border-[#C5A059] font-bold shadow-lg ring-1 ring-[#C5A059]/50'
+                : 'bg-[#141414] hover:bg-[#1f1f1f] text-[#C5A059] border-[#C5A059]/40'
+            }`}
+            title="Toggle Customizable Drag-and-Drop Workspace Grid"
+          >
+            <Columns className="w-3.5 h-3.5" />
+            <span>Workspace Grid: {workspaceLayoutMode === 'custom_grid' ? 'CUSTOM [ON]' : 'OFF'}</span>
+          </button>
+
           {/* Audio Alchemist Ambient Soundscape Toggle */}
           <button
             id="header-audio-alchemist-btn"
@@ -575,16 +768,59 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             <span>{isRitualCleansing ? 'Cleansing Noise...' : isDataPurified ? 'Ritual Purified' : 'Ritual Cleanse'}</span>
           </button>
 
-          {/* Export to CSV Button */}
+          {/* Export Data Button */}
           <button
-            id="export-to-csv-btn"
-            data-testid="export-trend-data-csv-btn"
+            id="header-export-data-btn"
+            data-testid="export-data-csv-btn"
             onClick={handleExportTrendCSV}
             className="px-3.5 py-2 bg-[#171612] hover:bg-[#26241b] border border-[#C5A059] text-[#C5A059] hover:text-white rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer"
-            title="Download currently visualized longitudinal trend data (with applied normalizations and exact timestamps) as CSV"
+            title="Download current dashboard aggregated metric data in CSV format for external analysis"
           >
             <Download className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Export to CSV</span>
+            <span>Export Data</span>
+          </button>
+
+          {/* Compare Mode Toggle Button */}
+          <button
+            id="impact-dashboard-compare-mode-toggle"
+            type="button"
+            onClick={() => {
+              if (activeTab === 'split-pane-compare') {
+                setActiveTab('flourishing-vs-stability');
+                setIsCompareModeOpen(false);
+              } else {
+                setIsCompareModeOpen(prev => !prev);
+              }
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
+              isCompareModeOpen || activeTab === 'split-pane-compare'
+                ? 'bg-cyan-950 border-cyan-400 text-cyan-200 ring-1 ring-cyan-400/50'
+                : 'bg-[#171612] hover:bg-[#26241b] border-cyan-500/50 text-cyan-400 hover:text-cyan-200'
+            }`}
+            title="Toggle Compare Mode to overlay metrics from two different bioregions or historical periods"
+          >
+            <GitCompare className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Compare Mode: {isCompareModeOpen || activeTab === 'split-pane-compare' ? 'ON' : 'OFF'}</span>
+          </button>
+
+          {/* Thresholds Configuration Toggle Button */}
+          <button
+            id="impact-dashboard-thresholds-config-toggle"
+            type="button"
+            onClick={() => {
+              setIsThresholdConfigOpen(prev => !prev);
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 py-2 border rounded-sm text-xs font-mono font-bold flex items-center gap-1.5 transition-all uppercase tracking-wider shadow cursor-pointer ${
+              isThresholdConfigOpen
+                ? 'bg-amber-950 border-amber-400 text-amber-200 ring-1 ring-amber-400/50'
+                : 'bg-[#171612] hover:bg-[#26241b] border-amber-500/50 text-amber-400 hover:text-amber-200'
+            }`}
+            title="Configure custom notification thresholds for specific indicators"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+            <span>Set Thresholds</span>
           </button>
 
           {/* Batch Export Option for All Bioregions */}
@@ -597,6 +833,25 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             <Download className="w-3.5 h-3.5 text-emerald-400" />
             <span>Batch Export ({COMPARATIVE_BIOREGIONS.length})</span>
           </button>
+
+          {/* Quick Snapshot (High-Res PNG Card) Button */}
+          <QuickSnapshotExporter
+            context={{
+              activeBioregionName: activeBioregionObj?.name || 'Pan-African Biome',
+              selectedBioregionsCount: selectedBioregions.length,
+              timeRange: timeRange,
+              normalizationMode: isNormalized ? 'Normalized 0-100%' : 'Absolute Raw Indices',
+              celestialAlignment: isCelestialAlignment,
+              purifiedState: isDataPurified,
+              flourishingScore: currentEpoch?.ecologicalFlourishing ?? latestDataPoint.ecologicalFlourishing,
+              stabilityScore: currentEpoch?.economicStability ?? latestDataPoint.economicStability,
+              decouplingMargin: currentEpoch?.decouplingMargin ?? latestDataPoint.decouplingMargin,
+              verifiedSensors: currentEpoch?.verifiedSensors ?? 1450,
+              merkleHash: currentEpoch?.cryptographicHash ?? '0x7c9f81a2e4b6d08311',
+              driftStatus: isThresholdBreached ? 'Threshold Warning' : 'Nominal Consensus',
+              epochMonth: currentEpoch?.calendarDate ?? 'Current Cycle'
+            }}
+          />
 
           {/* Snapshot Button: High-Resolution Screenshot & PDF Report */}
           <button
@@ -695,6 +950,35 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           <span className="text-[10px] text-cyan-300/80 bg-black/40 px-2 py-0.5 rounded border border-cyan-500/30 uppercase font-bold tracking-wider shrink-0">
             HI-RES RENDER
           </span>
+        </div>
+      )}
+
+      {/* Compare Mode Overlay (Dual Bioregions or Historical Periods Side-by-Side Analysis) */}
+      {isCompareModeOpen && activeTab !== 'split-pane-compare' && (
+        <BioregionalCompareModeOverlay
+          isOpen={isCompareModeOpen}
+          onClose={() => {
+            setIsCompareModeOpen(false);
+            if (selectedBioregions.length > 1) {
+              setSelectedBioregions([selectedBioregions[0] || 'pan-african']);
+            }
+          }}
+          selectedBioregionIds={selectedBioregions}
+          onSelectBioregions={setSelectedBioregions}
+          isHistoricalCompareActive={isCompareHistorical}
+          onToggleHistoricalCompare={setIsCompareHistorical}
+        />
+      )}
+
+      {/* Custom Notification Thresholds Configuration Interface */}
+      {isThresholdConfigOpen && (
+        <div className="relative mb-3">
+          <ThresholdConfigurationPanel
+            onClose={() => setIsThresholdConfigOpen(false)}
+            onSaveCustomRules={() => {
+              audioFeedback.playSuccessChime();
+            }}
+          />
         </div>
       )}
 
@@ -907,6 +1191,26 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
       {/* View Switcher: Recharts Flourishing Timeline vs Restoration Mesh D3 vs Knowledge Graph Studio vs Interactive Causal D3 Graph vs Telemetry Matrix */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F5F5F0]/10 pb-3">
         <div className="flex items-center gap-2 flex-wrap">
+          {/* 8 Forms of Capital Treemap Tab */}
+          <button
+            id="tab-eight-forms-capital-btn"
+            onClick={() => {
+              setActiveTab('eight-forms-capital');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'eight-forms-capital'
+                ? 'bg-gradient-to-r from-emerald-500 via-amber-500 to-[#C5A059] text-black shadow-md'
+                : 'bg-[#141414] text-emerald-400 hover:text-white border border-emerald-500/40'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>8 Forms of Capital (D3 Treemap)</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-current font-bold uppercase">
+              NEW D3
+            </span>
+          </button>
+
           {/* Flourishing vs Stability D3 Multi-Line Trend Chart Tab */}
           <button
             id="tab-flourishing-vs-stability-btn"
@@ -924,6 +1228,87 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             <span>Flourishing vs Stability (12-Mo D3)</span>
             <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-black/30 text-current font-bold uppercase">
               Decoupling
+            </span>
+          </button>
+
+          {/* Weekly Bioregional Synthesis Panel Tab */}
+          <button
+            id="tab-weekly-synthesis-btn"
+            onClick={() => {
+              setActiveTab('weekly-synthesis');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'weekly-synthesis'
+                ? 'bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-500 text-black shadow-md'
+                : 'bg-[#141414] text-teal-300 hover:text-teal-200 border border-teal-500/40'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+            <span>Weekly Synthesis (LLM)</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-teal-950/80 text-teal-300 border border-teal-500/40 font-bold uppercase">
+              SYNTHESIS
+            </span>
+          </button>
+
+          {/* Spatial Density Heatmap Layer Tab */}
+          <button
+            id="tab-spatial-density-heatmap-btn"
+            onClick={() => {
+              setActiveTab('spatial-density-heatmap');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'spatial-density-heatmap'
+                ? 'bg-gradient-to-r from-emerald-500 via-teal-600 to-cyan-500 text-black shadow-md'
+                : 'bg-[#141414] text-emerald-400 hover:text-emerald-300 border border-emerald-500/40'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Spatial Density Heatmap</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-bold uppercase">
+              INDICATORS
+            </span>
+          </button>
+
+          {/* Regenerative Drift Monitor Tab */}
+          <button
+            id="tab-regenerative-drift-btn"
+            onClick={() => {
+              setActiveTab('regenerative-drift');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'regenerative-drift'
+                ? 'bg-gradient-to-r from-amber-500 via-yellow-600 to-[#C5A059] text-black shadow-md'
+                : 'bg-[#141414] text-amber-400 hover:text-amber-300 border border-amber-500/40'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            <span>Regenerative Drift</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-500/40 font-bold uppercase">
+              WATCHDOG
+            </span>
+          </button>
+
+          {/* Customizable Workspace Grid Tab */}
+          <button
+            id="tab-custom-grid-btn"
+            onClick={() => {
+              setActiveTab('custom-grid');
+              setWorkspaceLayoutMode('custom_grid');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'custom-grid'
+                ? 'bg-[#C5A059] text-black shadow-md font-bold'
+                : 'bg-[#141414] text-[#C5A059] hover:text-white border border-[#C5A059]/40'
+            }`}
+          >
+            <Columns className="w-3.5 h-3.5" />
+            <span>Custom Workspace</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-current font-bold uppercase">
+              DRAG &amp; DROP
             </span>
           </button>
 
@@ -1040,6 +1425,7 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           <button
             id="tab-split-pane-compare-btn"
             onClick={() => {
+              setIsCompareModeOpen(false);
               setActiveTab('split-pane-compare');
               audioFeedback.playMicroTick();
             }}
@@ -1143,6 +1529,13 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           <span className="text-[#C5A059] font-bold">REALITY ➔ DATA ➔ MODEL ➔ DECISION</span>
         </div>
       </div>
+
+      {/* 8 Forms of Capital Interactive D3 Treemap Tab */}
+      {activeTab === 'eight-forms-capital' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <EightFormsCapitalTreemap onInspectProvenance={onInspectProvenance} />
+        </div>
+      )}
 
       {/* Primary Tab: D3 Multi-Line 12-Month Trend Comparison: Ecological Flourishing vs Economic Stability */}
       {activeTab === 'flourishing-vs-stability' && (
@@ -1259,52 +1652,111 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             </div>
           )}
 
-          {/* Planetary Pulse D3 Animated Waveform & Biospheric Vital Signs */}
-          <PlanetaryPulseVisualizer 
-            ecologicalFlourishing={92.4}
-            economicStability={89.2}
-            bioregionName={COMPARATIVE_BIOREGIONS.find(b => selectedBioregions.includes(b.id))?.name || 'Pan-African Green Corridor'}
-            isPurified={isDataPurified}
-          />
+          {workspaceLayoutMode === 'custom_grid' ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-[#111613] border border-[#C5A059]/40 rounded text-xs font-mono">
+                <div className="flex items-center gap-2">
+                  <Columns className="w-4 h-4 text-[#C5A059]" />
+                  <span className="text-white font-bold">CUSTOMIZABLE DRAG-AND-DROP WORKSPACE ACTIVE</span>
+                  <span className="text-[#F5F5F0]/60 hidden sm:inline">• Drag widgets by their handle, resize column spans, and arrange your tailored view</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceLayoutMode('standard')}
+                  className="px-2.5 py-1 bg-[#1A1A1A] hover:bg-[#252525] border border-[#F5F5F0]/20 text-[#F5F5F0]/80 hover:text-white rounded text-[11px] cursor-pointer"
+                >
+                  Return to Standard Layout
+                </button>
+              </div>
+              <CustomizableDashboardGrid renderWidget={renderCustomGridWidget} />
+            </div>
+          ) : (
+            <>
+              {/* Interactive 24-Month Temporal Slider */}
+              <TemporalSlider
+                activeEpochIndex={temporalEpochIndex + 1}
+                onEpochChange={(pt) => {
+                  setTemporalEpochIndex(pt.monthIndex - 1);
+                  audioFeedback.playMicroTick();
+                }}
+                onInspectPoint={(epoch) => {
+                  onInspectProvenance({
+                    ...SAMPLE_PROVENANCE,
+                    metricName: `Temporal Epoch: ${epoch.calendarDate} (${epoch.label})`,
+                    verificationHash: epoch.cryptographicHash,
+                    rawSensorReading: `Ecological: ${epoch.ecologicalFlourishing}% • Economic: ${epoch.economicStability}% (Decoupling: +${epoch.decouplingMargin}%)`,
+                    confidenceInterval: `±0.7% verified across ${epoch.verifiedSensors} IoT sensor pods`,
+                    epistemicTier: epoch.isProjected ? 'Gemini 3.8 Multi-Horizon Predictive Cone' : 'Zero-Knowledge Bioregional Consensus'
+                  });
+                }}
+              />
 
-          <FlourishingVsStabilityD3Chart 
-            timeRange={timeRange}
-            onTimeRangeChange={setTimeRange}
-            isNormalized={isNormalized}
-            onNormalizeChange={setIsNormalized}
-            selectedBioregions={selectedBioregions}
-            onBioregionsChange={setSelectedBioregions}
-            isConfidenceIntervalActive={isConfidenceIntervalActive}
-            onConfidenceIntervalToggle={setIsConfidenceIntervalActive}
-            onAddBioregionClick={() => setIsComparatorModalOpen(true)}
-            triggerInsightsCounter={triggerInsightsCounter}
-            isCelestialAlignment={isCelestialAlignment}
-            onToggleCelestialAlignment={setIsCelestialAlignment}
-            isDataPurified={isDataPurified}
-            onPurifiedChange={setIsDataPurified}
-            isRitualCleansing={isRitualCleansing}
-            onTriggerRitualCleanse={handleTriggerRitualCleanse}
-            showPredictiveForecast={isPredictiveForecastingEnabled}
-            onPredictiveForecastChange={setIsPredictiveForecastingEnabled}
-            showHistoricalComparison={isCompareHistorical}
-            onHistoricalComparisonChange={setIsCompareHistorical}
-            alertThreshold={alertThreshold}
-            onAlertThresholdChange={handleSaveAlertConfig}
-            onOpenEpistemicObservation={handleOpenEpistemicObservation}
-            onSelectTab={onSelectTab}
-            onInspectPoint={(pt) => {
-              onInspectProvenance({
-                ...SAMPLE_PROVENANCE,
-                metricName: `12-Month Trajectory: ${pt.monthLabel}`,
-                verificationHash: pt.cryptographicHash,
-                rawSensorReading: `Ecological: ${pt.ecologicalFlourishing}% • Economic: ${pt.economicStability}% (Decoupling: +${pt.decouplingMargin}%)`,
-                confidenceInterval: `±0.8% across ${pt.verifiedSensorCount} cryptographic sensor nodes`,
-                epistemicTier: 'Zero-Knowledge Multi-Spectral Mesh'
-              });
-            }}
-            onInspectProvenance={onInspectProvenance}
-            onOpenMoralSimulator={onOpenMoralSimulator}
-          />
+              {/* Planetary Pulse D3 Animated Waveform & Biospheric Vital Signs */}
+              <PlanetaryPulseVisualizer 
+                ecologicalFlourishing={currentEpoch?.ecologicalFlourishing ?? 92.4}
+                economicStability={currentEpoch?.economicStability ?? 89.2}
+                bioregionName={COMPARATIVE_BIOREGIONS.find(b => selectedBioregions.includes(b.id))?.name || 'Pan-African Green Corridor'}
+                isPurified={isDataPurified}
+              />
+
+              <FlourishingVsStabilityD3Chart 
+                timeRange={timeRange}
+                onTimeRangeChange={setTimeRange}
+                isNormalized={isNormalized}
+                onNormalizeChange={setIsNormalized}
+                selectedBioregions={selectedBioregions}
+                onBioregionsChange={setSelectedBioregions}
+                isConfidenceIntervalActive={isConfidenceIntervalActive}
+                onConfidenceIntervalToggle={setIsConfidenceIntervalActive}
+                onAddBioregionClick={() => setIsComparatorModalOpen(true)}
+                triggerInsightsCounter={triggerInsightsCounter}
+                isCelestialAlignment={isCelestialAlignment}
+                onToggleCelestialAlignment={setIsCelestialAlignment}
+                isDataPurified={isDataPurified}
+                onPurifiedChange={setIsDataPurified}
+                isRitualCleansing={isRitualCleansing}
+                onTriggerRitualCleanse={handleTriggerRitualCleanse}
+                showPredictiveForecast={isPredictiveForecastingEnabled}
+                onPredictiveForecastChange={setIsPredictiveForecastingEnabled}
+                showHistoricalComparison={isCompareHistorical}
+                onHistoricalComparisonChange={setIsCompareHistorical}
+                alertThreshold={alertThreshold}
+                onAlertThresholdChange={handleSaveAlertConfig}
+                onOpenEpistemicObservation={handleOpenEpistemicObservation}
+                onSelectTab={onSelectTab}
+                onInspectPoint={(pt) => {
+                  onInspectProvenance({
+                    ...SAMPLE_PROVENANCE,
+                    metricName: `12-Month Trajectory: ${pt.monthLabel}`,
+                    verificationHash: pt.cryptographicHash,
+                    rawSensorReading: `Ecological: ${pt.ecologicalFlourishing}% • Economic: ${pt.economicStability}% (Decoupling: +${pt.decouplingMargin}%)`,
+                    confidenceInterval: `±0.8% across ${pt.verifiedSensorCount} cryptographic sensor nodes`,
+                    epistemicTier: 'Zero-Knowledge Multi-Spectral Mesh'
+                  });
+                }}
+                onInspectProvenance={onInspectProvenance}
+                onOpenMoralSimulator={onOpenMoralSimulator}
+              />
+
+              {/* Regenerative Drift Monitor Watchdog */}
+              <RegenerativeDriftMonitor
+                onSelectBioregion={(id) => {
+                  setSelectedBioregions([id]);
+                  audioFeedback.playMicroTick();
+                }}
+                onInspectProvenance={onInspectProvenance}
+              />
+
+              {/* Weekly Bioregional Synthesis Panel: LLM Synthesis of Ecological Shifts */}
+              <div className="pt-2">
+                <WeeklyBioregionalSynthesisPanel
+                  activeBioregionId={selectedBioregions[0] || 'pan-african'}
+                  activeBioregionName={activeBioregionObj?.name || 'Pan-African Biome'}
+                  timeHorizon="Trailing 7-Day & 12-Month Longitudinal Trajectory"
+                />
+              </div>
+            </>
+          )}
 
           {/* Integrated Predictive Trend Forecasting Panel when enabled */}
           {isPredictiveForecastingEnabled && (
@@ -1319,6 +1771,17 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Primary Tab: Dedicated Weekly Bioregional Synthesis View */}
+      {activeTab === 'weekly-synthesis' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <WeeklyBioregionalSynthesisPanel
+            activeBioregionId={selectedBioregions[0] || 'pan-african'}
+            activeBioregionName={activeBioregionObj?.name || 'Pan-African Biome'}
+            timeHorizon="Trailing 7-Day & 12-Month Longitudinal Trajectory"
+          />
         </div>
       )}
 
@@ -1621,6 +2084,74 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
           />
         </div>
       )}
+
+      {/* Dedicated Tab: Spatial Density Heatmap Layer */}
+      {activeTab === 'spatial-density-heatmap' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <SpatialDensityHeatmapLayer
+            activeIndicator={spatialDensityIndicator}
+            onSelectIndicator={(indicator) => {
+              setSpatialDensityIndicator(indicator);
+              audioFeedback.playMicroTick();
+            }}
+            onSelectHotspot={(hotspot) => {
+              setSelectedSpatialHotspot(hotspot);
+              onInspectProvenance({
+                ...SAMPLE_PROVENANCE,
+                metricName: `Spatial Density Hotspot: ${hotspot.name} (${hotspot.bioregionName})`,
+                verificationHash: hotspot.cryptographicHash || `0x${hotspot.id.replace(/-/g, '').slice(0, 16)}`,
+                rawSensorReading: `Intensity: ${hotspot.intensity}% • Indicator: ${hotspot.indicator.toUpperCase()} • Stewards: ${hotspot.activeGuardians} active guardians`,
+                confidenceInterval: `±0.5% spatial mesh resolution across ${hotspot.radiusKm}km perimeter`,
+                epistemicTier: 'Multi-Spectral Geospatial Grid'
+              });
+            }}
+          />
+        </div>
+      )}
+
+      {/* Dedicated Tab: Regenerative Drift Monitor Watchdog */}
+      {activeTab === 'regenerative-drift' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <RegenerativeDriftMonitor
+            onSelectBioregion={(id) => {
+              setSelectedBioregions([id]);
+              setActiveTab('flourishing-vs-stability');
+              audioFeedback.playMicroTick();
+            }}
+            onInspectProvenance={onInspectProvenance}
+          />
+        </div>
+      )}
+
+      {/* Dedicated Tab: Customizable Workspace Grid */}
+      {activeTab === 'custom-grid' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-[#111613] border border-[#C5A059]/40 rounded text-xs font-mono">
+            <div className="flex items-center gap-2.5">
+              <Columns className="w-5 h-5 text-[#C5A059]" />
+              <div>
+                <div className="text-white font-bold text-sm">PERSONALIZED DRAG-AND-DROP WORKSPACE</div>
+                <div className="text-[#F5F5F0]/60 text-[11px]">
+                  Arrange your metric cards, toggle widget sizes, and customize your analytical view. Changes are automatically saved to local storage.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('flourishing-vs-stability');
+                setWorkspaceLayoutMode('standard');
+                audioFeedback.playMicroTick();
+              }}
+              className="px-3 py-1.5 bg-[#1C1C1C] hover:bg-[#2A2A2A] border border-[#F5F5F0]/20 text-[#F5F5F0] rounded text-xs font-mono font-bold cursor-pointer"
+            >
+              Standard 12-Mo View →
+            </button>
+          </div>
+          <CustomizableDashboardGrid renderWidget={renderCustomGridWidget} />
+        </div>
+      )}
+
       {/* Bioregional Comparator Multi-Selection Modal */}
       <BioregionalComparatorModal
         isOpen={isComparatorModalOpen}

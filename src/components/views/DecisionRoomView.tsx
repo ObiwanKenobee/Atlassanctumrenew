@@ -23,6 +23,7 @@ import {
 import { DecisionRoomScenario, DecisionRoomOption } from '../../types';
 import { SAMPLE_DECISION_SCENARIOS } from '../../data/prompt3OperatingData';
 import { audioFeedback } from '../../lib/audioFeedback';
+import { useComponentRenderMetrics } from '../../hooks/useComponentRenderMetrics';
 
 interface DecisionRoomViewProps {
   onSelectTab: (tab: any) => void;
@@ -80,6 +81,8 @@ export const DecisionRoomView: React.FC<DecisionRoomViewProps> = ({
   onSelectTab,
   onOpenMoralSimulator
 }) => {
+  useComponentRenderMetrics('Decision Room');
+
   const [selectedScenarioKey, setSelectedScenarioKey] = useState<string>('nairobi_corridor');
   const [activeScenarios, setActiveScenarios] = useState<Record<string, DecisionRoomScenario>>(SAMPLE_DECISION_SCENARIOS);
   const scenario = activeScenarios[selectedScenarioKey] || activeScenarios['nairobi_corridor'] || SAMPLE_DECISION_SCENARIOS['nairobi_corridor'];

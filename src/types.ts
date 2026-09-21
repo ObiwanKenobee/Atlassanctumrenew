@@ -111,6 +111,9 @@ export interface DataProvenance {
   cryptographicHash: string;
   assumptions: string[];
   lastAudited: string;
+  merkleProofCount?: number;
+  verifiedMerkleProofs?: number | string[];
+  merkleRootHash?: string;
 }
 
 export type MetricStatus = 'observed' | 'modeled' | 'target' | 'verified';

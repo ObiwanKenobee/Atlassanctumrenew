@@ -36,6 +36,7 @@ export const PerformanceMonitorOverlay: React.FC<PerformanceMonitorOverlayProps>
   const [copiedToast, setCopiedToast] = useState<string | null>(null);
   const [isDismissed, setIsDismissed] = useState<boolean>(false);
   const [subState, setSubState] = useState<ActiveSubscriptionState>(() => getCurrentSubscription());
+  const [filterBottlenecksOnly, setFilterBottlenecksOnly] = useState<boolean>(false);
 
   useEffect(() => {
     const handleSubUpdate = () => {
@@ -349,12 +350,32 @@ export const PerformanceMonitorOverlay: React.FC<PerformanceMonitorOverlayProps>
           {/* Targeted Complex Views Breakdown Table */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-              <span>Instrumented Complex Views</span>
-              <span className="text-neutral-500 font-normal">Target: &lt;16.6ms (60hz)</span>
+              <span className="flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                Real-Time View Render Profiler ({componentsList.length})
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    audioFeedback.playMicroTick();
+                    setFilterBottlenecksOnly(!filterBottlenecksOnly);
+                  }}
+                  className={`px-2 py-0.5 rounded text-[9px] font-mono cursor-pointer transition-colors ${
+                    filterBottlenecksOnly 
+                      ? 'bg-rose-950 text-rose-300 border border-rose-500/50' 
+                      : 'bg-white/5 text-neutral-400 hover:text-white border border-white/10'
+                  }`}
+                >
+                  {filterBottlenecksOnly ? '⚠️ Bottlenecks Only' : 'Show All'}
+                </button>
+                <span className="text-neutral-500 font-normal hidden sm:inline">&lt;16.6ms</span>
+              </div>
             </div>
 
             <div className="space-y-2 max-h-[36vh] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-cyan-500/30">
-              {componentsList.map((comp) => {
+              {componentsList
+                .filter((comp) => !filterBottlenecksOnly || comp.latestRenderMs > 16.6 || comp.slowRenderCount > 0)
+                .map((comp) => {
                 const statusClass = getStatusColor(comp.latestRenderMs);
                 const statusLabel = getStatusLabel(comp.latestRenderMs);
 
@@ -365,11 +386,24 @@ export const PerformanceMonitorOverlay: React.FC<PerformanceMonitorOverlayProps>
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="font-bold text-white text-xs">{comp.componentName}</div>
+                        <div className="font-bold text-white text-xs flex items-center gap-1.5">
+                          <span>{comp.componentName}</span>
+                          {comp.criticalBottlenecks > 0 && (
+                            <span className="px-1.5 py-0.2 rounded text-[8px] bg-rose-950 text-rose-300 border border-rose-500/40 uppercase font-mono">
+                              Hitch &gt;50ms
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[9px] text-neutral-400 font-sans flex items-center gap-2 mt-0.5">
                           <span>{comp.renderCount} renders</span>
                           <span>•</span>
                           <span>Avg: {comp.avgRenderMs}ms</span>
+                          {comp.slowRenderCount > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className="text-amber-400">{comp.slowRenderCount} slow</span>
+                            </>
+                          )}
                         </div>
                       </div>
 
