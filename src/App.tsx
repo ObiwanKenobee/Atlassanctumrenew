@@ -10,6 +10,7 @@ import { ActiveMissionProvider } from './context/ActiveMissionContext';
 import { Navigation } from './components/Navigation';
 import { ActiveMissionStatusBar } from './components/ActiveMissionStatusBar';
 import { Footer } from './components/Footer';
+import { MobileBottomNav } from './components/navigation/MobileBottomNav';
 import { GlobalLoadingIndicator } from './components/GlobalLoadingIndicator';
 import { ViewLoadingSkeleton } from './components/ViewLoadingSkeleton';
 import { ThemeAndAccessSyncListener } from './components/ThemeAndAccessSyncListener';
@@ -30,6 +31,8 @@ import { audioFeedback } from './lib/audioFeedback';
 import { prefetchPriorityViews, prefetchView } from './lib/viewPrefetch';
 import { registerServiceWorker } from './lib/serviceWorkerRegistration';
 import { PerformanceMonitorOverlay } from './components/performance/PerformanceMonitorOverlay';
+import { ContainerDimensionsWrapper } from './components/layout/ContainerDimensionsWrapper';
+import { GridFluidDebugOverlay } from './components/debug/GridFluidDebugOverlay';
 import { useMetadataManager } from './hooks/useMetadataManager';
 import {
   checkViewAccess,
@@ -364,7 +367,7 @@ export default function App() {
                             <AdaptiveLightingProvider>
                               <ContextualNotificationProvider>
                                 <ThemeAndAccessSyncListener>
-                              <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative">
+                              <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F0] flex flex-col font-sans selection:bg-[#C5A059] selection:text-[#0A0A0A] relative pb-16 xl:pb-0">
             {/* Moral Compass Dynamic Cursor Trail */}
             <MoralCompassCursor 
               moralIntensity={94.8} 
@@ -399,8 +402,8 @@ export default function App() {
               onSelectTab={handleSelectTab}
             />
 
-            {/* Main View Router */}
-            <main className="flex-1 w-full relative">
+            {/* Main View Router wrapped with ResizeObserver Threshold Detection */}
+            <ContainerDimensionsWrapper as="main" id="main-content-area" className="flex-1 w-full relative">
               {(() => {
                 const accessCheck = checkViewAccess(currentTab, subscriptionState.currentTier);
 
@@ -743,7 +746,7 @@ export default function App() {
                 </Suspense>
               );
             })()}
-          </main>
+          </ContainerDimensionsWrapper>
 
             {/* Global Comprehensive Civilization Footer */}
             <Footer
@@ -751,6 +754,19 @@ export default function App() {
               onOpenMoralSimulator={() => setMoralSimulatorOpen(true)}
               onOpenCommandCenter={() => setCommandCenterOpen(true)}
               onOpenCommandments={() => setCommandmentsModalOpen(true)}
+            />
+
+            {/* Mobile-First Sticky Bottom Dock for thumb ergonomics on small screens */}
+            <MobileBottomNav
+              currentTab={currentTab}
+              onSelectTab={handleSelectTab}
+              onOpenCommandCenter={() => setCommandCenterOpen(true)}
+              onOpenMobileMenu={() => {
+                window.dispatchEvent(new CustomEvent('open-mobile-drawer'));
+              }}
+              onOpenAIModal={() => {
+                window.dispatchEvent(new CustomEvent('open-gemini-chat'));
+              }}
             />
 
             {/* Floating Welcome & Platform Orientation Guide */}
@@ -910,6 +926,9 @@ export default function App() {
 
             {/* Real-time Render & Performance Telemetry HUD */}
             <PerformanceMonitorOverlay onSelectTab={handleSelectTab} />
+
+            {/* Toggleable Visual Debugging Overlay for Fluid Grids & Bento Layouts (Alt+G) */}
+            <GridFluidDebugOverlay />
 
             {/* Blockchain-backed Epistemic Ledger Verification Notification Toasts */}
             <VerificationNotificationContainer />

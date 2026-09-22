@@ -109,8 +109,18 @@ export const Navigation: React.FC<NavigationProps> = ({
         setMobileMenuOpen(false);
       }
     };
+    const handleOpenDrawer = () => setMobileMenuOpen(true);
+    const handleToggleDrawer = () => setMobileMenuOpen(prev => !prev);
+
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('open-mobile-drawer', handleOpenDrawer);
+    window.addEventListener('toggle-mobile-drawer', handleToggleDrawer);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('open-mobile-drawer', handleOpenDrawer);
+      window.removeEventListener('toggle-mobile-drawer', handleToggleDrawer);
+    };
   }, [mobileMenuOpen]);
 
   const handleToggleTheme = () => {

@@ -268,6 +268,21 @@ export const EightFormsCapitalTreemap: React.FC<EightFormsCapitalTreemapProps> =
     node: CapitalSubNode;
     parent: CapitalFormNode;
   } | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  // ResizeObserver for fluid responsiveness across mobile, tablet, and desktop
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width) {
+          setContainerWidth(Math.round(entry.contentRect.width));
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const capitalData = useMemo(() => {
     return EIGHT_FORMS_DATA[selectedBioregion] || EIGHT_FORMS_DATA.global;
@@ -508,7 +523,7 @@ export const EightFormsCapitalTreemap: React.FC<EightFormsCapitalTreemapProps> =
       .attr('font-family', 'ui-monospace, monospace')
       .attr('pointer-events', 'none');
 
-  }, [capitalData, selectedCapitalId, metricMode, totalValue]);
+  }, [capitalData, selectedCapitalId, metricMode, totalValue, containerWidth]);
 
   // Export CSV of treemap
   const handleExportCSV = () => {
