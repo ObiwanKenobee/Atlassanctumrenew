@@ -79,11 +79,19 @@ export const ActiveMissionStatusBar: React.FC<ActiveMissionStatusBarProps> = ({ 
       <div className="w-full bg-[#0D1410] border-b border-[#C5A059]/40 text-[#F5F5F0] z-30 transition-all shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-            {/* Active Mission Badge & Summary */}
+            {/* Active Mission Badge & Summary with Subtle Pulsing Active Status Indicator */}
             <div className="flex items-center gap-2.5 flex-wrap">
-              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/50 text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse"></span>
-                ACTIVE MISSION PIPELINE
+              <div 
+                id="active-mission-status-indicator-badge"
+                className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#C5A059]/25 via-[#1B3022]/80 to-[#C5A059]/15 border border-[#C5A059]/60 text-[#C5A059] font-mono text-[10px] uppercase font-bold tracking-wider shadow-[0_0_12px_rgba(197,160,89,0.25)] transition-all"
+              >
+                {/* Subtle double-ring radiating pulse indicator */}
+                <span className="relative flex h-2.5 w-2.5 items-center justify-center shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#C5A059] opacity-70 duration-1000"></span>
+                  <span className="absolute inline-flex h-3.5 w-3.5 rounded-full border border-[#C5A059]/40 animate-pulse duration-1500"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#C5A059] shadow-[0_0_8px_#C5A059]"></span>
+                </span>
+                <span className="tracking-widest">ACTIVE MISSION PIPELINE</span>
               </div>
               <span className="font-semibold text-[#F5F5F0] max-w-md truncate">
                 {activeMission.title}

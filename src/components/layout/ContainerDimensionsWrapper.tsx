@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   ContainerDimensionsContext,
-  ContainerDimensionsContextValue,
   ContainerThreshold,
-  resolveContainerThreshold,
-  CONTAINER_THRESHOLDS
 } from '../../context/ContainerDimensionsContext';
+import { useContainerDimensions } from '../../hooks/useContainerDimensions';
 
 interface ContainerDimensionsWrapperProps {
   children: React.ReactNode;
@@ -24,192 +22,46 @@ export const ContainerDimensionsWrapper: React.FC<ContainerDimensionsWrapperProp
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const [dimensions, setDimensions] = useState<{
-    width: number;
-    height: number;
-    threshold: ContainerThreshold;
-    prevThreshold: ContainerThreshold | null;
-    transitionCount: number;
-    lastCrossoverTimestamp: number;
-  }>(() => {
-    const initialWidth = typeof window !== 'undefined' ? window.innerWidth : 1280;
-    const initialHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
-    return {
-      width: initialWidth,
-      height: initialHeight,
-      threshold: resolveContainerThreshold(initialWidth),
-      prevThreshold: null,
-      transitionCount: 0,
-      lastCrossoverTimestamp: Date.now()
-    };
-  });
+  // Utilize the reusable useContainerDimensions hook to observe this container
+  const dimensionsData = useContainerDimensions(containerRef, { onThresholdCrossed });
 
-  const lastWidthRef = useRef<number>(dimensions.width);
-  const lastThresholdRef = useRef<ContainerThreshold>(dimensions.threshold);
-  const rafIdRef = useRef<number | null>(null);
-
-  // Measure and update dimensions with requestAnimationFrame debouncing
-  const measure = useCallback(() => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const width = Math.round(rect.width);
-    const height = Math.round(rect.height);
-
-    if (width <= 0) return;
-
-    const newThreshold = resolveContainerThreshold(width);
-    const prevThreshold = lastThresholdRef.current;
-    const hasThresholdShift = newThreshold !== prevThreshold;
-
-    lastWidthRef.current = width;
-
-    if (hasThresholdShift) {
-      lastThresholdRef.current = newThreshold;
-      const now = Date.now();
-
-      // Dispatch global custom event for decoupled visualization subscribers
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('container-threshold-crossed', {
-            detail: {
-              width,
-              height,
-              currentThreshold: newThreshold,
-              prevThreshold,
-              timestamp: now
-            }
-          })
-        );
-      }
-
-      if (onThresholdCrossed) {
-        onThresholdCrossed(newThreshold, prevThreshold, width);
-      }
-
-      setDimensions(prev => ({
-        width,
-        height,
-        threshold: newThreshold,
-        prevThreshold,
-        transitionCount: prev.transitionCount + 1,
-        lastCrossoverTimestamp: now
-      }));
-    } else {
-      // Dimension changed without crossing threshold bucket
-      setDimensions(prev => {
-        if (Math.abs(prev.width - width) < 2 && Math.abs(prev.height - height) < 2) {
-          return prev;
-        }
-        return {
-          ...prev,
-          width,
-          height
-        };
-      });
-    }
-  }, [onThresholdCrossed]);
-
-  const scheduleMeasure = useCallback(() => {
-    if (rafIdRef.current !== null) {
-      cancelAnimationFrame(rafIdRef.current);
-    }
-    rafIdRef.current = requestAnimationFrame(() => {
-      measure();
-      rafIdRef.current = null;
-    });
-  }, [measure]);
-
-  // Attach ResizeObserver API
+  // Global event listener for 'keydown' that toggles 'debug-mode' class on HTML tag when user presses 'Alt+D'
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.altKey && (e.key === 'd' || e.key === 'D')) || (e.altKey && e.code === 'KeyD')) {
+        if ((e as any).__altDDebugHandled) return;
+        (e as any).__altDDebugHandled = true;
+        e.preventDefault();
 
-    // Initial measurement
-    scheduleMeasure();
-
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          if (entry.contentRect) {
-            scheduleMeasure();
+        if (typeof document !== 'undefined') {
+          const isDebug = document.documentElement.classList.toggle('debug-mode');
+          if (isDebug) {
+            document.documentElement.classList.add('debug-grid-overlay-active');
+            try { localStorage.setItem('atlas_grid_debug_overlay', 'true'); } catch {}
+          } else {
+            document.documentElement.classList.remove('debug-grid-overlay-active');
+            try { localStorage.setItem('atlas_grid_debug_overlay', 'false'); } catch {}
           }
+          console.log(`[Global Keydown] 'Alt+D' pressed: toggled 'debug-mode' class on <html> tag to ${isDebug ? 'ENABLED' : 'DISABLED'}`);
+          window.dispatchEvent(new CustomEvent('debug-mode-toggled', { detail: { active: isDebug } }));
         }
-      });
-      resizeObserver.observe(el);
-    } else {
-      // Fallback for environments lacking ResizeObserver
-      window.addEventListener('resize', scheduleMeasure, { passive: true });
-    }
-
-    return () => {
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      } else {
-        window.removeEventListener('resize', scheduleMeasure);
-      }
-      if (rafIdRef.current !== null) {
-        cancelAnimationFrame(rafIdRef.current);
       }
     };
-  }, [scheduleMeasure]);
 
-  const isAtLeast = useCallback((target: ContainerThreshold | number): boolean => {
-    const targetWidth = typeof target === 'number' 
-      ? target 
-      : CONTAINER_THRESHOLDS[target] ?? 0;
-    return dimensions.width >= targetWidth;
-  }, [dimensions.width]);
-
-  // Calculate estimated columns for cards and bento grids based on current pixel width
-  const estimatedCardsColumns = useMemo(() => {
-    if (dimensions.width < 640) return 1;
-    if (dimensions.width < 1024) return 2;
-    if (dimensions.width < 1280) return 3;
-    return 4;
-  }, [dimensions.width]);
-
-  const estimatedBentoColumns = useMemo(() => {
-    if (dimensions.width < 768) return 1;
-    if (dimensions.width < 1024) return 2;
-    if (dimensions.width < 1280) return 3;
-    return 4;
-  }, [dimensions.width]);
-
-  const contextValue: ContainerDimensionsContextValue = useMemo(() => ({
-    width: dimensions.width,
-    height: dimensions.height,
-    threshold: dimensions.threshold,
-    prevThreshold: dimensions.prevThreshold,
-    transitionCount: dimensions.transitionCount,
-    lastCrossoverTimestamp: dimensions.lastCrossoverTimestamp,
-    estimatedCardsColumns,
-    estimatedBentoColumns,
-    isCompact: dimensions.threshold === 'compact',
-    isPhablet: dimensions.threshold === 'phablet',
-    isTablet: dimensions.threshold === 'tablet',
-    isDesktop: dimensions.threshold === 'desktop',
-    isWide: dimensions.threshold === 'wide',
-    isUltraWide: dimensions.threshold === 'ultrawide',
-    isAtLeast,
-    containerRef,
-    refreshDimensions: scheduleMeasure
-  }), [
-    dimensions,
-    estimatedCardsColumns,
-    estimatedBentoColumns,
-    isAtLeast,
-    scheduleMeasure
-  ]);
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, []);
 
   return (
-    <ContainerDimensionsContext.Provider value={contextValue}>
+    <ContainerDimensionsContext.Provider value={dimensionsData}>
       <Component
         ref={containerRef as any}
         id={id}
         className={className}
-        data-container-threshold={dimensions.threshold}
-        data-container-width={dimensions.width}
+        data-container-threshold={dimensionsData.threshold}
+        data-container-width={dimensionsData.width}
       >
         {children}
       </Component>

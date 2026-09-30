@@ -44,7 +44,6 @@ import {
   Calendar,
   Quote,
   Droplets,
-  Trophy,
   Rocket
 } from 'lucide-react';
 import { NavigationHeaderConfig } from '../types/navigation';
@@ -82,91 +81,6 @@ export const NAVIGATION_CONFIG: NavigationHeaderConfig = {
   ],
 
   primaryNavigation: [
-    // 0. HACKATHONS & ATLAS INNOVATIONS DROPDOWN
-    {
-      id: 'hackathons-innovations',
-      label: 'Hackathons & Innovations',
-      labelKey: 'nav.hackathons_innovations',
-      type: 'nested_submenu',
-      icon: Trophy,
-      badge: { text: '2026 Spotlights', variant: 'emerald', pulse: true },
-      analytics: { category: 'Navigation', action: 'toggle_hackathons_menu' },
-      submenuItems: [
-        {
-          id: 'hackathon-steward',
-          label: 'Atlas Steward (AWS Hackathon 2026)',
-          description: 'Good Neighbor Agents: Autonomous Community Operations & Water Reliability (Strands + Bedrock)',
-          icon: Droplets,
-          targetTab: 'steward',
-          badge: { text: 'AWS 2026 Winner Track', variant: 'emerald' },
-          analytics: { category: 'Navigation', action: 'navigate_steward_dropdown' }
-        },
-        {
-          id: 'hackathon-sentinel',
-          label: 'Atlas Sentinel (TikTok TechJam 2026)',
-          description: 'Automated Content Verification, Epistemic Defenses & Viral Resilience',
-          icon: ShieldCheck,
-          targetTab: 'sentinel',
-          badge: { text: 'TechJam 2026', variant: 'gold' },
-          analytics: { category: 'Navigation', action: 'navigate_sentinel_dropdown' }
-        },
-        {
-          id: 'hackathon-system-model-studio',
-          label: 'Systems Dynamics & Causal Modeling',
-          description: 'Stock-Flow Differential Simulation, Causal DAGs & Meadows Leverage Points',
-          icon: GitBranch,
-          targetTab: 'system-model-studio',
-          badge: { text: 'Dynamic SD', variant: 'emerald' },
-          analytics: { category: 'Navigation', action: 'navigate_system_model_dropdown' }
-        },
-        {
-          id: 'hackathon-governance-sdk',
-          label: 'Governance SDK & Constitutional AI',
-          description: 'Mathematical Ethics, Axiomatic Alignment & Quadratic Consensus Engine',
-          icon: Scale,
-          targetTab: 'governance',
-          badge: { text: 'Constitutional AI', variant: 'blue' },
-          analytics: { category: 'Navigation', action: 'navigate_governance_sdk_dropdown' }
-        },
-        {
-          id: 'hackathon-reality-engine',
-          label: 'Reality Engine & Sensory Mesh',
-          description: 'Ground-truth Planetary IoT Mesh, Verifiable Physical Placards & Stream Audits',
-          icon: Globe2,
-          targetTab: 'reality-engine',
-          badge: { text: 'IoT Mesh', variant: 'emerald' },
-          analytics: { category: 'Navigation', action: 'navigate_reality_engine_dropdown' }
-        },
-        {
-          id: 'hackathon-alchemical-sanctum',
-          label: 'The Alchemical Sanctum',
-          description: 'Sacred Arts, 7 Archetypes & Planetary Regenerative Wonder',
-          icon: Sparkles,
-          targetTab: 'alchemical-sanctum',
-          badge: { text: '7 Archetypes', variant: 'gold' },
-          analytics: { category: 'Navigation', action: 'navigate_alchemical_sanctum_dropdown' }
-        },
-        {
-          id: 'hackathon-agent-mission-control',
-          label: 'Agent Mission Control',
-          description: 'Autonomous Agent Hive Operations & Real-time Task Orchestration',
-          icon: Radio,
-          targetTab: 'agent-mission-control',
-          badge: { text: 'Summer Blockbuster', variant: 'gold' },
-          analytics: { category: 'Navigation', action: 'navigate_agent_mission_control_dropdown' }
-        },
-        {
-          id: 'hackathon-ai-engineering',
-          label: 'AI Engineering Workbench',
-          description: 'Gemini 3.7 Epistemic Workbench, Model Probing & Alignment Testbeds',
-          icon: Cpu,
-          targetTab: 'ai-engineering',
-          badge: { text: 'Gemini 3.7', variant: 'emerald' },
-          analytics: { category: 'Navigation', action: 'navigate_ai_engineering_dropdown' }
-        }
-      ]
-    },
-
     // 1. Home / Overview
     {
       id: 'home',

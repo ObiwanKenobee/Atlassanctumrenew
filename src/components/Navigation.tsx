@@ -3,7 +3,6 @@ import {
   Menu, 
   X, 
   Sparkles, 
-  Activity, 
   Bell, 
   Search, 
   ChevronDown, 
@@ -13,15 +12,8 @@ import {
   Contrast, 
   Monitor,
   Mic,
-  Trophy,
-  Droplets,
-  Shield,
-  Radio,
-  Cpu,
-  GitBranch,
   Globe2,
   Compass,
-  Leaf,
   Layers
 } from 'lucide-react';
 import { PageView } from '../types';
@@ -74,7 +66,6 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const [innovationsDropdownOpen, setInnovationsDropdownOpen] = useState(false);
   const [isLogicFlowOpen, setIsLogicFlowOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const { unreadCount, setIsDrawerOpen } = useMissionAlerts();
@@ -158,7 +149,6 @@ export const Navigation: React.FC<NavigationProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setActiveMenuId(null);
-        setInnovationsDropdownOpen(false);
         setMobileMenuOpen(false);
       }
     };
@@ -171,7 +161,6 @@ export const Navigation: React.FC<NavigationProps> = ({
     const handleClickOutside = (e: MouseEvent) => {
       if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
         setActiveMenuId(null);
-        setInnovationsDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -181,7 +170,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   // Close mega menu when route/tab changes
   useEffect(() => {
     setActiveMenuId(null);
-    setInnovationsDropdownOpen(false);
   }, [currentTab]);
 
   const handlePrimaryItemClick = (item: PrimaryNavigationItem) => {
@@ -335,7 +323,6 @@ export const Navigation: React.FC<NavigationProps> = ({
           onClick={() => {
             onSelectTab('home');
             setActiveMenuId(null);
-            setInnovationsDropdownOpen(false);
             setMobileMenuOpen(false);
           }}
           className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0"
@@ -425,234 +412,6 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         {/* Action Controls & Quick Triggers */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {/* Centrally Accessible Atlas Innovations & Hackathons Dropdown Trigger */}
-          <div className="relative">
-            <button
-              id="innovations-dropdown-btn"
-              onClick={() => {
-                audioFeedback.playSubtleClick();
-                setInnovationsDropdownOpen(!innovationsDropdownOpen);
-              }}
-              aria-label="Atlas Innovations & Hackathon Showcases"
-              title="Atlas Innovations & Hackathons 2026"
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] sm:min-h-[38px] rounded-full bg-gradient-to-r from-amber-500/20 via-[#1B3022] to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-400/40 hover:border-amber-400 text-[#C5A059] hover:text-amber-200 transition-all font-mono font-bold text-[10px] sm:text-xs cursor-pointer shadow-sm"
-            >
-              <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 animate-pulse" />
-              <span className="hidden xs:inline font-serif font-bold tracking-wider">Innovations</span>
-              <span className="text-[8px] sm:text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-400 text-black font-black uppercase">
-                2026
-              </span>
-              <ChevronDown className={`w-3 h-3 text-amber-400 transition-transform duration-200 ${innovationsDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Innovations Dropdown Menu */}
-            {innovationsDropdownOpen && (
-              <div 
-                className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[90vw] rounded-xl bg-[#0D0D0D]/98 backdrop-blur-xl border border-[#C5A059]/40 shadow-2xl z-50 p-2 space-y-1 animate-fadeIn ring-1 ring-white/10"
-                onMouseLeave={() => setInnovationsDropdownOpen(false)}
-              >
-                <div className="px-3 py-2 border-b border-[#F5F5F0]/10 flex items-center justify-between">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-[#C5A059] font-bold flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 text-amber-400" />
-                    Atlas Innovations & Hackathons Hub
-                  </span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#1B3022] text-[#C5A059] border border-[#C5A059]/40 font-bold">
-                    2026 Series
-                  </span>
-                </div>
-
-                <div className="max-h-[68vh] overflow-y-auto space-y-1.5 pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#C5A059]/30">
-                  {/* Category 1: Hackathon Spotlight Winners */}
-                  <div className="px-2 pt-1 text-[9px] font-mono uppercase text-amber-400/80 font-bold tracking-wider">
-                    🏆 Hackathon Spotlights & Winners
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      onSelectTab('steward');
-                      setInnovationsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all ${
-                      currentTab === 'steward'
-                        ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]'
-                        : 'hover:bg-[#141414] border border-transparent text-[#F5F5F0]'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <Droplets className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-serif font-bold text-white">Atlas Steward</span>
-                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
-                          AWS 2026 Winner
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Good Neighbor Agents & Water Reliability</p>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onSelectTab('sentinel');
-                      setInnovationsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all ${
-                      currentTab === 'sentinel'
-                        ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]'
-                        : 'hover:bg-[#141414] border border-transparent text-[#F5F5F0]'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <Shield className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-serif font-bold text-white">Atlas Sentinel</span>
-                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-amber-950/80 text-amber-300 border border-amber-500/40 font-mono font-bold">
-                          TechJam 2026
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Automated Epistemic Content Defense</p>
-                    </div>
-                  </button>
-
-                  {/* Category 2: AI Engineering & Systems Studios */}
-                  <div className="px-2 pt-2 text-[9px] font-mono uppercase text-blue-400/80 font-bold tracking-wider border-t border-[#F5F5F0]/10">
-                    🔬 Next-Gen Studios & Causal Engines
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      onSelectTab('system-model-studio');
-                      setInnovationsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all ${
-                      currentTab === 'system-model-studio'
-                        ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]'
-                        : 'hover:bg-[#141414] border border-transparent text-[#F5F5F0]'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-md bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <GitBranch className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-serif font-bold text-white">Systems Dynamics</span>
-                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 font-mono font-bold">
-                          Causal SD
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Differential Stock-Flow Simulations</p>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onSelectTab('decision-room');
-                      setInnovationsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all ${
-                      currentTab === 'decision-room'
-                        ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]'
-                        : 'hover:bg-[#141414] border border-transparent text-[#F5F5F0]'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-md bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <Activity className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-serif font-bold text-white">Decision Room</span>
-                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40 font-mono font-bold">
-                          War Room
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Multi-Stakeholder Policy Simulations</p>
-                    </div>
-                  </button>
-
-                  {/* Category 3: Planetary Reality & Constitutional Governance */}
-                  <div className="px-2 pt-2 text-[9px] font-mono uppercase text-emerald-400/80 font-bold tracking-wider border-t border-[#F5F5F0]/10">
-                    🌍 Ground-Truth Placards & Governance
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      onSelectTab('governance');
-                      setInnovationsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all ${
-                      currentTab === 'governance'
-                        ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]'
-                        : 'hover:bg-[#141414] border border-transparent text-[#F5F5F0]'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-md bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <Scale className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-serif font-bold text-white">Governance SDK</span>
-                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-blue-950/80 text-[#8FB8DE] border border-[#8FB8DE]/40 font-mono font-bold">
-                          Constitutional
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Mathematical Ethics & Quadratic Consensus</p>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onSelectTab('reality-engine');
-                      setInnovationsDropdownOpen(false);
-                    }}
-                    className={`w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all ${
-                      currentTab === 'reality-engine'
-                        ? 'bg-[#1B3022] border border-[#C5A059] text-[#C5A059]'
-                        : 'hover:bg-[#141414] border border-transparent text-[#F5F5F0]'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-md bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
-                      <Globe2 className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-serif font-bold text-white">Reality Engine</span>
-                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-mono font-bold">
-                          IoT Mesh
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Ground-Truth Sensory Placards</p>
-                    </div>
-                  </button>
-
-                  {/* Civilization OS Logic Flow Infographic Trigger */}
-                  <button
-                    onClick={() => {
-                      setIsLogicFlowOpen(true);
-                      setInnovationsDropdownOpen(false);
-                    }}
-                    className="w-full text-left p-2.5 rounded-lg flex items-start gap-2.5 transition-all hover:bg-[#141414] border border-transparent text-[#F5F5F0]"
-                  >
-                    <div className="w-7 h-7 rounded-md bg-amber-500/20 text-[#C5A059] flex items-center justify-center shrink-0 mt-0.5">
-                      <Layers className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-serif font-bold text-white">Civilization OS Flow</span>
-                        <span className="text-[8px] uppercase px-1.5 py-0.2 rounded bg-amber-950/80 text-[#C5A059] border border-[#C5A059]/40 font-mono font-bold">
-                          Infographic
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">Modular Interactions to Moral Arbiter</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Mission Alert Stream Bell */}
           <button
             id="mission-alert-bell-btn"

@@ -82,10 +82,10 @@ export function getLastDiagnosticReport(): StartupDiagnosticReport | null {
  * automatically attempting connection recovery without requiring manual user intervention.
  */
 export async function probeBackendWithExponentialBackoff(
-  maxAttempts: number = 5,
+  maxAttempts: number = 8,
   initialDelayMs: number = 400,
-  maxDelayMs: number = 5000,
-  backoffFactor: number = 1.8,
+  maxDelayMs: number = 4000,
+  backoffFactor: number = 1.6,
   onAttempt?: (attempt: number, delayMs: number, error: any) => void
 ): Promise<{ success: boolean; data?: any; error?: any; totalAttempts: number }> {
   let attempt = 0;
@@ -94,21 +94,31 @@ export async function probeBackendWithExponentialBackoff(
   while (attempt < maxAttempts) {
     attempt++;
     try {
-      const response = await fetch('/api/health', {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      const response = await fetch(`/api/health?_t=${Date.now()}`, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: { 
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
         return { success: true, data, totalAttempts: attempt };
       }
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`HTTP ${response.status}: ${response.statusText || 'Transient Gateway / Server Starting'}`);
     } catch (err: any) {
       lastError = err;
       if (attempt < maxAttempts) {
         const delay = Math.min(
-          Math.round(initialDelayMs * Math.pow(backoffFactor, attempt - 1) * (0.85 + Math.random() * 0.3)),
+          Math.round(initialDelayMs * Math.pow(backoffFactor, attempt - 1) * (0.9 + Math.random() * 0.2)),
           maxDelayMs
         );
         if (onAttempt) {
@@ -271,10 +281,10 @@ export async function runStartupDiagnostics(forceRefresh: boolean = false): Prom
   // 3. Check Backend Express API & Gemini API Key Status with Exponential Backoff
   try {
     const probeResult = await probeBackendWithExponentialBackoff(
-      5,   // maxAttempts
-      350, // initialDelayMs
+      8,   // maxAttempts
+      400, // initialDelayMs
       4000,// maxDelayMs
-      1.8  // backoffFactor
+      1.6  // backoffFactor
     );
 
     if (probeResult.success && probeResult.data) {

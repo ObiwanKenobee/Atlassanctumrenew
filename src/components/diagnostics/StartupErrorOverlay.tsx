@@ -49,6 +49,9 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
       // Automatically open if critical (unless previously dismissed)
       if (newReport.status === 'critical' && !hasManuallyDismissed) {
         setIsOpen(true);
+      } else if (newReport.status !== 'critical' && newReport.checks.backendReachable) {
+        // Automatically auto-heal and close modal when backend is reconnected
+        setIsOpen(false);
       }
     });
 
@@ -62,6 +65,8 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
       setReport(initialReport);
       if (initialReport.status === 'critical' && !hasManuallyDismissed) {
         setIsOpen(true);
+      } else if (initialReport.status !== 'critical' && initialReport.checks.backendReachable) {
+        setIsOpen(false);
       }
     });
 
@@ -77,7 +82,7 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
     try {
       const refreshed = await runStartupDiagnostics(true);
       setReport(refreshed);
-      if (refreshed.status === 'healthy') {
+      if (refreshed.status !== 'critical' && refreshed.checks.backendReachable) {
         setTimeout(() => setIsOpen(false), 800);
       }
     } finally {
@@ -92,7 +97,7 @@ export const StartupErrorOverlay: React.FC<StartupErrorOverlayProps> = ({ onDism
       const freshReport = await softResetDiagnostics();
       setReport(freshReport);
 
-      if (freshReport.status === 'healthy') {
+      if (freshReport.status !== 'critical' && freshReport.checks.backendReachable) {
         setResetNotice('✓ Soft Reset successful: Cache purged and Express backend re-verified.');
         setTimeout(() => {
           setIsOpen(false);

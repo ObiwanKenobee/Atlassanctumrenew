@@ -711,34 +711,157 @@ html.reduced-motion *:after {
 
 /* ========================================================================= */
 /* VISUAL DEBUGGING OVERLAY FOR FLUID GRIDS & BENTO ALIGNMENT               */
+/* Triggers via global 'debug-mode' class on <html> (Alt+D) or overlay active*/
 /* ========================================================================= */
 
+/* Base transition for smooth debug-mode outline & background toggle */
+.grid-flexible-bento,
+.grid-fluid-bento,
+.grid-flexible-cards,
+.grid-fluid-cards {
+  outline: 2px dashed transparent;
+  outline-offset: 4px;
+  background-color: transparent;
+  transition: outline-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              outline-offset 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              grid-template-columns 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+              gap 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.grid-flexible-bento > *,
+.grid-fluid-bento > *,
+.grid-flexible-cards > *,
+.grid-fluid-cards > * {
+  outline: 1px dashed transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              outline-offset 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Bento grid outlines when debug-mode is active */
+.debug-mode .grid-flexible-bento,
+.debug-mode .grid-fluid-bento,
+html.debug-mode .grid-flexible-bento,
+html.debug-mode .grid-fluid-bento,
 .debug-grid-overlay-active .grid-flexible-bento,
 .debug-grid-overlay-active .grid-fluid-bento {
   position: relative !important;
   outline: 2px dashed rgba(245, 158, 11, 0.75) !important; /* Semi-transparent Amber */
   outline-offset: 4px !important;
-  background-color: rgba(245, 158, 11, 0.03) !important;
+  background-color: rgba(245, 158, 11, 0.035) !important;
 }
 
+/* Cards grid outlines when debug-mode is active */
+.debug-mode .grid-flexible-cards,
+.debug-mode .grid-fluid-cards,
+html.debug-mode .grid-flexible-cards,
+html.debug-mode .grid-fluid-cards,
 .debug-grid-overlay-active .grid-flexible-cards,
 .debug-grid-overlay-active .grid-fluid-cards {
   position: relative !important;
   outline: 2px dashed rgba(16, 185, 129, 0.75) !important; /* Semi-transparent Emerald */
   outline-offset: 4px !important;
-  background-color: rgba(16, 185, 129, 0.03) !important;
+  background-color: rgba(16, 185, 129, 0.035) !important;
 }
 
+.debug-mode .grid-flexible-bento > *,
+.debug-mode .grid-fluid-bento > *,
+html.debug-mode .grid-flexible-bento > *,
+html.debug-mode .grid-fluid-bento > *,
 .debug-grid-overlay-active .grid-flexible-bento > *,
 .debug-grid-overlay-active .grid-fluid-bento > * {
   outline: 1px dashed rgba(245, 158, 11, 0.45) !important;
   outline-offset: 2px !important;
 }
 
+.debug-mode .grid-flexible-cards > *,
+.debug-mode .grid-fluid-cards > *,
+html.debug-mode .grid-flexible-cards > *,
+html.debug-mode .grid-fluid-cards > *,
 .debug-grid-overlay-active .grid-flexible-cards > *,
 .debug-grid-overlay-active .grid-fluid-cards > * {
   outline: 1px dashed rgba(16, 185, 129, 0.45) !important;
   outline-offset: 2px !important;
+}
+
+/* Granular toggle rules: selectively suppress borders for individual grid regions to reduce visual clutter */
+html.debug-hide-bento .grid-flexible-bento,
+html.debug-hide-bento .grid-fluid-bento,
+.debug-hide-bento .grid-flexible-bento,
+.debug-hide-bento .grid-fluid-bento {
+  outline: 2px dashed transparent !important;
+  background-color: transparent !important;
+}
+
+html.debug-hide-bento .grid-flexible-bento > *,
+html.debug-hide-bento .grid-fluid-bento > *,
+.debug-hide-bento .grid-flexible-bento > *,
+.debug-hide-bento .grid-fluid-bento > * {
+  outline: 1px dashed transparent !important;
+}
+
+html.debug-hide-cards .grid-flexible-cards,
+html.debug-hide-cards .grid-fluid-cards,
+.debug-hide-cards .grid-flexible-cards,
+.debug-hide-cards .grid-fluid-cards {
+  outline: 2px dashed transparent !important;
+  background-color: transparent !important;
+}
+
+html.debug-hide-cards .grid-flexible-cards > *,
+html.debug-hide-cards .grid-fluid-cards > *,
+.debug-hide-cards .grid-flexible-cards > *,
+.debug-hide-cards .grid-fluid-cards > * {
+  outline: 1px dashed transparent !important;
+}
+
+html.debug-hide-children .grid-flexible-bento > *,
+html.debug-hide-children .grid-fluid-bento > *,
+html.debug-hide-children .grid-flexible-cards > *,
+html.debug-hide-children .grid-fluid-cards > *,
+.debug-hide-children .grid-flexible-bento > *,
+.debug-hide-children .grid-fluid-bento > *,
+.debug-hide-children .grid-flexible-cards > *,
+.debug-hide-children .grid-fluid-cards > * {
+  outline: 1px dashed transparent !important;
+}
+
+/* Keyframe opacity fade animation for debug mode overlay elements */
+@keyframes debugOverlayFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes debugBadgePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 8px 1px rgba(245, 158, 11, 0.4);
+  }
+}
+
+.debug-mode-overlay-fade {
+  animation: debugOverlayFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.debug-mode-badge-fade {
+  animation: debugOverlayFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.debug-badge-glow {
+  animation: debugBadgePulse 3s ease-in-out infinite;
 }
 
 

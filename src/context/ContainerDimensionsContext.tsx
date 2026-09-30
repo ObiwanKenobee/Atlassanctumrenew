@@ -35,6 +35,14 @@ export function resolveContainerThreshold(width: number): ContainerThreshold {
   return 'ultrawide';
 }
 
+export interface ContainerResizeEvent {
+  width: number;
+  height: number;
+  threshold: ContainerThreshold;
+  timestamp: number;
+  durationMs: number;
+}
+
 export interface ContainerDimensionsState {
   width: number;
   height: number;
@@ -42,6 +50,7 @@ export interface ContainerDimensionsState {
   prevThreshold: ContainerThreshold | null;
   transitionCount: number;
   lastCrossoverTimestamp: number;
+  resizeHistory: ContainerResizeEvent[];
   estimatedCardsColumns: number;
   estimatedBentoColumns: number;
   isCompact: boolean;
@@ -65,6 +74,7 @@ const defaultState: ContainerDimensionsContextValue = {
   prevThreshold: null,
   transitionCount: 0,
   lastCrossoverTimestamp: Date.now(),
+  resizeHistory: [],
   estimatedCardsColumns: 3,
   estimatedBentoColumns: 3,
   isCompact: false,
@@ -80,12 +90,9 @@ const defaultState: ContainerDimensionsContextValue = {
 
 export const ContainerDimensionsContext = createContext<ContainerDimensionsContextValue>(defaultState);
 
-/**
- * Hook to access current container pixel dimensions, active threshold, and column estimation.
- */
-export function useContainerDimensions(): ContainerDimensionsContextValue {
-  return useContext(ContainerDimensionsContext);
-}
+import { useContainerDimensions, type UseContainerDimensionsOptions, type UseContainerDimensionsReturn } from '../hooks/useContainerDimensions';
+export { useContainerDimensions };
+export type { UseContainerDimensionsOptions, UseContainerDimensionsReturn };
 
 /**
  * Hook to access just the current container width for fast re-renders.

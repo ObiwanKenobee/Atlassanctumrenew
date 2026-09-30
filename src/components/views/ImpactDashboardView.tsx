@@ -43,6 +43,7 @@ import { EightFormsCapitalTreemap } from '../analytics/EightFormsCapitalTreemap'
 import { HumanFlourishingTimelineChart } from '../analytics/HumanFlourishingTimelineChart';
 import { ProjectFlourishingD3Network } from '../analytics/ProjectFlourishingD3Network';
 import { RegenerativeProgressD3Chart } from '../analytics/RegenerativeProgressD3Chart';
+import { HistoricalRegenerativeTrendChart } from '../analytics/HistoricalRegenerativeTrendChart';
 import { FlourishingVsStabilityD3Chart, MonthlyTrendDataPoint } from '../analytics/FlourishingVsStabilityD3Chart';
 import { KnowledgeGraphStudio } from '../intelligence/KnowledgeGraphStudio';
 import { BioregionalHazardMonitor } from '../bioregional/BioregionalHazardMonitor';
@@ -79,11 +80,33 @@ import { BioregionalCompareModeOverlay } from '../analytics/BioregionalCompareMo
 
 const IMPACT_DASHBOARD_CACHE_KEY = 'atlas_sanctum_impact_dashboard_cache_v2';
 
+export type ImpactDashboardTab = 
+  | 'eight-forms-capital' 
+  | 'historical-trend'
+  | 'community-feed' 
+  | 'flourishing-vs-stability' 
+  | 'weekly-synthesis' 
+  | 'regenerative-progress' 
+  | 'flourishing-timeline' 
+  | 'restoration-mesh' 
+  | 'knowledge-studio' 
+  | 'causal-graph' 
+  | 'telemetry-grid' 
+  | 'bioregional-map' 
+  | 'hazard-monitor' 
+  | 'collaborative-teams' 
+  | 'impact-story' 
+  | 'split-pane-compare' 
+  | 'predictive-forecasting' 
+  | 'spatial-density-heatmap' 
+  | 'regenerative-drift' 
+  | 'custom-grid';
+
 interface ImpactDashboardCachedState {
   timeRange?: TimeRangeOption;
   isNormalized?: boolean;
   selectedBioregions?: string[];
-  activeTab?: 'eight-forms-capital' | 'community-feed' | 'flourishing-vs-stability' | 'weekly-synthesis' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story' | 'split-pane-compare' | 'predictive-forecasting' | 'spatial-density-heatmap' | 'regenerative-drift' | 'custom-grid';
+  activeTab?: ImpactDashboardTab;
   selectedLayerId?: string;
   isPredictiveForecastingEnabled?: boolean;
   heatmapMode?: HeatmapMode;
@@ -115,7 +138,8 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
 
   const [selectedLayerId, setSelectedLayerId] = useState<string>(() => cachedState?.selectedLayerId ?? 'flourishing-os');
   const [selectedMetric, setSelectedMetric] = useState<CivilizationMetric>(CIVILIZATION_METRICS[0]);
-  const [activeTab, setActiveTab] = useState<'eight-forms-capital' | 'community-feed' | 'flourishing-vs-stability' | 'weekly-synthesis' | 'regenerative-progress' | 'flourishing-timeline' | 'restoration-mesh' | 'knowledge-studio' | 'causal-graph' | 'telemetry-grid' | 'bioregional-map' | 'hazard-monitor' | 'collaborative-teams' | 'impact-story' | 'split-pane-compare' | 'predictive-forecasting' | 'spatial-density-heatmap' | 'regenerative-drift' | 'custom-grid'>(() => cachedState?.activeTab ?? 'eight-forms-capital');
+  const [activeTab, setActiveTab] = useState<ImpactDashboardTab>(() => cachedState?.activeTab ?? 'eight-forms-capital');
+  const [regenerativeViewStyle, setRegenerativeViewStyle] = useState<'recharts_trend' | 'd3_detail'>('recharts_trend');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfGenerationSuccess, setPdfGenerationSuccess] = useState(false);
   const [csvExportSuccess, setCsvExportSuccess] = useState<string | null>(null);
@@ -1331,6 +1355,26 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
             </span>
           </button>
 
+          {/* Recharts Historical Trend Line Chart Tab */}
+          <button
+            id="tab-historical-trend-btn"
+            onClick={() => {
+              setActiveTab('historical-trend');
+              audioFeedback.playMicroTick();
+            }}
+            className={`px-3.5 sm:px-4 py-2 rounded-sm text-xs font-mono font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'historical-trend'
+                ? 'bg-gradient-to-r from-[#C5A059] via-amber-400 to-emerald-400 text-black shadow-md font-bold'
+                : 'bg-[#141414] text-[#C5A059] hover:text-white border border-[#C5A059]/40'
+            }`}
+          >
+            <LineChartIcon className="w-3.5 h-3.5" />
+            <span>Historical Trends (Recharts)</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-bold uppercase">
+              RECHARTS
+            </span>
+          </button>
+
           <button
             onClick={() => {
               setActiveTab('regenerative-progress');
@@ -1792,10 +1836,59 @@ export const ImpactDashboardView: React.FC<ImpactDashboardViewProps> = ({
         </div>
       )}
 
+      {/* Primary Tab: Recharts Historical Regenerative Progress Trend Line Chart */}
+      {activeTab === 'historical-trend' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <HistoricalRegenerativeTrendChart onInspectProvenance={onInspectProvenance} />
+        </div>
+      )}
+
       {/* Primary Tab: D3 Longitudinal Regenerative Progress Chart */}
       {activeTab === 'regenerative-progress' && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          <RegenerativeProgressD3Chart onInspectPoint={onInspectProvenance} />
+          {/* View switcher between Recharts Historical Trend and D3 Detail */}
+          <div className="flex items-center justify-between bg-[#111412] p-3 rounded-sm border border-[#C5A059]/40 flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-[#C5A059] font-bold uppercase">Engine:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setRegenerativeViewStyle('recharts_trend');
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-3 py-1 rounded-xs text-xs font-mono font-bold cursor-pointer transition-colors ${
+                  regenerativeViewStyle === 'recharts_trend'
+                    ? 'bg-[#C5A059] text-black shadow-sm'
+                    : 'bg-[#141414] text-[#F5F5F0]/70 hover:text-white border border-[#F5F5F0]/10'
+                }`}
+              >
+                Recharts Historical Trend Line
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRegenerativeViewStyle('d3_detail');
+                  audioFeedback.playMicroTick();
+                }}
+                className={`px-3 py-1 rounded-xs text-xs font-mono font-bold cursor-pointer transition-colors ${
+                  regenerativeViewStyle === 'd3_detail'
+                    ? 'bg-[#C5A059] text-black shadow-sm'
+                    : 'bg-[#141414] text-[#F5F5F0]/70 hover:text-white border border-[#F5F5F0]/10'
+                }`}
+              >
+                D3 Longitudinal Geometry
+              </button>
+            </div>
+            <span className="text-[10px] font-mono text-[#F5F5F0]/50 hidden sm:inline">
+              Multi-Metric Longitudinal Tracking (2022–2026)
+            </span>
+          </div>
+
+          {regenerativeViewStyle === 'recharts_trend' ? (
+            <HistoricalRegenerativeTrendChart onInspectProvenance={onInspectProvenance} />
+          ) : (
+            <RegenerativeProgressD3Chart onInspectPoint={onInspectProvenance} />
+          )}
         </div>
       )}
 

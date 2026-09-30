@@ -17,7 +17,9 @@ import {
   Layers,
   Clock,
   ArrowRight,
-  Calendar
+  Calendar,
+  LayoutGrid,
+  TrendingUp
 } from 'lucide-react';
 import { performanceTracker, PerformanceSnapshot, ComponentRenderMetric } from '../../lib/performanceTracker';
 import { audioFeedback } from '../../lib/audioFeedback';
@@ -235,6 +237,22 @@ export const PerformanceMonitorOverlay: React.FC<PerformanceMonitorOverlayProps>
             </>
           )}
 
+          {/* Quick Container Width Metric in Minimized Dock */}
+          {snapshot.latestContainerWidth && (
+            <>
+              <span className="text-white/20 hidden md:inline">•</span>
+              <div className="hidden md:flex items-center gap-1.5 text-[10px] font-mono text-cyan-300">
+                <LayoutGrid className="w-3 h-3 text-cyan-400" />
+                <span>{snapshot.latestContainerWidth}px</span>
+                {snapshot.latestContainerThreshold && (
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/30 uppercase font-sans font-bold">
+                    {snapshot.latestContainerThreshold}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+
           <ChevronUp className="w-3.5 h-3.5 text-neutral-400 group-hover:text-cyan-400 ml-1 transition-colors" />
         </div>
       ) : (
@@ -346,6 +364,136 @@ export const PerformanceMonitorOverlay: React.FC<PerformanceMonitorOverlayProps>
               </span>
             </div>
           </div>
+
+          {/* Container Width Metrics & Layout Resizing Bottleneck Isolation */}
+          {snapshot.containerMetrics && Object.keys(snapshot.containerMetrics).length > 0 && (
+            <div className="p-3 rounded-xl bg-[#0B130E] border border-cyan-500/30 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+                <span className="flex items-center gap-1.5">
+                  <LayoutGrid className="w-3.5 h-3.5 text-cyan-400" />
+                  Container Width & Resizing Telemetry
+                </span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-500/40 font-bold">
+                  {snapshot.latestContainerThreshold?.toUpperCase() || 'RESPONSIVE'}
+                </span>
+              </div>
+
+              {Object.values(snapshot.containerMetrics).map((cm) => (
+                <div key={cm.containerName} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <span className="text-white font-semibold flex items-center gap-1">
+                      <span>{cm.width}</span>
+                      <span className="opacity-40">×</span>
+                      <span>{cm.height}</span>
+                      <span className="text-[9px] opacity-60">px</span>
+                    </span>
+                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                      cm.durationMs <= 16.6 
+                        ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30' 
+                        : 'bg-rose-950/80 text-rose-300 border border-rose-500/30'
+                    }`}>
+                      {cm.durationMs}ms reflow {cm.durationMs <= 16.6 ? '(60fps)' : '(bottleneck)'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[9px] text-neutral-400 font-mono">
+                    <span>{cm.resizeCount} resize samples</span>
+                    <span>Avg: {cm.avgDurationMs}ms</span>
+                    <span className={cm.slowResizeCount > 0 ? 'text-amber-400' : 'text-emerald-400'}>
+                      {cm.slowResizeCount === 0 ? '✓ 0 resize bottlenecks' : `⚠️ ${cm.slowResizeCount} dropped frames`}
+                    </span>
+                  </div>
+
+                  {/* Resize Latency History Sparkline */}
+                  {cm.history.length > 0 && (
+                    <div className="pt-1 flex items-end gap-1 h-3.5">
+                      {cm.history.map((val, idx) => {
+                        const heightPct = Math.min(100, Math.max(20, (val / 33.3) * 100));
+                        const barColor = val <= 16.6 ? 'bg-cyan-400' : val <= 33.3 ? 'bg-amber-400' : 'bg-rose-500';
+                        return (
+                          <div
+                            key={idx}
+                            style={{ height: `${heightPct}%` }}
+                            className={`flex-1 rounded-t-xs ${barColor} opacity-80`}
+                            title={`Resize sample #${idx + 1}: ${val}ms`}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Trend Analysis of Last 10 Resize Events */}
+                  {cm.recentEvents && cm.recentEvents.length > 0 && (
+                    <div className="pt-2 border-t border-white/10 space-y-1.5">
+                      <div className="flex items-center justify-between text-[9px] font-semibold uppercase tracking-wider text-cyan-300">
+                        <span className="flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3 text-cyan-400" />
+                          Resize Trend History ({cm.recentEvents.length}/10 events)
+                        </span>
+                        <span className="text-[8px] text-neutral-400 font-mono">
+                          {(() => {
+                            if (cm.recentEvents.length < 2) return 'Initial Baseline';
+                            const first = cm.recentEvents[0].width;
+                            const last = cm.recentEvents[cm.recentEvents.length - 1].width;
+                            const diff = last - first;
+                            return diff > 0 ? `▲ Expanding (+${diff}px)` : diff < 0 ? `▼ Shrinking (${diff}px)` : '• Stable Width';
+                          })()}
+                        </span>
+                      </div>
+
+                      {/* Timeline List of last 10 resize events */}
+                      <div className="max-h-28 overflow-y-auto space-y-1 pr-0.5 font-mono text-[9px]">
+                        {cm.recentEvents.slice().reverse().map((ev, idx) => {
+                          const originalIdx = cm.recentEvents.length - 1 - idx;
+                          const prevEv = originalIdx > 0 ? cm.recentEvents[originalIdx - 1] : null;
+                          const diff = prevEv ? ev.width - prevEv.width : 0;
+                          const isLatest = idx === 0;
+
+                          return (
+                            <div
+                              key={`${ev.timestamp}-${idx}`}
+                              className={`flex items-center justify-between px-2 py-1 rounded border transition-colors ${
+                                isLatest
+                                  ? 'bg-cyan-950/40 border-cyan-500/40 text-cyan-200'
+                                  : 'bg-black/40 border-white/5 text-neutral-400 hover:border-white/20'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`w-1.5 h-1.5 rounded-full ${isLatest ? 'bg-cyan-400 shadow-[0_0_6px_#22d3ee]' : 'bg-neutral-600'}`} />
+                                <span className="text-white font-medium">
+                                  {ev.width}×{ev.height}px
+                                </span>
+                                {diff !== 0 && (
+                                  <span className={`text-[8px] font-bold ${diff > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                    {diff > 0 ? `+${diff}` : diff}px
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="px-1 py-0.2 rounded text-[8px] uppercase bg-white/5 border border-white/10 text-neutral-300">
+                                  {ev.threshold}
+                                </span>
+                                <span className={`px-1 py-0.2 rounded font-bold ${
+                                  ev.durationMs <= 16.6
+                                    ? 'text-emerald-400'
+                                    : ev.durationMs <= 33.3
+                                    ? 'text-amber-400'
+                                    : 'text-rose-400'
+                                }`}>
+                                  {ev.durationMs}ms
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Targeted Complex Views Breakdown Table */}
           <div className="space-y-2">

@@ -20,12 +20,14 @@ import {
 import { LIVING_REALITY_LAYERS, GLOBAL_PROJECTS, SAMPLE_PROVENANCE } from '../../data/mockCivilizationData';
 import { ProjectLocation } from '../../types';
 import { EpistemicHeatmapLayer } from './observatory/EpistemicHeatmapLayer';
-import { 
-  ObservatoryHazardMapLayer, 
+import { ObservatoryHazardMapLayer, 
   BIOREGIONAL_OPTIONS, 
   GeohashZoomLevel 
 } from './observatory/ObservatoryHazardMapLayer';
 import { ObservatoryTimescaleTelemetry } from './observatory/ObservatoryTimescaleTelemetry';
+import { VerifiedImpactSitesMap } from './observatory/VerifiedImpactSitesMap';
+import { BioregionalWeatherTrendCard } from './observatory/BioregionalWeatherTrendCard';
+import { BioregionalTimeSeriesCard } from './observatory/BioregionalTimeSeriesCard';
 import { audioFeedback } from '../../lib/audioFeedback';
 import { useComponentRenderMetrics } from '../../hooks/useComponentRenderMetrics';
 
@@ -44,9 +46,11 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
   useComponentRenderMetrics('Observatory View');
 
   const [selectedLayerId, setSelectedLayerId] = useState<string>(LIVING_REALITY_LAYERS[0].id);
-  const [activeObservatoryMode, setActiveObservatoryMode] = useState<'biophysical' | 'hazard_radar' | 'epistemic' | 'timescale_telemetry'>('timescale_telemetry');
+  const [activeObservatoryMode, setActiveObservatoryMode] = useState<'impact_sites_map' | 'timescale_telemetry' | 'biophysical' | 'hazard_radar' | 'epistemic'>('impact_sites_map');
   const [selectedProject, setSelectedProject] = useState<ProjectLocation>(GLOBAL_PROJECTS[0]);
   const [zoomLevel, setZoomLevel] = useState<'Regional' | 'Continental' | 'Global'>('Regional');
+  const [observatoryCardView, setObservatoryCardView] = useState<'time_series' | 'weather_forecast' | 'both'>('time_series');
+  const [showInlineHeatMapOverlay, setShowInlineHeatMapOverlay] = useState<boolean>(true);
 
   // Persistent Bioregional Selection & Geohash Zoom Level
   const [selectedBioregion, setSelectedBioregion] = useState<string>(() => {
@@ -118,9 +122,27 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
         </div>
       </div>
 
-      {/* Observatory Mode Selector: TimescaleDB Telemetry vs Biophysical Matrix vs Hazard Map vs Epistemic Heatmap Layer */}
+      {/* Observatory Mode Selector: Impact Sites Map vs TimescaleDB Telemetry vs Biophysical Matrix vs Hazard Map vs Epistemic Heatmap Layer */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-[#0D0D0D] border border-[#F5F5F0]/15 rounded-sm">
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            id="observatory-impact-sites-map-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              setActiveObservatoryMode('impact_sites_map');
+            }}
+            className={`px-3 sm:px-4 py-2 rounded-sm text-xs font-mono uppercase font-bold tracking-wider transition-all cursor-pointer ${
+              activeObservatoryMode === 'impact_sites_map'
+                ? 'bg-[#1B3022] text-[#F5F5F0] border border-[#C5A059] shadow-[0_0_12px_rgba(197,160,89,0.3)]'
+                : 'text-[#F5F5F0]/60 hover:text-white hover:bg-[#151515]'
+            }`}
+          >
+            <span className="flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-[#C5A059]" />
+              Verified Impact Sites Map
+            </span>
+          </button>
+
           <button
             id="observatory-timescale-telemetry-btn"
             onClick={() => {
@@ -196,7 +218,9 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
         </div>
 
         <div className="text-[11px] font-mono text-[#F5F5F0]/40 pr-2 hidden sm:block">
-          {activeObservatoryMode === 'timescale_telemetry'
+          {activeObservatoryMode === 'impact_sites_map'
+            ? 'Interactive Multi-Biome Regeneration Tracking & Proofs'
+            : activeObservatoryMode === 'timescale_telemetry'
             ? 'TimescaleDB Hypertables • Continuous Aggregates Active'
             : activeObservatoryMode === 'hazard_radar'
             ? 'Water Scarcity & Wildfire Stress Telemetry Active'
@@ -250,8 +274,88 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
         </div>
       </div>
 
+      {/* Bioregional Analytics & Forecast Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 bg-[#0D0D0D] border border-[#F5F5F0]/15 rounded-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-mono text-[#F5F5F0]/40 uppercase px-2 hidden sm:inline">
+            Bioregional Intelligence:
+          </span>
+          <button
+            id="observatory-card-timeseries-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              setObservatoryCardView('time_series');
+            }}
+            className={`px-3 sm:px-4 py-2 rounded-sm text-xs font-mono uppercase font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+              observatoryCardView === 'time_series'
+                ? 'bg-[#1B3022] text-[#F5F5F0] border border-[#C5A059] shadow-[0_0_12px_rgba(197,160,89,0.3)]'
+                : 'text-[#F5F5F0]/60 hover:text-white hover:bg-[#151515]'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Bioregional Time-Series (Historical Recovery)</span>
+          </button>
+
+          <button
+            id="observatory-card-weather-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              setObservatoryCardView('weather_forecast');
+            }}
+            className={`px-3 sm:px-4 py-2 rounded-sm text-xs font-mono uppercase font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+              observatoryCardView === 'weather_forecast'
+                ? 'bg-[#1B3022] text-[#F5F5F0] border border-[#C5A059] shadow-[0_0_12px_rgba(197,160,89,0.3)]'
+                : 'text-[#F5F5F0]/60 hover:text-white hover:bg-[#151515]'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5 text-amber-400" />
+            <span>Weather & Climate Trend (7-Day Forecast)</span>
+          </button>
+
+          <button
+            id="observatory-card-both-btn"
+            onClick={() => {
+              audioFeedback.playSubtleClick();
+              setObservatoryCardView('both');
+            }}
+            className={`px-2.5 py-1.5 rounded-sm text-[11px] font-mono uppercase transition-all cursor-pointer ${
+              observatoryCardView === 'both'
+                ? 'bg-[#C5A059] text-black font-bold'
+                : 'text-[#F5F5F0]/50 hover:text-white'
+            }`}
+          >
+            Show Both
+          </button>
+        </div>
+
+        <div className="text-[11px] font-mono text-[#F5F5F0]/40 pr-2 hidden lg:block">
+          {observatoryCardView === 'time_series'
+            ? 'Decadal Area Chart Telemetry • 2018–2026 Historical Recovery Markers'
+            : observatoryCardView === 'weather_forecast'
+            ? 'Short-Term Microclimate Forecast • Vapor Pressure Deficit & Soil Hydrology'
+            : 'Combined Long-Term Decadal Recovery & 7-Day Microclimate Telemetry'}
+        </div>
+      </div>
+
+      {/* Bioregional Time-Series Card (Area Chart Historical Recovery Markers) */}
+      {(observatoryCardView === 'time_series' || observatoryCardView === 'both') && (
+        <BioregionalTimeSeriesCard
+          selectedBioregion={selectedBioregion}
+          onInspectProvenance={onInspectProvenance}
+        />
+      )}
+
+      {/* Bioregional Weather & Climate Trend Card (Short-Term 7-Day Forecast) */}
+      {(observatoryCardView === 'weather_forecast' || observatoryCardView === 'both') && (
+        <BioregionalWeatherTrendCard selectedBioregion={selectedBioregion} />
+      )}
+
       {/* Conditionally Render Active View Mode */}
-      {activeObservatoryMode === 'timescale_telemetry' ? (
+      {activeObservatoryMode === 'impact_sites_map' ? (
+        <VerifiedImpactSitesMap
+          onInspectProvenance={onInspectProvenance}
+        />
+      ) : activeObservatoryMode === 'timescale_telemetry' ? (
         <ObservatoryTimescaleTelemetry
           selectedBioregion={selectedBioregion}
           onInspectProvenance={onInspectProvenance}
@@ -333,18 +437,37 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
               <span className="text-xs font-mono text-[#F5F5F0]/60">Active Layer: {activeLayer.name}</span>
             </div>
 
-            <div className="flex items-center gap-1 bg-[#0A0A0A] p-1 border border-[#F5F5F0]/10 rounded-sm text-xs font-mono">
-              {(['Regional', 'Continental', 'Global'] as const).map((z) => (
-                <button
-                  key={z}
-                  onClick={() => setZoomLevel(z)}
-                  className={`px-2.5 py-1 rounded-sm transition-colors ${
-                    zoomLevel === z ? 'bg-[#F5F5F0] text-black font-bold' : 'text-[#F5F5F0]/50 hover:text-[#F5F5F0]'
-                  }`}
-                >
-                  {z}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <button
+                id="inline-map-heatmap-overlay-btn"
+                onClick={() => {
+                  audioFeedback.playSubtleClick();
+                  setShowInlineHeatMapOverlay(!showInlineHeatMapOverlay);
+                }}
+                className={`px-2.5 py-1 rounded-sm text-[10px] uppercase font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                  showInlineHeatMapOverlay
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-500/60 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                    : 'bg-[#141414] text-[#F5F5F0]/50 border-[#F5F5F0]/15 hover:text-white'
+                }`}
+                title="Toggle Regeneration Intensity Heat Map Overlay"
+              >
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                <span>Heat Map Overlay: {showInlineHeatMapOverlay ? 'ON' : 'OFF'}</span>
+              </button>
+
+              <div className="flex items-center gap-1 bg-[#0A0A0A] p-1 border border-[#F5F5F0]/10 rounded-sm text-xs font-mono">
+                {(['Regional', 'Continental', 'Global'] as const).map((z) => (
+                  <button
+                    key={z}
+                    onClick={() => setZoomLevel(z)}
+                    className={`px-2.5 py-1 rounded-sm transition-colors ${
+                      zoomLevel === z ? 'bg-[#F5F5F0] text-black font-bold' : 'text-[#F5F5F0]/50 hover:text-[#F5F5F0]'
+                    }`}
+                  >
+                    {z}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -356,6 +479,54 @@ export const ObservatoryView: React.FC<ObservatoryViewProps> = ({
 
             {/* Geographical SVG Contour Illustration (East Africa / Great Lakes Corridor) */}
             <svg className="w-full h-full text-[#C5A059]/25 p-8" viewBox="0 0 600 350" fill="none">
+              <defs>
+                <filter id="inlineHeatBlur" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="14" />
+                </filter>
+                <radialGradient id="inlineHeatGradientPeak" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.95" />
+                  <stop offset="25%" stopColor="#FDE047" stopOpacity="0.85" />
+                  <stop offset="55%" stopColor="#10B981" stopOpacity="0.70" />
+                  <stop offset="85%" stopColor="#047857" stopOpacity="0.30" />
+                  <stop offset="100%" stopColor="#047857" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+
+              {/* Heat Map Overlay Layer: Highest Regeneration Intensity */}
+              {showInlineHeatMapOverlay && (
+                <g id="inline-heatmap-layer" opacity="0.85">
+                  {GLOBAL_PROJECTS.map((proj) => {
+                    const topPos = Math.min(85, Math.max(15, 50 - proj.coordinates[0] * 8));
+                    const leftPos = Math.min(85, Math.max(15, (proj.coordinates[1] - 20) * 3.5));
+                    const cx = (leftPos / 100) * 600;
+                    const cy = (topPos / 100) * 350;
+                    const radius = 35 + (proj.verifiedProgress / 100) * 30;
+
+                    return (
+                      <g key={`inline-heat-${proj.id}`}>
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={radius}
+                          fill="url(#inlineHeatGradientPeak)"
+                          filter="url(#inlineHeatBlur)"
+                        />
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={radius * 0.6}
+                          fill="none"
+                          stroke="#FDE047"
+                          strokeWidth="0.8"
+                          strokeDasharray="2 3"
+                          strokeOpacity="0.5"
+                        />
+                      </g>
+                    );
+                  })}
+                </g>
+              )}
+
               <path
                 d="M 120 40 Q 200 80 240 140 T 320 220 T 450 280 T 520 320"
                 stroke="currentColor"

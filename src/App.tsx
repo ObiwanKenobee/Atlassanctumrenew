@@ -33,6 +33,7 @@ import { registerServiceWorker } from './lib/serviceWorkerRegistration';
 import { PerformanceMonitorOverlay } from './components/performance/PerformanceMonitorOverlay';
 import { ContainerDimensionsWrapper } from './components/layout/ContainerDimensionsWrapper';
 import { GridFluidDebugOverlay } from './components/debug/GridFluidDebugOverlay';
+import { LandscapeModeDetector } from './components/layout/LandscapeModeDetector';
 import { useMetadataManager } from './hooks/useMetadataManager';
 import {
   checkViewAccess,
@@ -203,6 +204,24 @@ export default function App() {
     registerServiceWorker();
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Global shortcut Alt+D to toggle 'debug-mode' class on HTML tag
+      if ((e.altKey && (e.key === 'd' || e.key === 'D')) || (e.altKey && e.code === 'KeyD')) {
+        if ((e as any).__altDDebugHandled) return;
+        (e as any).__altDDebugHandled = true;
+        e.preventDefault();
+        const isDebug = document.documentElement.classList.toggle('debug-mode');
+        if (isDebug) {
+          document.documentElement.classList.add('debug-grid-overlay-active');
+          try { localStorage.setItem('atlas_grid_debug_overlay', 'true'); } catch {}
+        } else {
+          document.documentElement.classList.remove('debug-grid-overlay-active');
+          try { localStorage.setItem('atlas_grid_debug_overlay', 'false'); } catch {}
+        }
+        console.log(`[Global Keydown] 'Alt+D' pressed: 'debug-mode' class on <html> is now ${isDebug ? 'ACTIVE' : 'INACTIVE'}`);
+        window.dispatchEvent(new CustomEvent('debug-mode-toggled', { detail: { active: isDebug } }));
+        return;
+      }
+
       // Check if user is typing in an input or textarea
       const target = e.target as HTMLElement;
       const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
@@ -929,6 +948,9 @@ export default function App() {
 
             {/* Toggleable Visual Debugging Overlay for Fluid Grids & Bento Layouts (Alt+G) */}
             <GridFluidDebugOverlay />
+
+            {/* Non-intrusive Landscape Advisory for Portrait Bento Viewports */}
+            <LandscapeModeDetector />
 
             {/* Blockchain-backed Epistemic Ledger Verification Notification Toasts */}
             <VerificationNotificationContainer />
